@@ -1,286 +1,350 @@
-Chào bạn, một sự chuẩn bị rất tuyệt vời! Việc chốt được Database Schema và API Flow trước khi lao vào code là bạn đã hoàn thành được 50% khối lượng công việc khó nhất của một dự án Backend.
+### 🏗️ EPIC 0: CORE INFRASTRUCTURE (Nền tảng hệ thống)
 
-Với tư cách là một Backend Architect, tôi sẽ cấu trúc backlog này theo hướng **Domain-Driven Design (DDD)** kết hợp **Layered Architecture**, đảm bảo tính mở rộng cao và dễ dàng maintain. Các task sẽ được thiết kế để team có thể vận hành theo mô hình Agile/Scrum, giảm thiểu tối đa block chéo (dependencies) giữa các dev.
+#### **[CORE-01] Thiết lập Base Architecture, Global Error Handler & Standard Response**
 
-Dưới đây là **Master Backlog** dành cho dự án của bạn, sẵn sàng để import vào Jira/GitHub Issues/GitLab.
+* **Description:** Khởi tạo luồng xử lý dữ liệu chung cho toàn bộ ứng dụng. Bắt buộc tất cả các API khi trả kết quả về cho Frontend (dù thành công hay thất bại) đều phải tuân theo một định dạng JSON duy nhất. Đồng thời, thiết lập "lưới an toàn" để bắt toàn bộ các lỗi crash app (Exception) và chuyển nó thành HTTP Response thân thiện.
+* **Technical Requirements:** Node.js, Express Middleware, Custom Error Class.
+* **Checklist:**
+* [ ] Tạo class `AppError` kế thừa từ `Error` gốc của Node.js (cần bổ sung thêm thuộc tính `statusCode` và `isOperational`).
+* [ ] Viết hàm `successResponse(res, statusCode, message, data)` để chuẩn hóa format trả về khi gọi API thành công.
+* [ ] Viết Middleware `GlobalErrorHandler` để hứng mọi lỗi từ hệ thống (lỗi 500, lỗi DB) và từ `AppError` (lỗi nghiệp vụ do dev chủ động quăng ra).
+* [ ] Viết Middleware xử lý lỗi 404 (Route Not Found) cho các endpoint không tồn tại.
 
----
 
-## 🗺️ PHẦN 1: ROADMAP TRIỂN KHAI (IMPLEMENTATION PHASES)
+* **Acceptance Criteria:**
+* Toàn bộ API khi thành công **bắt buộc** có format:
+```json
+{ "success": true, "message": "...", "data": {...} }
 
-Để team không bị ngợp, chúng ta chia backlog thành 4 phase thực tế. Critical Path nằm ở Phase 1 & 2.
+```
 
-| Phase | Mục tiêu (Milestone) | Các Module trọng tâm | Rủi ro & Đánh giá |
-| --- | --- | --- | --- |
-| **1. MVP (Foundation)** | Xây dựng móng vững chắc, luồng Auth và các API Core CRUD. | Core Setup, DB Connection, Base Architecture, Auth (JWT), User CRUD cơ bản, Standard Response. | **Critical**. Cần senior review kỹ Base config và Response format để tránh refactor diện rộng sau này. |
-| **2. Beta (Feature Complete)** | Hoàn thiện nghiệp vụ, xử lý file, phân quyền sâu, validate dữ liệu. | RBAC, Upload File, Advanced Query (Paginate/Filter/Search), Soft Delete, Swagger API Docs. | **High Risk** ở Upload File (memory leak) và logic Query phức tạp (slow query). |
-| **3. Production Ready** | Tối ưu bảo mật, hiệu năng, đóng gói deploy, logs. | Rate Limiting, Security Headers, Dockerize, Centralized Logging, Unit Tests (Core modules), CI/CD. | **High Effort** ở Unit Test và setup CI/CD pipeline. Cần rà soát Security kỹ. |
-| **4. Scaling (Tương lai)** | Chịu tải cao, xử lý bất đồng bộ, tracking. | Redis Cache, Queue (RabbitMQ/Bull), Background Jobs (Cron), APM Monitoring (Prometheus/Grafana). | **Optional/Recommended** tùy lượng user. Risk cao ở tính toàn vẹn dữ liệu khi dùng Cache. |
 
----
+* Toàn bộ API khi có lỗi **bắt buộc** có format:
+```json
+{ "success": false, "message": "Lý do lỗi..." }
 
-## 🗄️ PHẦN 2: CHI TIẾT BACKLOG (ISSUES TO GIT)
+```
 
-Dưới đây là các Issue mẫu mang tính chuẩn mực cao nhất. Bạn có thể clone format này cho các thực thể (Entity) khác trong hệ thống.
 
-### 📌 EPIC 1: CORE SETUP & SHARED INFRASTRUCTURE
+* Khi ném ra một lỗi bất kỳ trong Controller (VD: `throw new AppError('Không tìm thấy user', 404)`), app không được crash mà phải trả về đúng mã lỗi 404 cho Client.
 
-*Nền móng hệ thống. Phải hoàn thành đầu tiên (Critical Path).*
-
-#### **[CORE-01] Init Project Architecture & Coding Convention**
 
 * **Priority:** Critical 🔴
-* **Dependency:** None
-* **Description:** Khởi tạo project Node.js/REST API. Thiết lập cấu trúc thư mục chuẩn (Controller, Service, Repository, Middleware) và config các công cụ linting để đồng bộ code style cho toàn team.
-* **Technical Requirements:** Node.js, Express/NestJS, ESLint, Prettier, Husky (Pre-commit hook).
+* **Dependency:** Không (Phải làm đầu tiên)
+
+#### **[CORE-02] Thiết lập Request Validation Layer (Kiểm duyệt dữ liệu đầu vào)**
+
+* **Description:** Nguyên tắc bảo mật số 1: "Không bao giờ tin tưởng dữ liệu từ Client gửi lên". Task này yêu cầu xây dựng một lớp khiên bảo vệ (Middleware) đứng trước tất cả các Controller. Nó sẽ kiểm tra tính hợp lệ của `req.body`, `req.query`, `req.params` trước khi cho phép dữ liệu đi vào xử lý logic và chạm tới Database.
+* **Technical Requirements:** Thư viện validation (`Joi` hoặc `Zod`), Express Middleware.
 * **Checklist:**
-* [ ] Khởi tạo `package.json` và cài đặt core dependencies.
-* [ ] Tổ chức Folder Architecture (Routes, Controllers, Services, Repositories, Utils).
-* [ ] Config `ESLint` và `Prettier` (chống conflict format).
-* [ ] Setup `Husky` (chạy linter & type check trước khi commit).
-* [ ] Setup quản lý Environment Variables (dotenv, joi/zod validation cho ENV).
-
-
-* **Acceptance Criteria (DoD):**
-* Dev clone repo về chạy `npm install` và `npm run dev` không lỗi.
-* Cố tình viết code sai format, khi `git commit` Husky phải block lại.
-* Hệ thống báo lỗi crash ngay khi start nếu thiếu file `.env` hoặc thiếu các key bắt buộc (PORT, DB_URL).
-
-
-
-#### **[CORE-02] Implement Base Error Handler & Standard Response Format**
-
-* **Priority:** Critical 🔴
-* **Dependency:** [CORE-01]
-* **Description:** Chuẩn hóa toàn bộ format trả về của API cho Client, bao gồm cả Success và Error để FE dễ dàng parse dữ liệu và hiển thị Toast/Alert. Tránh tình trạng mỗi API trả về một kiểu JSON khác nhau.
-* **Technical Requirements:** Custom Error Classes, Express Global Error Middleware.
-* **Checklist:**
-* [ ] Tạo class `AppError` kế thừa `Error` gốc (chứa statusCode, isOperational).
-* [ ] Viết hàm `successResponse` formatter.
-* [ ] Viết Global Error Middleware catch toàn bộ unhandled routes (404) và exceptions (500).
+* [ ] Cài đặt thư viện `Joi` (hoặc `Zod`).
+* [ ] Viết một hàm Middleware tổng quát `validateRequest(schema)` có khả năng nhận vào một schema cấu trúc dữ liệu và báo lỗi nếu dữ liệu thực tế không khớp.
+* [ ] Tạo thư mục `src/validations/` để chứa các file định nghĩa luật (rules).
+* [ ] Áp dụng thử validation cho API Login ở task `[BE-01]` (ví dụ: bắt buộc có email đúng định dạng, bắt buộc có password).
 
 
 * **Acceptance Criteria:**
-* Success format bắt buộc: `{ "status": 200, "message": "...", "data": {}, "meta": {} // dùng cho pagination }`
-* Error format bắt buộc: `{ "status": 400/500, "error_code": "INVALID_INPUT", "message": "...", "details": [] // field validation errors }`
-* Log lỗi 500 ra console, nhưng ẩn stack trace khi ở môi trường `NODE_ENV=production`.
+* Nếu Client gửi lên một payload thiếu trường bắt buộc hoặc sai định dạng (VD: gửi email là "12345"), API phải bị chặn ngay lập tức.
+* Middleware phải trả về HTTP Code `400 Bad Request` kèm theo thông báo lỗi chi tiết (trường nào sai, sai cái gì) mà không cần phải viết lệnh `if/else` thủ công trong Controller.
 
-
-
-#### **[CORE-03] Database Connection & Setup Unit of Work / Repository Base**
 
 * **Priority:** Critical 🔴
-* **Dependency:** [CORE-01]
-* **Description:** Thiết lập kết nối DB pool. Implement Base Repository Pattern để dùng chung các method CRUD cơ bản, giảm duplicate code. Hỗ trợ Database Transaction.
-* **Technical Requirements:** ORM/Query Builder (Prisma/TypeORM/Sequelize), Connection Pooling.
+* **Dependency:** [CORE-01] (Cần format response của CORE-01 để trả lỗi 400 ra cho đẹp)
+
+### 🔐 EPIC 1: AUTHENTICATION & AUTHORIZATION (Xác thực & Phân quyền)
+
+#### **[BE-01] API Đăng nhập & Khởi tạo JWT Token**
+
+* **Description:** Xây dựng cổng đăng nhập chung cho cả 4 role (Owner, Manager, PT, Member). Hệ thống cần trả về Token và thông tin cơ bản của User để FE điều hướng đúng Dashboard.
+* **Technical Requirements:** `bcrypt` (so sánh hash), `jsonwebtoken`.
 * **Checklist:**
-* [ ] Setup DB connection với Connection Pool.
-* [ ] Viết BaseRepository class với hàm `findById`, `create`, `update`, `softDelete`.
-* [ ] Viết helper cho DB Transaction.
-* [ ] Viết script Seeder khởi tạo admin account mặc định.
+* [ ] Khởi tạo API `POST /api/auth/login`.
+* [ ] Query bảng `Account` theo `email`.
+* [ ] Compare password. Nếu đúng, query tiếp bảng `Staff` hoặc `Member` dựa trên `accountId` để lấy Role.
+* [ ] Sinh Access Token chứa `accountId` và `role`.
 
 
 * **Acceptance Criteria:**
-* Connect DB thành công, tự động reconnect nếu rớt mạng.
-* Nếu dùng Transaction, khi có lỗi ở query số 2, query số 1 phải được rollback thành công.
+* Nhập sai email hoặc password trả về HTTP 401 (Sai thông tin đăng nhập).
+* Response trả về token kèm payload định danh rõ role của user.
 
 
+* **Priority:** Critical 🔴
+* **Dependency:** Không
+
+#### **[BE-02] Middleware Phân quyền (RBAC) & API Đổi mật khẩu**
+
+* **Description:** Bảo vệ các API nghiệp vụ thông qua Role, và cung cấp tính năng đổi mật khẩu an toàn (yêu cầu mật khẩu cũ).
+* **Technical Requirements:** Express Middleware.
+* **Checklist:**
+* [ ] Viết middleware `verifyToken` để giải mã JWT.
+* [ ] Viết middleware `checkRole([...roles])`.
+* [ ] Khởi tạo API `PUT /api/auth/change-password` (yêu cầu: `oldPassword`, `newPassword`).
+
+
+* **Acceptance Criteria:**
+* User không truyền Token trên Header -> HTTP 401.
+* Member cố tình gọi API của Owner -> HTTP 403 Forbidden.
+* Đổi mật khẩu: Nếu `oldPassword` không khớp với DB -> Reject 400. Mật khẩu mới phải được hash trước khi lưu.
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-01]
 
 ---
 
-### 📌 EPIC 2: AUTHENTICATION & SECURITY
+### 🏢 EPIC 2: FACILITY MANAGEMENT (Quản lý Cơ sở vật chất)
 
-*Bảo mật và phân quyền hệ thống.*
+#### **[BE-03] API CRUD Quản lý danh sách Phòng tập (Rooms)**
 
-#### **[AUTH-01] Implement JWT Authentication (Access & Refresh Token)**
+* **Description:** Cho phép Chủ phòng tạo và cấu hình các phòng tập (Gym, Yoga, Fitness).
+* **Technical Requirements:** Bảng `Room`.
+* **Checklist:**
+* [ ] `POST /api/rooms`: Tạo phòng.
+* [ ] `GET /api/rooms`: Lấy danh sách (Có filter theo `roomType`, `operatingStatus`).
+* [ ] `PUT /api/rooms/:id`: Cập nhật thông tin/trạng thái.
+
+
+* **Acceptance Criteria:**
+* Tên phòng không được để trống.
+* Cập nhật trạng thái thành `closed` phải thành công.
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-02]
+
+#### **[BE-04] API CRUD Quản lý Thiết bị (Equipment & EquipmentType)**
+
+* **Description:** Phân bổ thiết bị vào các phòng tập. Chủ phòng có thể nhập thiết bị mới và theo dõi trạng thái.
+* **Technical Requirements:** Bảng `EquipmentType`, `Equipment`, `Room`. Nối bảng (Include).
+* **Checklist:**
+* [ ] `POST /api/equipment-types`: Định nghĩa danh mục thiết bị (VD: Máy chạy bộ, Tạ đơn).
+* [ ] `POST /api/equipments`: Nhập thiết bị cụ thể, gán `typeId` và phân bổ vào `roomId`.
+* [ ] `GET /api/equipments`: Lấy danh sách, populate (include) tên Room và tên Type.
+
+
+* **Acceptance Criteria:**
+* Truyền sai `roomId` (không tồn tại trong DB) khi tạo thiết bị -> HTTP 400.
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-03]
+
+#### **[BE-05] API Báo lỗi & Cập nhật Trạng thái Bảo trì (Equipment Reports)**
+
+* **Description:** Quản lý luồng báo lỗi thiết bị từ Nhân viên quản lý, giúp Chủ phòng nắm bắt tình hình hỏng hóc.
+* **Technical Requirements:** Bảng `EquipmentReport`, Transaction.
+* **Checklist:**
+* [ ] `POST /api/equipment-reports`: Staff submit lỗi (cần `equipmentId`, `reporterId`).
+* [ ] (Trong cùng Transaction) Update `usageStatus` của `Equipment` sang `maintenance`.
+* [ ] `PUT /api/equipment-reports/:id`: Owner cập nhật trạng thái `resolveStatus` (đã sửa xong) -> Đổi trạng thái thiết bị lại thành `normal`.
+
+
+* **Acceptance Criteria:**
+* API tạo report bắt buộc phải chạy DB Transaction để đảm bảo tính toàn vẹn (vừa lưu report vừa đổi status thiết bị).
+
+
+* **Priority:** Medium 🟡
+* **Dependency:** [BE-04]
+
+---
+
+### 👥 EPIC 3: HR & STAFF MANAGEMENT (Nhân sự)
+
+#### **[BE-06] API Quản lý Hồ sơ Nhân sự (Staff Accounts)**
+
+* **Description:** Chủ phòng tạo tài khoản và hồ sơ cho Quản lý và PT.
+* **Technical Requirements:** Bảng `Account`, `Staff`, DB Transaction.
+* **Checklist:**
+* [ ] `POST /api/staffs`: Nhận payload (email, mật khẩu, tên, SĐT, role).
+* [ ] Tạo bản ghi `Account` (Hash pass). Lấy `accountId` tạo bản ghi `Staff`.
+* [ ] `GET /api/staffs`: Lấy danh sách nhân sự (filter theo `position`).
+
+
+* **Acceptance Criteria:**
+* Transaction rollback nếu email hoặc SĐT đã tồn tại (Duplicate Key).
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-02]
+
+#### **[BE-07] API Chấm công Nhân sự (Work Logs)**
+
+* **Description:** Ghi nhận giờ làm việc thực tế của nhân viên mỗi ngày.
+* **Technical Requirements:** Bảng `StaffWorkLog`.
+* **Checklist:**
+* [ ] `POST /api/work-logs/check-in`: Lấy `staffId` từ Token, ghi nhận thời gian hiện tại vào `checkInTime`, gán `workDate` là hôm nay.
+* [ ] `PUT /api/work-logs/check-out`: Cập nhật `checkOutTime`.
+
+
+* **Acceptance Criteria:**
+* Mỗi Staff chỉ được check-in 1 lần/ngày. Lần gọi check-in thứ 2 trong cùng một ngày phải bị block (HTTP 409 Conflict).
+
+
+* **Priority:** Medium 🟡
+* **Dependency:** [BE-06]
+
+---
+
+### 💳 EPIC 4: PACKAGES, MEMBERS & BILLING (Gói tập & Hội viên)
+
+#### **[BE-08] API Thiết lập Gói tập (Subscription Packages)**
+
+* **Description:** Owner định nghĩa các sản phẩm/gói dịch vụ của phòng gym.
+* **Technical Requirements:** Bảng `SubscriptionPackage`.
+* **Checklist:**
+* [ ] `POST /api/packages`: Tạo gói (Tên, Loại: Ngày/Tháng/Buổi, Có PT, VIP, Số buổi, Giá).
+* [ ] `GET /api/packages`: Hiển thị danh sách cho Hội viên chọn (chỉ lấy gói đang active).
+
+
+* **Acceptance Criteria:**
+* Nếu `packageType` là "theo buổi", bắt buộc client phải gửi lên `numberOfWorkout` > 0.
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-02]
+
+#### **[BE-09] API Tạo hồ sơ Hội viên (Members)**
+
+* **Description:** Quản lý tạo tài khoản cho hội viên mới.
+* **Technical Requirements:** Bảng `Account`, `Member`, DB Transaction.
+* **Checklist:**
+* [ ] `POST /api/members`: Manager tạo hồ sơ (kèm hash password account).
+* [ ] `GET /api/members`: Danh sách hội viên (hỗ trợ search theo SĐT hoặc Tên).
+
+
+* **Acceptance Criteria:**
+* Email và Số điện thoại không được trùng lặp với bất kỳ Account/Member nào khác trong hệ thống.
+
 
 * **Priority:** Critical 🔴
-* **Dependency:** [CORE-03]
-* **Description:** Xây dựng luồng đăng nhập an toàn sử dụng cơ chế Access Token (sống ngắn) và Refresh Token (sống dài, lưu DB/Redis) để giữ session user mượt mà mà vẫn bảo mật.
-* **Technical Requirements:** `jsonwebtoken`, `bcrypt` (hash password).
+* **Dependency:** [BE-02]
+
+#### **[BE-10] API Đăng ký Gói tập & Thanh toán (Luồng Kế toán)**
+
+* **Description:** Ghi nhận giao dịch mua gói tập. Đây là luồng nghiệp vụ phức tạp nhất.
+* **Technical Requirements:** Bảng `SubscriptionPlan`, `Bill`, `SubscriptionPackage`. DB Transaction.
 * **Checklist:**
-* [ ] API `POST /auth/login`: Hash check, generate 2 tokens.
-* [ ] API `POST /auth/refresh-token`: Verify refresh token, cấp access token mới.
-* [ ] API `POST /auth/logout`: Revoke/Xóa refresh token.
-* [ ] Middleware `requireAuth`: Verify access token và gắn `req.user`.
+* [ ] `POST /api/subscriptions`: Tạo gói chờ thanh toán (`status: pending_payment`, `billId: null`).
+* [ ] Tính toán ngày hết hạn (`expireDate`) dựa trên `duration` của Package. Tính số buổi còn lại nếu là gói theo buổi.
+* [ ] `POST /api/subscriptions/:id/pay`: Ghi nhận thanh toán. Tạo `Bill` (số tiền = giá gói). Update `SubscriptionPlan` (cập nhật `billId` vừa tạo, đổi `status` thành `active`).
 
 
 * **Acceptance Criteria:**
-* Password phải được hash bcrypt (salt round >= 10) trước khi lưu. Không bao giờ query trả về password.
-* Access Token hết hạn (VD: 15p), gọi API trả về HTTP 401 (Unauthorized).
-* Refresh Token bị trộm (hoặc user đã logout), không thể dùng để lấy token mới (HTTP 403 Forbidden).
+* Toàn bộ bước thanh toán (`/pay`) phải nằm trong Transaction.
+* Không cho phép thanh toán 1 `SubscriptionPlan` 2 lần.
 
-
-
-#### **[AUTH-02] Implement Role-Based Access Control (RBAC) Middleware**
-
-* **Priority:** High 🟠
-* **Dependency:** [AUTH-01]
-* **Description:** Phân quyền API dựa trên Role của user (Admin, Manager, User) để ngăn chặn truy cập trái phép.
-* **Technical Requirements:** Custom Express Middleware.
-* **Checklist:**
-* [ ] Middleware `requireRole(['admin', 'manager'])`.
-* [ ] Tích hợp middleware này vào các route nhạy cảm (VD: Xóa user).
-
-
-* **Acceptance Criteria:**
-* User role "User" gọi API yêu cầu quyền "Admin" -> Trả về HTTP 403 (Forbidden) kèm message "Bạn không có quyền thực hiện hành động này".
-
-
-
----
-
-### 📌 EPIC 3: CORE FEATURES & UTILITIES
-
-*Các API phục vụ nghiệp vụ chính.*
-
-#### **[FEAT-01] Advanced CRUD cho Users (Pagination, Filter, Search, Sort)**
-
-* **Priority:** High 🟠
-* **Dependency:** [AUTH-02], [CORE-02]
-* **Description:** Xây dựng API lấy danh sách User cho Admin, hỗ trợ đầy đủ các tính năng truy vấn để làm Data Table trên Frontend.
-* **Technical Requirements:** Query string parsing.
-* **Checklist:**
-* [ ] API `GET /users`.
-* [ ] Xử lý Pagination (page, limit). Trả về metadata (totalItem, totalPage).
-* [ ] Xử lý Search (search by name, email dùng LIKE/ILIKE).
-* [ ] Xử lý Sort (sort by createdAt:desc, name:asc).
-* [ ] Xử lý Soft Delete (chỉ lấy user có `deletedAt = null`).
-
-
-* **Acceptance Criteria:**
-* Tốc độ phản hồi < 200ms cho 10,000 records (Yêu cầu DB có Index ở cột email, name).
-* Nếu truyền `page=-1` hoặc string lộn xộn, trả về 400 Bad Request kèm validation error.
-
-
-
-#### **[FEAT-02] File Upload Service & Image Optimization**
-
-* **Priority:** High 🟠
-* **Dependency:** [CORE-01]
-* **Description:** Xây dựng module upload ảnh avatar/document an toàn, hỗ trợ upload lên Cloud Storage.
-* **Technical Requirements:** `multer`, AWS S3 / Cloudinary / MinIO, `sharp` (nén ảnh).
-* **Checklist:**
-* [ ] Middleware multer chặn các file không phải ảnh (chỉ nhận jpg, png, webp). Giới hạn size < 5MB.
-* [ ] Tích hợp `sharp` nén ảnh và convert sang `.webp` trước khi lưu.
-* [ ] Viết UploadService đẩy file lên S3/Cloud storage và lấy URL trả về.
-
-
-* **Acceptance Criteria:**
-* Upload file `.exe` hoặc `.pdf` giả mạo đuôi `.jpg` phải bị reject (HTTP 415).
-* Upload ảnh 10MB -> HTTP 413 Payload Too Large.
-* File lưu trên cloud, API trả về direct URL của file đó.
-
-
-
----
-
-### 📌 EPIC 4: DEVOPS, TESTING & MONITORING
-
-*Đưa dự án lên môi trường Production chuẩn Enterprise.*
-
-#### **[OPS-01] Request Input Validation Layer**
 
 * **Priority:** Critical 🔴
-* **Dependency:** [CORE-02]
-* **Description:** Không bao giờ tin tưởng dữ liệu từ Client. Validate toàn bộ body, query, params trước khi chạy logic.
-* **Technical Requirements:** Joi / Zod / class-validator.
-* **Checklist:**
-* [ ] Viết validation schema cho toàn bộ các API CUD (Create, Update, Delete).
-* [ ] Tích hợp schema vào route middleware.
-
-
-* **Acceptance Criteria:**
-* Truyền thiếu trường `email` lúc tạo user -> Chặn ngay lập tức ở middleware, không hit vào Database, trả về 400 kèm mảng lỗi cụ thể cho FE.
-
-
-
-#### **[OPS-02] Centralized Logging & Audit Logs**
-
-* **Priority:** Recommended 🔵
-* **Dependency:** [CORE-01]
-* **Description:** Ghi log hệ thống để dễ debug trên server. Lưu vết các thao tác thay đổi dữ liệu quan trọng (Audit Log).
-* **Technical Requirements:** `winston` hoặc `pino`, `morgan` (HTTP req log).
-* **Checklist:**
-* [ ] Setup Winston ghi log ra file (luân phiên file theo ngày - daily rotate).
-* [ ] Setup Morgan để log time và status code của mọi API request.
-* [ ] (Optional) Bắn log error (level: error) thẳng về Telegram/Slack của dev team.
-
-
-* **Acceptance Criteria:**
-* Lỗi 500 phải được ghi vào file `error.log` kèm stack trace.
-* Log không được chứa thông tin nhạy cảm (phải che password, token trước khi ghi log).
-
-
-
-#### **[OPS-03] Swagger / OpenAPI API Documentation**
-
-* **Priority:** Recommended 🔵
-* **Dependency:** [CORE-01]
-* **Description:** Tự động sinh tài liệu API để Frontend/Mobile dev xem và test trực tiếp, không cần hỏi BE.
-* **Technical Requirements:** `swagger-ui-express`, `swagger-jsdoc`.
-* **Checklist:**
-* [ ] Khởi tạo `/api-docs`.
-* [ ] Viết Swagger JSDoc cho API Auth và User (làm mẫu).
-* [ ] Config securityBearer trong Swagger để FE có thể dán Token vào test.
-
-
-* **Acceptance Criteria:**
-* Truy cập `/api-docs` hiện ra giao diện Swagger đẹp mắt.
-* Swagger chỉ public ở môi trường `development` hoặc `staging`. Môi trường `production` phải block route này.
-
-
-
-#### **[OPS-04] Security Hardening & Rate Limiting**
-
-* **Priority:** High 🟠
-* **Dependency:** [CORE-01]
-* **Description:** Bảo vệ server khỏi các đợt tấn công DDoS nhỏ, Brute-force mật khẩu và các lỗ hổng HTTP.
-* **Technical Requirements:** `helmet`, `express-rate-limit`, `cors`.
-* **Checklist:**
-* [ ] Setup `helmet` để ẩn các header nhạy cảm (vd: `X-Powered-By: Express`).
-* [ ] Setup CORS chỉ allow các domain của Frontend.
-* [ ] Setup Rate Limit chung: 100 requests / 1 phút / 1 IP.
-* [ ] Setup Rate Limit khắt khe cho route `/auth/login`: max 5 lần sai pass / 15 phút.
-
-
-* **Acceptance Criteria:**
-* Gọi API quá số lần quy định bị chặn kèm mã HTTP 429 (Too Many Requests).
-* Server không bị crash khi quét bằng các tool scan vuln cơ bản.
-
-
-
-#### **[OPS-05] Dockerize & CI/CD Pipeline Init**
-
-* **Priority:** High 🟠
-* **Dependency:** [CORE-01]
-* **Description:** Đóng gói ứng dụng để chạy được trên mọi môi trường. Tự động hóa việc test và deploy.
-* **Technical Requirements:** Docker, Docker Compose, GitHub Actions / GitLab CI.
-* **Checklist:**
-* [ ] Viết `Dockerfile` tối ưu nhiều step (Multi-stage build) để giảm size image.
-* [ ] Viết `docker-compose.yml` chạy BE kết hợp với DB (Postgres/MySQL) và Redis cục bộ.
-* [ ] Viết file CI (`.github/workflows/ci.yml`): Tự động chạy Linter và Unit Test khi có Pull Request.
-
-
-* **Acceptance Criteria:**
-* Run `docker-compose up` là dự án chạy hoàn chỉnh (cả DB và App) không cần cài Node.js trên máy host.
-* Nếu Unit Test tạch, GitHub Actions báo dấu X đỏ và block không cho Merge Pull Request.
-
-
+* **Dependency:** [BE-08], [BE-09]
 
 ---
 
-## 💡 ĐÁNH GIÁ CỦA ARCHITECT (ADVICE)
+### 🏋️‍♂️ EPIC 5: OPERATIONS & FEEDBACK (Vận hành)
 
-1. **High Risk Issues (Cần tập trung Review Code kỹ):**
-* **[AUTH-01] Token Management:** Dễ dính lỗ hổng lộ token, lưu trữ token sai cách trên FE, hoặc lỗi logic khiến token hết hạn mà không cấp lại được.
-* **[FEAT-02] Upload File:** Là nơi hacker dễ inject mã độc nhất, hoặc dễ gây quá tải ổ cứng, kẹt RAM (memory leak) nếu không stream file đúng cách.
-* **Database Transaction:** Mọi API có nghiệp vụ tác động từ 2 bảng trở lên (ví dụ: Tạo User Profile + Gán Role) bắt buộc phải bọc trong Transaction. Cần review kỹ xem dev có quên commit hay rollback transaction hay không.
+#### **[BE-11] API Điểm danh & Theo dõi Lịch sử tập (Workout Logs)**
+
+* **Description:** PT/Manager điểm danh hội viên, hệ thống tự động trừ số buổi (với gói buổi) hoặc từ chối nếu gói hết hạn.
+* **Technical Requirements:** Bảng `WorkoutLog`, `Member`, `SubscriptionPlan`.
+* **Checklist:**
+* [ ] `POST /api/workout-logs`: Nhận `memberId`. Kiểm tra `SubscriptionPlan` có đang `active` hay không.
+* [ ] Nếu là gói VIP/Theo buổi: Trừ đi 1 ở cột `remainingWorkout`.
+* [ ] Tạo bản ghi `WorkoutLog` ghi lại giờ bắt đầu.
+* [ ] `GET /api/workout-logs/me`: Cho phép Hội viên xem lịch sử tập của chính mình.
 
 
-2. **Estimate Lớn (Cần chia nhỏ thành Sub-tasks):**
-* Các tính năng **Advanced CRUD** (Search, Filter đa điều kiện). Nhìn có vẻ dễ, nhưng xử lý câu query động (Dynamic Query) tối ưu, không bị Full Table Scan trên DB là rất tốn thời gian. Bạn nên yêu cầu Dev chia nhỏ task Filter riêng, Search riêng, Sort riêng.
+* **Acceptance Criteria:**
+* Nếu gói hết hạn (expireDate < today) hoặc số buổi còn lại = 0 -> Reject 403.
+* Hội viên chỉ xem được lịch sử của mình, không xem được của người khác.
 
 
-3. **Technical Debt:**
-* Trong giai đoạn MVP, bạn có thể bỏ qua Redis Cache và Queue. Chấp nhận tốc độ API chậm một chút để đẩy nhanh tiến độ ra mắt. Hãy ghi nợ kỹ thuật (Tech Debt) và bù đắp chúng ở Phase 4 (Scaling). Dùng cache quá sớm sẽ gây lỗi "dữ liệu cũ" (stale data) rất đau đầu cho team QC.
+* **Priority:** High 🟠
+* **Dependency:** [BE-10]
+
+#### **[BE-12] API Quản lý Phản hồi (Feedback)**
+
+* **Description:** Kênh giao tiếp 2 chiều. Hội viên gửi ý kiến, Manager/Owner phản hồi.
+* **Technical Requirements:** Bảng `Feedback`.
+* **Checklist:**
+* [ ] `POST /api/feedbacks`: Member gửi phản hồi (nội dung, loại).
+* [ ] `PUT /api/feedbacks/:id/answer`: Owner/Manager update `answerContent`, `answerDate` và gán `answererId` từ token.
+
+
+* **Acceptance Criteria:**
+* API Trả lời không được sửa nội dung gốc (`feedbackContent`) do Member gửi lên.
+
+
+* **Priority:** Medium 🟡
+* **Dependency:** [BE-02]
+
+---
+
+### 📊 EPIC 6: ANALYTICS & REPORTS (Báo cáo Thống kê)
+
+#### **[BE-13] API Thống kê Báo cáo Tổng quan Dashboard**
+
+* **Description:** Phục vụ biểu đồ cho màn hình Chủ phòng tập.
+* **Technical Requirements:** Sử dụng Sequelize Aggregation (`sum`, `count`), `Group By`.
+* **Checklist:**
+* [ ] `GET /api/reports/revenue`: Tổng doanh thu từ bảng `Bill`, nhóm theo Tháng/Năm.
+* [ ] `GET /api/reports/members`: Đếm số lượng Hội viên mới đăng ký trong tháng hiện tại.
+* [ ] `GET /api/reports/staff-performance`: Trả về danh sách PT kèm tổng số buổi tập họ đã hướng dẫn (dựa vào `WorkoutLog`).
+
+
+* **Acceptance Criteria:**
+* Dữ liệu trả về đúng định dạng mảng để FE đưa vào chart (VD: `[{ month: "01/2026", revenue: 50000000 }]`).
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-10], [BE-11]
+
+#### **[BE-14] API Quản lý Hồ sơ cá nhân (My Profile)**
+
+* **Description:** Bất kỳ ai đăng nhập vào hệ thống (Member, PT, Manager) đều cần xem được thông tin cá nhân của mình và cập nhật các thông tin cơ bản (SĐT, Ngày sinh...) mà không cần nhờ đến Admin.
+* **Technical Requirements:** Bảng `Account`, `Member`, `Staff`.
+* **Checklist:**
+* [ ] `GET /api/users/me`: Dựa vào `accountId` từ Token, query ra thông tin profile tương ứng (từ bảng Member hoặc Staff) và trả về cho FE hiển thị trang Cá nhân.
+* [ ] `PUT /api/users/me`: Cho phép user tự cập nhật `phoneNumber`, `dateOfBirth` (Không cho phép tự đổi Role hay thông tin nhạy cảm).
+
+
+* **Acceptance Criteria:**
+* API cập nhật phải check trùng lặp Số điện thoại với người khác trong DB.
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-01]
+
+#### **[BE-15] API Tra cứu Lịch sử & Trạng thái Gói tập cá nhân (My Subscriptions)**
+
+* **Description:** Theo yêu cầu mục 4.2 của tài liệu, hội viên đăng nhập vào ứng dụng phải thấy được mình đang dùng gói nào, hết hạn ngày nào.
+* **Technical Requirements:** Bảng `SubscriptionPlan`, `SubscriptionPackage`, `Bill`.
+* **Checklist:**
+* [ ] `GET /api/subscriptions/me`: Trả về danh sách các gói tập mà user đang sở hữu.
+* [ ] Cần `populate` (include) thông tin chi tiết của `SubscriptionPackage` (tên gói, quyền lợi) và thông tin `Bill` (đã thanh toán ngày nào).
+
+
+* **Acceptance Criteria:**
+* API phải tính toán và trả về một cờ (flag) rõ ràng cho FE biết gói nào đang `isActive: true` và gói nào đã `isExpired: true`.
+
+
+* **Priority:** High 🟠
+* **Dependency:** [BE-10]
+
+#### **[BE-16] API Upload Ảnh & Files (Tùy chọn nhưng rất thực tế)**
+
+* **Description:** Một phòng Gym thực tế cần có ảnh đại diện (Avatar) cho Hội viên/PT để check-in nhận diện, hoặc ảnh chụp thiết bị hỏng để báo cáo.
+* **Technical Requirements:** Thư viện `multer`, Cloud Storage (như Cloudinary hoặc AWS S3).
+* **Checklist:**
+* [ ] Khởi tạo API `POST /api/upload`: Nhận file ảnh từ form-data.
+* [ ] Validate dung lượng (< 5MB) và định dạng (chỉ nhận JPG/PNG).
+* [ ] Upload lên Cloud và trả về URL để lưu vào các bảng khác.
+
+
+* **Acceptance Criteria:**
+* Bắn file PDF hoặc file thực thi `.exe` vào API phải bị reject ngay lập tức.
+
+
+* **Priority:** Medium 🟡
+* **Dependency:** Không
+
+---
