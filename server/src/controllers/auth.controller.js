@@ -119,3 +119,29 @@ export const register = catchAsync(async (req, res, next) => {
     }
 });
 
+export const changePassword = catchAsync(async (req, res, next) => {
+    // req.user.accountId lấy từ token đã được giải mã
+    const accountId = req.user.accountId;
+    const { oldPassword, newPassword } = req.body;
+
+    // 1. Lấy thông tin tài khoản hiện tại
+    const account = await Account.findByPk(accountId);
+    if(!account) {
+        return next(new AppError('Tài khoản không tồn tại!', 404));
+    }
+
+    // 2. Kiểm tra xem mật khẩu cũ có khớp không
+    const isMatch = await bcrypt.compare(oldPassword, account.password);
+    if(!isMatch) {
+        return next(new AppError('Mật khẩu hiện tại không chính xác!', 404));
+    }
+
+    // 3. Mã hóa mật khẩu mới
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // 4. Cập nhật vào DB
+    await account.update({ password: hashedNewPassword });
+
+    successResponse(res, 200, 'Đổi mật khẩu thành công!');
+});
+

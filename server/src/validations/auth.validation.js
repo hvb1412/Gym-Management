@@ -51,3 +51,15 @@ export const registerSchema = Joi.object({
             })
     })
 });
+
+export const changePasswordSchema = Joi.object({
+    body: Joi.object({
+        oldPassword: Joi.string().required().messages({
+            'any.required': 'Vui lòng nhập mật khẩu hiện tại!'
+        }),
+        newPassword: Joi.string().min(6).required().messages({
+            'string.min': 'Mật khẩu mới phải có ít nhất 6 ký tự!',
+            'any.required': 'Vui lòng nhập mật khẩu mới!'
+        })
+    })
+});
