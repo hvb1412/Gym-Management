@@ -14,7 +14,7 @@ app.use(express.json()); // Giúp server đọc được dữ liệu JSON từ F
 app.use(express.urlencoded({ extended: true }));
 
 // 2. Khai báo các Routes (Đường dẫn API)
-app.use("/api", routes);
+app.use("/api/v1", routes);
 
 // Ví dụ 1: Test API trả về Thành Công (Sử dụng helper)
 app.get('/api/test-success', (req, res) => {
