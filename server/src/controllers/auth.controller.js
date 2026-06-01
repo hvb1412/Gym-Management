@@ -22,12 +22,14 @@ export const login = catchAsync(async (req, res, next) => {
 
     let role = null;
     let profile = null;
+    let staffId = null;
 
     // Ưu tiên tìm Staff trước
     const staffProfile = await Staff.findOne({ where: { accountId: account.accountId } });
     if(staffProfile) {
         role = staffProfile.position;
         profile = staffProfile;
+        staffId = staffProfile.staffId;
     } else {
         // Không phải Staff thì tìm Member
         const memberProfile = await Member.findOne({ where: {accountId: account.accountId } });
@@ -46,7 +48,8 @@ export const login = catchAsync(async (req, res, next) => {
     const token = jwt.sign(
         {
             accountId: account.accountId,
-            role: role
+            role: role,
+            ...(staffId ? { staffId } : {})
         },
         process.env.JWT_SECRET,
         {
@@ -61,6 +64,7 @@ export const login = catchAsync(async (req, res, next) => {
             accountId: account.accountId,
             email: account.email,
             role: role,
+            ...(staffId ? { staffId } : {}),
             name: profile.staffName || profile.memberName
         }
     });

@@ -9,6 +9,18 @@ EquipmentReport.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    equipmentId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+    reporterId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     reportDate: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
     resolveStatus: { type: DataTypes.STRING, defaultValue: "pending" },
   },

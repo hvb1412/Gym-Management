@@ -9,6 +9,11 @@ Staff.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    accountId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      unique: true,
+    },
     staffName: { type: DataTypes.STRING, allowNull: false },
     dateOfBirth: { type: DataTypes.DATEONLY },
     phoneNumber: { type: DataTypes.STRING, unique: true },
