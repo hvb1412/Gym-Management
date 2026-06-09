@@ -3,6 +3,7 @@ import { Equipment, EquipmentType, Room } from '../models/index.js';
 export const getEquipments = async (req, res) => {
   try {
     const equipments = await Equipment.findAll({
+      where: { isActive: true },
       include: [
         { model: EquipmentType, attributes: ['equipmentName'] },
         { model: Room, attributes: ['roomName'] }
@@ -41,13 +42,13 @@ export const updateEquipment = async (req, res) => {
 export const deleteEquipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Equipment.destroy({ where: { equipmentId: id } });
-    if (deleted) {
-      res.status(204).send();
-    } else {
-      res.status(404).json({ message: "Không tìm thấy thiết bị" });
+    const equipment = await Equipment.findOne({ where: { equipmentId: id, isActive: true } });
+    if (!equipment) {
+      return res.status(404).json({ message: "Không tìm thấy thiết bị" });
     }
+    await equipment.update({ isActive: false, usageStatus: "Đã vô hiệu hóa" });
+    res.status(200).json({ message: "Đã vô hiệu hóa thiết bị thành công" });
   } catch (error) {
-    res.status(500).json({ message: "Lỗi xóa", error: error.message });
+    res.status(500).json({ message: "Lỗi vô hiệu hóa", error: error.message });
   }
 };
