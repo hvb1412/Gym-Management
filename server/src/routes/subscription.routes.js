@@ -6,12 +6,17 @@ import {
   paySubscriptionSchema,
 } from '../validations/subscription.validation.js';
 import {
+  getMySubscriptions,
   createSubscription,
   processSubscriptionPayment,
 } from '../controllers/subscription.controller.js';
 
 const router = express.Router();
 
+// Get current user's subscriptions
+router.get('/me', verifyToken, getMySubscriptions);
+
+// Create subscription (manager/owner only)
 router.post(
   '/',
   verifyToken,
@@ -20,6 +25,7 @@ router.post(
   createSubscription,
 );
 
+// Process payment (manager/owner only)
 router.post(
   '/:id/pay',
   verifyToken,
