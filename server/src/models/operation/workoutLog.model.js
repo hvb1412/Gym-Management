@@ -1,7 +1,8 @@
 import { Model, DataTypes } from "sequelize";
-import sequelize from '../../configs/database.js';
+import sequelize from "../../configs/database.js";
 
 class WorkoutLog extends Model {}
+
 WorkoutLog.init(
   {
     workoutId: {
@@ -9,9 +10,31 @@ WorkoutLog.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    workoutDate: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
-    startTime: { type: DataTypes.TIME },
-    duration: { type: DataTypes.INTEGER }, // Phút
+
+    memberId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+
+    recorderId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+
+    workoutDate: {
+      type: DataTypes.DATEONLY,
+      defaultValue: DataTypes.NOW,
+    },
+
+    startTime: {
+      type: DataTypes.TIME,
+      allowNull: false,
+    },
+
+    duration: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
   },
   {
     sequelize,
@@ -19,7 +42,7 @@ WorkoutLog.init(
     tableName: "workout_logs",
     underscored: true,
     timestamps: true,
-  },
+  }
 );
 
 export default WorkoutLog;
