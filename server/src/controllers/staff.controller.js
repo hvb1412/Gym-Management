@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
-import { sequelize, Account, Staff } from "../models/index.js";
+import { Op } from "sequelize";
+import { sequelize, Account, Staff, StaffWorkLog } from "../models/index.js";
 import AppError from "../utils/AppError.js";
 import { successResponse } from "../utils/response.js";
 import catchAsync from "../utils/catchAsync.js";
@@ -217,3 +218,37 @@ export const deleteStaff = catchAsync(async (req, res, next) => {
 
   successResponse(res, 200, "Đã vô hiệu hóa nhân sự thành công!");
 });
+
+// Lấy lịch chấm công của 1 nhân sự theo tháng
+export const getStaffAttendance = catchAsync(async (req, res, next) => {
+  const { code } = req.params;
+  const { month, year } = req.query;
+
+  if (!month || !year) {
+    return next(new AppError("Vui lòng cung cấp month và year", 400));
+  }
+
+  const staff = await Staff.findOne({ where: { staffCode: code } });
+  if (!staff) return next(new AppError("Không tìm thấy nhân sự", 404));
+
+  // Determine the date range
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+
+  // Format dates to YYYY-MM-DD correctly in local time
+  const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+  const endStr = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+
+  const logs = await StaffWorkLog.findAll({
+    where: {
+      staffId: staff.staffId,
+      workDate: {
+        [Op.between]: [startStr, endStr]
+      }
+    },
+    order: [['workDate', 'ASC']]
+  });
+
+  successResponse(res, 200, "Lấy dữ liệu chấm công thành công", logs);
+});
+
