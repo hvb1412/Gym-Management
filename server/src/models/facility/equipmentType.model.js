@@ -10,8 +10,10 @@ EquipmentType.init(
       primaryKey: true,
     },
     equipmentName: { type: DataTypes.STRING, allowNull: false },
-    origin: { type: DataTypes.STRING },
+    category: { type: DataTypes.STRING },
+    brand: { type: DataTypes.STRING },
     warrantyDuration: { type: DataTypes.INTEGER }, // Tính theo tháng
+    description: { type: DataTypes.TEXT },
   },
   {
     sequelize,

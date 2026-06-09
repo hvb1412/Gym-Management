@@ -15,7 +15,9 @@ SubscriptionPackage.init(
     numberOfWorkout: { type: DataTypes.INTEGER }, 
     vipIncluded: { type: DataTypes.BOOLEAN, defaultValue: false },
     trainerIncluded: { type: DataTypes.BOOLEAN, defaultValue: false },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
     price: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    status: { type: DataTypes.STRING, defaultValue: "Đang kinh doanh" },
   },
   {
     sequelize,

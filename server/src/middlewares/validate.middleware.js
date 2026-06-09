@@ -1,15 +1,13 @@
 import AppError from "../utils/AppError.js";
 
 const validate = (schema) => (req, res, next) => {
-    const validateSchema = {};
-    if(schema.body) validateSchema.body = schema.body;
-    if(schema.query) validateSchema.query = schema.query;
-    if(schema.params) validateSchema.params = schema.params;
+    const described = typeof schema?.describe === 'function' ? schema.describe() : null;
+    const keys = described?.keys || {};
 
     const objectToValidate = {};
-    if(schema.body) objectToValidate.body = req.body;
-    if(schema.query) objectToValidate.query = req.query;
-    if(schema.params) objectToValidate.params = req.params;
+    if (keys.body) objectToValidate.body = req.body;
+    if (keys.query) objectToValidate.query = req.query;
+    if (keys.params) objectToValidate.params = req.params;
 
     const { value, error } = schema.validate(objectToValidate, { abortEarly: false });
 
