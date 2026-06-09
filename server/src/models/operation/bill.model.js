@@ -14,6 +14,14 @@ Bill.init({
         allowNull: false,
         validate: { min: 0 } // Chỗ này để ae đảm bảo tiền không được âm nhé
     },
+    paymentMethod: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    paymentDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
     payDate: {
         type: DataTypes.TIME,
         allowNull: false,
