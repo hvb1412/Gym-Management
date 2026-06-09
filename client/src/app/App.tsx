@@ -928,10 +928,53 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: s
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const firstDayOffset = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
   const monthNames = ["01","02","03","04","05","06","07","08","09","10","11","12"];
-  const days = Array.from({ length: daysInMonth }, (_, i) => {
-    const v = (i * 7) % 11;
-    return v < 6 ? "ok" : v < 9 ? "late" : i % 5 === 0 ? "absent" : "ok";
-  });
+  const [days, setDays] = useState<string[]>([]);
+  
+  useEffect(() => {
+    fetch(`http://localhost:5000/api/v1/staffs/${id}/attendance?month=${calMonth + 1}&year=${calYear}`)
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          const logs = res.data;
+          const newDays = Array(daysInMonth).fill("");
+          
+          const now = new Date();
+          const isCurrentMonth = now.getMonth() === calMonth && now.getFullYear() === calYear;
+          const isPastMonth = calYear < now.getFullYear() || (calYear === now.getFullYear() && calMonth < now.getMonth());
+          const maxDayToCheck = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
+
+          for (let i = 0; i < maxDayToCheck; i++) {
+            newDays[i] = "absent";
+          }
+
+          logs.forEach((log: any) => {
+            const date = new Date(log.workDate);
+            const dayIndex = date.getDate() - 1;
+            const dayOfWeek = date.getDay();
+            
+            let isLate = false;
+            if (log.checkInTime) {
+              const [hours, minutes] = log.checkInTime.split(':').map(Number);
+              const timeInMinutes = hours * 60 + minutes;
+              
+              let limitMinutes = 8 * 60; // 08:00 for Sat, Sun
+              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                limitMinutes = 6 * 60 + 30; // 06:30 for Mon-Fri
+              }
+              
+              if (timeInMinutes > limitMinutes) {
+                isLate = true;
+              }
+            }
+            
+            newDays[dayIndex] = isLate ? "late" : "ok";
+          });
+
+          setDays(newDays);
+        }
+      });
+  }, [id, calMonth, calYear, daysInMonth]);
+
   const okCount = days.filter((d) => d === "ok").length;
   const lateCount = days.filter((d) => d === "late").length;
   const absentCount = days.filter((d) => d === "absent").length;
@@ -1057,31 +1100,71 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
   const [days, setDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<StaffRecord | null>(null);
-  const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>(() => {
-    try {
-      const saved = localStorage.getItem("gym_recent_activities");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
+  const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>([]);
+
+  const fetchRecent = () => {
+    fetch("http://localhost:5000/api/v1/staff-work-logs/today", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          const logs: { code: string; name: string; time: string; kind: "in" | "out" }[] = [];
+          res.data.forEach((log: any) => {
+            if (log.checkOutTime) {
+              logs.push({ code: log.Staff.staffCode, name: log.Staff.staffName, time: log.checkOutTime.substring(0, 5), kind: "out" });
+            }
+            if (log.checkInTime) {
+              logs.push({ code: log.Staff.staffCode, name: log.Staff.staffName, time: log.checkInTime.substring(0, 5), kind: "in" });
+            }
+          });
+          // Sort descending
+          logs.sort((a, b) => b.time.localeCompare(a.time));
+          setRecent(logs);
+        }
+      });
+  };
 
   useEffect(() => {
-    localStorage.setItem("gym_recent_activities", JSON.stringify(recent));
-  }, [recent]);
+    fetchRecent();
+  }, []);
+
   const suggestions = query.trim().length === 0
     ? []
     : staffs.filter((s) =>
-        s.code.toLowerCase().includes(query.toLowerCase()) ||
+        (s.status === "Đang làm" || s.status === "Nghỉ phép") &&
+        (s.code.toLowerCase().includes(query.toLowerCase()) ||
         s.name.toLowerCase().includes(query.toLowerCase()) ||
-        s.email.toLowerCase().includes(query.toLowerCase())
+        s.email.toLowerCase().includes(query.toLowerCase()))
       ).slice(0, 6);
-  const doCheck = (s: StaffRecord) => {
+
+  const doCheck = async (s: StaffRecord) => {
     const last = recent.find((r) => r.code === s.code);
-    const kind: "in" | "out" = last?.kind === "in" ? "out" : "in";
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    setRecent([{ code: s.code, name: s.name, time, kind }, ...recent.filter((r) => r.code !== s.code)].slice(0, 5));
-    setPicked(null); setQuery("");
+    const isCheckingOut = last?.kind === "in";
+    const url = isCheckingOut 
+      ? "http://localhost:5000/api/v1/staff-work-logs/check-out"
+      : "http://localhost:5000/api/v1/staff-work-logs/check-in";
+    const method = isCheckingOut ? "PUT" : "POST";
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` 
+        },
+        body: JSON.stringify({ code: s.code })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchRecent();
+        setPicked(null); setQuery("");
+      } else {
+        alert(data.message || "Có lỗi xảy ra");
+      }
+    } catch (e) {
+      alert("Lỗi kết nối máy chủ");
+    }
   };
   return (
     <div className="space-y-5">

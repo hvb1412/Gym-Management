@@ -28,6 +28,19 @@ const getCurrentTimeString = () => {
 };
 
 const resolveStaffId = async (req, transaction) => {
+  // If request contains 'code', find that staff (for manager/owner checking in someone else)
+  if (req.body.code) {
+    const staff = await Staff.findOne({
+      where: { staffCode: req.body.code },
+      attributes: ['staffId'],
+      transaction,
+    });
+    if (!staff) {
+      throw new AppError('Không tìm thấy nhân sự với mã này!', 404);
+    }
+    return staff.staffId;
+  }
+
   const tokenStaffId = req.user?.staffId;
   if (tokenStaffId) return tokenStaffId;
 
@@ -65,7 +78,7 @@ export const checkIn = catchAsync(async (req, res, next) => {
     });
 
     if (existed) {
-      throw new AppError('Bạn đã check-in hôm nay rồi!', 409);
+      throw new AppError('Nhân sự này đã check-in hôm nay rồi!', 409);
     }
 
     const log = await StaffWorkLog.create(
@@ -101,7 +114,11 @@ export const checkOut = catchAsync(async (req, res, next) => {
     });
 
     if (!log) {
-      throw new AppError('Bạn cần check-in trước khi check-out!', 404);
+      throw new AppError('Cần check-in trước khi check-out!', 404);
+    }
+
+    if (log.checkOutTime) {
+      throw new AppError('Nhân sự này đã check-out hôm nay rồi!', 409);
     }
 
     await log.update(
@@ -117,4 +134,21 @@ export const checkOut = catchAsync(async (req, res, next) => {
     await t.rollback();
     return next(error);
   }
+});
+
+export const getTodayLogs = catchAsync(async (req, res, next) => {
+  const workDate = getTodayDateString();
+
+  const logs = await StaffWorkLog.findAll({
+    where: {
+      workDate: { [Op.eq]: workDate }
+    },
+    include: [{
+      model: Staff,
+      attributes: ['staffCode', 'staffName']
+    }],
+    order: [['createdAt', 'DESC']]
+  });
+
+  return successResponse(res, 200, 'Lấy danh sách check-in/out hôm nay thành công', logs);
 });
