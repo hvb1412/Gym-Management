@@ -1,136 +1,53 @@
-import {
-    Equipment,
-    EquipmentType,
-    Room,
-} from "../models/index.js";
+import { Equipment, EquipmentType, Room } from '../models/index.js';
 
-import catchAsync from "../utils/catchAsync.js";
-import AppError from "../utils/AppError.js";
-import { successResponse } from "../utils/response.js";
-
-/**
- * POST /api/equipment-types
- */
-export const createEquipmentType = catchAsync(
-    async (req, res, next) => {
-        const {
-            equipmentName,
-            origin,
-            warrantyDuration,
-        } = req.body;
-
-        if (!equipmentName) {
-            return next(
-                new AppError(
-                    "Tên loại thiết bị là bắt buộc",
-                    400
-                )
-            );
-        }
-
-        const type =
-            await EquipmentType.create({
-                equipmentName,
-                origin,
-                warrantyDuration,
-            });
-
-        successResponse(
-            res,
-            201,
-            "Tạo loại thiết bị thành công",
-            type
-        );
-    }
-);
-
-/**
- * POST /api/equipments
- */
-export const createEquipment = catchAsync(
-    async (req, res, next) => {
-        const {
-            roomId,
-            typeId,
-            usageStatus,
-            importDate,
-        } = req.body;
-
-        const room =
-            await Room.findByPk(roomId);
-
-        if (!room) {
-            return next(
-                new AppError(
-                    "roomId không tồn tại",
-                    400
-                )
-            );
-        }
-
-        const equipmentType =
-            await EquipmentType.findByPk(
-                typeId
-            );
-
-        if (!equipmentType) {
-            return next(
-                new AppError(
-                    "typeId không tồn tại",
-                    400
-                )
-            );
-        }
-
-        const equipment =
-            await Equipment.create({
-                roomId,
-                typeId,
-                usageStatus,
-                importDate,
-            });
-
-        successResponse(
-            res,
-            201,
-            "Tạo thiết bị thành công",
-            equipment
-        );
-    }
-);
-
-/**
- * GET /api/equipments
- */
-export const getEquipments =
-    catchAsync(async (req, res) => {
-        const equipments =
-            await Equipment.findAll({
-                include: [
-                    {
-                        model: Room,
-                        attributes: [
-                            "roomId",
-                            "roomName",
-                        ],
-                    },
-                    {
-                        model: EquipmentType,
-                        attributes: [
-                            "typeId",
-                            "equipmentName",
-                        ],
-                    },
-                ],
-                order: [
-                    ["createdAt", "DESC"],
-                ],
-            });
-
-        successResponse(
-            res,
-            200,
-            "Lấy danh sách thiết bị thành công",
-            equipments
-        );
+export const getEquipments = async (req, res) => {
+  try {
+    const equipments = await Equipment.findAll({
+      include: [
+        { model: EquipmentType, attributes: ['equipmentName'] },
+        { model: Room, attributes: ['roomName'] }
+      ]
     });
+    res.status(200).json(equipments);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi lấy danh sách thiết bị", error: error.message });
+  }
+};
+
+export const createEquipment = async (req, res) => {
+  try {
+    const newEquipment = await Equipment.create(req.body);
+    res.status(201).json(newEquipment);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi tạo thiết bị", error: error.message });
+  }
+};
+
+export const updateEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [updated] = await Equipment.update(req.body, { where: { equipmentId: id } });
+    if (updated) {
+      const updatedEq = await Equipment.findByPk(id);
+      res.status(200).json(updatedEq);
+    } else {
+      res.status(404).json({ message: "Không tìm thấy thiết bị" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi cập nhật", error: error.message });
+  }
+};
+
+export const deleteEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Equipment.destroy({ where: { equipmentId: id } });
+    if (deleted) {
+      res.status(204).send();
+    } else {
+      res.status(404).json({ message: "Không tìm thấy thiết bị" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi xóa", error: error.message });
+  }
+};

@@ -9,8 +9,9 @@ Equipment.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    usageStatus: { type: DataTypes.STRING, defaultValue: "normal" },
-    importDate: { type: DataTypes.DATEONLY },
+    equipmentCode: { type: DataTypes.STRING, unique: true },
+    usageStatus: { type: DataTypes.STRING, defaultValue: "Hoạt động" },
+    importDate: { type: DataTypes.STRING }, // Frontend sends DD/MM/YYYY, better to parse or use STRING
   },
   {
     sequelize,
