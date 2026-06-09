@@ -34,6 +34,24 @@ const calculateExpireDate = (packageType, duration) => {
   return today.toISOString().split('T')[0];
 };
 
+export const getMySubscriptions = catchAsync(async (req, res, next) => {
+  const accountId = req.user.accountId;
+  const member = await Member.findOne({ where: { accountId } });
+
+  if (!member) {
+    return next(new AppError('Không tìm thấy thông tin hội viên!', 404));
+  }
+
+  const plans = await SubscriptionPlan.findAll({
+    where: { memberId: member.memberId },
+    include: [SubscriptionPackage, Bill],
+  });
+
+  return successResponse(res, 200, 'Lấy danh sách gói tập của tôi thành công!', {
+    subscriptions: plans,
+  });
+});
+
 export const createSubscription = catchAsync(async (req, res, next) => {
   const { memberId, packageId } = req.body;
 
