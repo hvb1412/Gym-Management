@@ -1,7 +1,7 @@
 import { Model, DataTypes } from "sequelize";
 import sequelize from "../../configs/database.js";
 
-export class Staff extends Model {}
+export class Staff extends Model { }
 Staff.init(
   {
     staffId: {
@@ -9,14 +9,14 @@ Staff.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    staffCode: { 
-      type: DataTypes.STRING, 
-      unique: true 
+    staffCode: {
+      type: DataTypes.STRING,
+      unique: true
     },
     staffName: { type: DataTypes.STRING, allowNull: false },
-    gender: { 
-      type: DataTypes.ENUM("Nam", "Nữ", "Khác"), 
-      defaultValue: "Nam" 
+    gender: {
+      type: DataTypes.ENUM("Nam", "Nữ", "Khác"),
+      defaultValue: "Nam"
     },
     dateOfBirth: { type: DataTypes.DATEONLY },
     phoneNumber: { type: DataTypes.STRING, unique: true },

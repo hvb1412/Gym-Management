@@ -4,8 +4,8 @@ export const getEquipmentReports = async (req, res) => {
   try {
     const reports = await EquipmentReport.findAll({
       include: [
-        { 
-          model: Equipment, 
+        {
+          model: Equipment,
           attributes: ['equipmentCode', 'equipmentId'],
           include: [
             { model: Room, attributes: ['roomName'] },

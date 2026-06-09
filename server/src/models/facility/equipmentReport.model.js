@@ -1,7 +1,7 @@
 import { Model, DataTypes } from "sequelize";
 import sequelize from '../../configs/database.js';
 
-class EquipmentReport extends Model {}
+class EquipmentReport extends Model { }
 EquipmentReport.init(
   {
     reportId: {

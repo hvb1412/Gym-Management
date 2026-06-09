@@ -35,7 +35,7 @@ export const getAllStaffs = catchAsync(async (req, res, next) => {
     // Format date string from YYYY-MM-DD to DD/MM/YYYY for UI if needed
     const joinDate = new Date(staff.registerDate);
     const joinStr = `${joinDate.getDate().toString().padStart(2, '0')}/${(joinDate.getMonth() + 1).toString().padStart(2, '0')}/${joinDate.getFullYear()}`;
-    
+
     return {
       code: staff.staffCode,
       name: staff.staffName,
@@ -68,7 +68,7 @@ export const getStaffByCode = catchAsync(async (req, res, next) => {
 
   const joinDate = new Date(staff.registerDate);
   const joinStr = `${joinDate.getDate().toString().padStart(2, '0')}/${(joinDate.getMonth() + 1).toString().padStart(2, '0')}/${joinDate.getFullYear()}`;
-    
+
   successResponse(res, 200, "Lấy chi tiết nhân sự thành công!", {
     code: staff.staffCode,
     name: staff.staffName,
@@ -108,7 +108,7 @@ export const createStaff = catchAsync(async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // 1. Tạo account
     let newAccount = null;
     if (email) {
@@ -209,7 +209,7 @@ export const updateStaff = catchAsync(async (req, res, next) => {
 export const deleteStaff = catchAsync(async (req, res, next) => {
   const { code } = req.params;
   const staff = await Staff.findOne({ where: { staffCode: code } });
-  
+
   if (!staff) return next(new AppError("Không tìm thấy nhân sự", 404));
 
   staff.status = "Đã vô hiệu hóa";

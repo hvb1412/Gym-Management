@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.use('/auth', authRoute);
 router.use("/subscriptions", subscriptionRoutes);
-router.use( "/feedbacks", feedbackRoutes);
+router.use("/feedbacks", feedbackRoutes);
 router.use("/staffs", staffRoutes);
 router.use("/packages", packageRoutes);
 router.use("/rooms", roomRoutes);

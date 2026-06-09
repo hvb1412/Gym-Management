@@ -9,6 +9,10 @@ StaffWorkLog.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    staffId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     workDate: { type: DataTypes.DATEONLY, allowNull: false },
     checkInTime: { type: DataTypes.TIME },
     checkOutTime: { type: DataTypes.TIME },

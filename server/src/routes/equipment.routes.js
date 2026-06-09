@@ -1,9 +1,9 @@
 import express from 'express';
 import {
-  getEquipments,
-  createEquipment,
-  updateEquipment,
-  deleteEquipment
+    getEquipments,
+    createEquipment,
+    updateEquipment,
+    deleteEquipment
 } from '../controllers/equipment.controller.js';
 
 const router = express.Router();
