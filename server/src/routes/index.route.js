@@ -9,6 +9,7 @@ import equipmentTypeRoutes from "./equipmentType.routes.js";
 import equipmentRoutes from "./equipment.routes.js";
 import equipmentReportRoutes from "./equipmentReport.routes.js";
 import staffWorkLogRoutes from "./staffWorkLog.routes.js";
+import memberRoutes from "./member.routes.js";
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use("/equipment-types", equipmentTypeRoutes);
 router.use("/equipments", equipmentRoutes);
 router.use("/equipment-reports", equipmentReportRoutes);
 router.use("/staff-work-logs", staffWorkLogRoutes);
+router.use("/members", memberRoutes);
 
 export default router;
