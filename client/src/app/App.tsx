@@ -4166,16 +4166,26 @@ export default function App() {
     navigate("/");
   };
 
-  if (!authed) return <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}><Login onEnter={(r, u) => { setRole(r); setUser(u); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} /></div>;
-
   return (
-    <div className={cn(theme === "dark" && "dark", "min-h-screen flex bg-background text-foreground")}>
-      <Sidebar role={role} user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
+    <Routes>
+      <Route path="/login" element={
+        !authed ? (
+          <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}>
+            <Login onEnter={(r, u) => { setRole(r); setUser(u); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} />
+          </div>
+        ) : (
+          <Navigate to="/" replace />
+        )
+      } />
+      <Route path="/*" element={
+        authed ? (
+          <div className={cn(theme === "dark" && "dark", "min-h-screen flex bg-background text-foreground")}>
+            <Sidebar role={role} user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
 
-      <div className="flex-1 min-w-0 flex flex-col">
-        <Header role={role} user={user} breadcrumb={breadcrumb} onLogout={handleLogout} />
-        <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
-          <Routes>
+            <div className="flex-1 min-w-0 flex flex-col">
+              <Header role={role} user={user} breadcrumb={breadcrumb} onLogout={handleLogout} />
+              <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
+                <Routes>
             <Route path="/" element={<HomeWidgets role={role} />} />
             
             {/* Owner routes */}
@@ -4217,37 +4227,42 @@ export default function App() {
               <Route path="/mfeedback" element={<MemberFeedback />} />
             </>}
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-        <footer className="px-7 py-4 text-[11px] text-muted-foreground border-t border-border/60 flex justify-between">
-          <span>© 2026 GymOS — ITSS Project</span>
-          <span className="font-mono">v2.4.0 · build {new Date().getFullYear()}05</span>
-        </footer>
-      </div>
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </main>
+              <footer className="px-7 py-4 text-[11px] text-muted-foreground border-t border-border/60 flex justify-between">
+                <span>© 2026 GymOS — ITSS Project</span>
+                <span className="font-mono">v2.4.0 · build {new Date().getFullYear()}05</span>
+              </footer>
+            </div>
 
-      <Modal
-        open={!!editingStaff}
-        onClose={() => setEditStaff(null)}
-        title={`Sửa thông tin nhân sự — ${editingStaff?.name ?? ""}`}
-        wide>
-        {editingStaff && (
-          <StaffForm 
-            data={editingStaff} 
-            onCancel={() => setEditStaff(null)}
-            onSubmit={(data) => {
-              fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-              }).then(res => res.json()).then(() => {
-                fetchStaffs();
-                setEditStaff(null);
-              });
-            }}
-          />
-        )}
-      </Modal>
-    </div>
+            <Modal
+              open={!!editingStaff}
+              onClose={() => setEditStaff(null)}
+              title={`Sửa thông tin nhân sự — ${editingStaff?.name ?? ""}`}
+              wide>
+              {editingStaff && (
+                <StaffForm 
+                  data={editingStaff} 
+                  onCancel={() => setEditStaff(null)}
+                  onSubmit={(data) => {
+                    fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(data),
+                    }).then(res => res.json()).then(() => {
+                      fetchStaffs();
+                      setEditStaff(null);
+                    });
+                  }}
+                />
+              )}
+            </Modal>
+          </div>
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+    </Routes>
   );
 }
