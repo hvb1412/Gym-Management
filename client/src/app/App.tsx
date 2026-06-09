@@ -1686,32 +1686,65 @@ type RoomRecord = (typeof ROOMS)[number];
 const ROOM_TYPES = ["Gym", "Cardio", "Yoga", "Fitness", "Other"] as const;
 const ROOM_STATUSES = ["Hoạt động", "Bảo trì", "Tạm đóng"] as const;
 
-function RoomForm({ data }: { data?: RoomRecord }) {
+function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e: React.FormEvent, data: Omit<RoomRecord, "id"> & { code: string }) => void, formId?: string }) {
+  const [code, setCode] = useState(data?.code ?? "");
+  const [name, setName] = useState(data?.name ?? "");
+  const [type, setType] = useState(data?.type ?? "Gym");
+  const [status, setStatus] = useState(data?.status ?? "Hoạt động");
+
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={data?.id} /></Field>
-      <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={data?.name} /></Field>
-      <Field label={<>Loại phòng<Req /></>}>
-        <select defaultValue={data?.type ?? "Gym"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </Field>
-      <Field label={<>Trạng thái<Req /></>}>
-        <select defaultValue={data?.status ?? "Hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </Field>
-      <div className="col-span-2">
-        <Field label="Ghi chú">
-          <textarea placeholder="Mô tả khu vực, lưu ý vận hành…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
+    <form id={formId} onSubmit={(e) => { e.preventDefault(); onSubmit(e, { code, name, type, status } as any); }}>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={code} onChange={(e: any) => setCode(e.target.value)} required /></Field>
+        <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={name} onChange={(e: any) => setName(e.target.value)} required /></Field>
+        <Field label={<>Loại phòng<Req /></>}>
+          <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+            {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         </Field>
+        <Field label={<>Trạng thái<Req /></>}>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+            {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </Field>
+        <div className="col-span-2">
+          <Field label="Ghi chú">
+            <textarea placeholder="Mô tả khu vực, lưu ý vận hành…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
+          </Field>
+        </div>
       </div>
-    </div>
+    </form>
   );
 }
 
 function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
-  const [list, setList] = useState<RoomRecord[]>(ROOMS);
+  const [list, setList] = useState<any[]>([]);
+  const [equipments, setEquipments] = useState<any[]>([]);
+
+  const fetchRooms = () => {
+    Promise.all([
+      fetch("http://localhost:5000/api/v1/rooms").then(res => res.json()),
+      fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).catch(() => [])
+    ]).then(([roomsRes, equipmentsRes]) => {
+      if (Array.isArray(roomsRes)) {
+        setList(roomsRes.map((r: any) => ({
+          id: r.roomId,
+          code: r.roomCode || `RM-${r.roomId.split('-')[0].toUpperCase()}`,
+          name: r.roomName,
+          type: r.roomType || "Gym",
+          status: r.operatingStatus === "active" ? "Hoạt động" : (r.operatingStatus === "maintenance" ? "Bảo trì" : "Tạm đóng"),
+        })));
+      }
+      if (Array.isArray(equipmentsRes)) {
+        setEquipments(equipmentsRes);
+      }
+    });
+  };
+
+  useEffect(() => {
+    fetchRooms();
+  }, []);
+
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
@@ -1722,11 +1755,36 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const filtered = list.filter((r) =>
     (typeFilter === "Tất cả" || r.type === typeFilter) &&
     (statusFilter === "Tất cả" || r.status === statusFilter) &&
-    (r.name.toLowerCase().includes(query.toLowerCase()) || r.id.toLowerCase().includes(query.toLowerCase()))
+    (r.name.toLowerCase().includes(query.toLowerCase()) || r.code.toLowerCase().includes(query.toLowerCase()))
   );
   const editing = editId ? list.find((r) => r.id === editId) : null;
   const deleting = deleteId ? list.find((r) => r.id === deleteId) : null;
-  const totalDevices = list.reduce((s, r) => s + r.count, 0);
+  const totalDevices = equipments.length;
+
+  const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : (s === "Bảo trì" ? "maintenance" : "inactive");
+
+  const handleAdd = (e: React.FormEvent, data: any) => {
+    fetch("http://localhost:5000/api/v1/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+    }).then(() => { fetchRooms(); setOpen(false); });
+  };
+
+  const handleEdit = (e: React.FormEvent, data: any) => {
+    fetch(`http://localhost:5000/api/v1/rooms/${editId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+    }).then(() => { fetchRooms(); setEditId(null); });
+  };
+
+  const handleDelete = () => {
+    if (!deleteId) return;
+    fetch(`http://localhost:5000/api/v1/rooms/${deleteId}`, {
+      method: "DELETE"
+    }).then(() => { fetchRooms(); setDeleteId(null); });
+  };
 
   return (
     <div className="space-y-5">
@@ -1746,7 +1804,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((r) => {
-          const deviceCount = EQUIPMENT_ITEMS.filter((e) => e.room === r.name).length;
+          const deviceCount = equipments.filter((e: any) => e.roomId === r.id || e.Room?.roomId === r.id).length;
           return (
           <Card key={r.id} className="group hover:border-[#6C63FF]/40 transition">
             <div className="flex items-start justify-between">
@@ -1755,7 +1813,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
                   <Building2 className="size-5 text-[#4F46E5] dark:text-[#A8A2FF]" />
                 </div>
                 <div>
-                  <div className="font-mono text-[11px] text-muted-foreground">{r.id}</div>
+                  <div className="font-mono text-[11px] text-muted-foreground" title={r.id}>RM-{r.id.split('-')[0].toUpperCase()}</div>
                   <h3 className="font-display text-[16px]">{r.name}</h3>
                 </div>
               </div>
@@ -1785,31 +1843,32 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm phòng tập mới" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button onClick={() => setOpen(false)}>Lưu phòng tập</Button></>}>
-        <RoomForm />
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-room-form">Lưu phòng tập</Button></>}>
+        <RoomForm formId="add-room-form" onSubmit={handleAdd} />
       </Modal>
 
       <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa phòng — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <RoomForm data={editing} />}
+        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-room-form" icon={CheckCircle2}>Lưu thay đổi</Button></>}>
+        {editing && <RoomForm formId="edit-room-form" data={editing} onSubmit={handleEdit} />}
       </Modal>
 
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phòng tập"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((r) => r.id !== deleteId)); setDeleteId(null); }}>Xóa phòng</Button>
+          <Button icon={Trash2} onClick={handleDelete}>Xóa phòng</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{deleting.name}</span> ({deleting.id})?</p>
-            <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái phòng tập và {EQUIPMENT_ITEMS.filter((e) => e.room === deleting.name).length} thiết bị thuộc phòng này sang trạng thái "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hãy đảm bảo các thiết bị cần giữ lại đã được chuyển sang khu vực khác trước khi xóa.</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{deleting.name}</span> (RM-{deleting.id.split('-')[0].toUpperCase()})?</p>
+            <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái phòng tập và các thiết bị thuộc phòng này sang trạng thái "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hãy đảm bảo các thiết bị cần giữ lại đã được chuyển sang khu vực khác trước khi xóa.</p>
           </div>
         )}
       </Modal>
     </div>
   );
 }
+
 
 function RoomDeviceForm({ data }: { data?: { code?: string; typeId?: string; pos?: string; status?: string } }) {
   return (
