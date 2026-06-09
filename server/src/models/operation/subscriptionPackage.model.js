@@ -12,6 +12,7 @@ SubscriptionPackage.init(
     packageName: { type: DataTypes.STRING, allowNull: false },
     packageType: { type: DataTypes.STRING, allowNull: false },
     duration: { type: DataTypes.INTEGER },
+    durationUnit: { type: DataTypes.STRING, defaultValue: "tháng" },
     numberOfWorkout: { type: DataTypes.INTEGER }, 
     vipIncluded: { type: DataTypes.BOOLEAN, defaultValue: false },
     trainerIncluded: { type: DataTypes.BOOLEAN, defaultValue: false },

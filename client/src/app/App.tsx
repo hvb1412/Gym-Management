@@ -76,92 +76,25 @@ const NAV: Record<Role, Nav[]> = {
   ],
 };
 
-const STAFF = [
-  { code: "NS001", name: "Trần Mỹ Linh",   role: "Nhân viên quản lý", email: "linh.tm@gymos.vn",   phone: "0901 234 567", join: "12/03/2023", status: "Đang làm" },
-  { code: "NS002", name: "Lê Đức Mạnh",     role: "Huấn luyện viên",   email: "manh.ld@gymos.vn",   phone: "0938 111 222", join: "04/06/2023", status: "Đang làm" },
-  { code: "NS003", name: "Phan Thu Hà",     role: "Huấn luyện viên",   email: "ha.pt@gymos.vn",     phone: "0912 888 919", join: "20/09/2023", status: "Đang làm" },
-  { code: "NS004", name: "Nguyễn Văn Khoa", role: "Nhân viên quản lý", email: "khoa.nv@gymos.vn",   phone: "0977 545 121", join: "01/11/2023", status: "Nghỉ phép" },
-  { code: "NS005", name: "Đỗ Anh Tuấn",     role: "Huấn luyện viên",   email: "tuan.da@gymos.vn",   phone: "0902 343 998", join: "15/01/2024", status: "Đang làm" },
-  { code: "NS006", name: "Vũ Thị Bích",     role: "Nhân viên quản lý", email: "bich.vt@gymos.vn",   phone: "0913 234 565", join: "07/02/2024", status: "Đang làm" },
-];
+const STAFF: any[] = [];
 
-const PACKAGES = [
-  { id: "PK01", name: "Gym Starter",    type: "12 buổi",   vip: false, trainer: false, price: 1200000,  status: "Đang kinh doanh" },
-  { id: "PK02", name: "Gym Pro 3 tháng",type: "3 tháng",   vip: false, trainer: false, price: 2400000,  status: "Đang kinh doanh" },
-  { id: "PK03", name: "Elite VIP 6T",   type: "6 tháng",   vip: true,  trainer: true,  price: 9800000,  status: "Đang kinh doanh" },
-  { id: "PK04", name: "Yoga Flow 1T",   type: "1 tháng",   vip: false, trainer: false, price: 850000,   status: "Đang kinh doanh" },
-  { id: "PK05", name: "Personal 24B",   type: "24 buổi",   vip: false, trainer: true,  price: 5600000,  status: "Đang kinh doanh" },
-  { id: "PK06", name: "Combo Cardio",   type: "20 buổi",   vip: false, trainer: false, price: 1900000,  status: "Ngừng kinh doanh" },
-];
+const PACKAGES: any[] = [];
 
-const ROOMS = [
-  { id: "PT01", name: "Sảnh Gym A",     type: "Gym",     count: 24, status: "Hoạt động" },
-  { id: "PT02", name: "Cardio Zone",    type: "Cardio",  count: 18, status: "Hoạt động" },
-  { id: "PT03", name: "Yoga Studio",    type: "Yoga",    count: 8,  status: "Hoạt động" },
-  { id: "PT04", name: "Fitness Lab",    type: "Fitness", count: 14, status: "Bảo trì" },
-  { id: "PT05", name: "Boxing Room",    type: "Other",   count: 9,  status: "Hoạt động" },
-];
+const ROOMS: any[] = [];
 
-const EQUIPMENT_TYPES = [
-  { id: "ET01", name: "Máy chạy bộ",     category: "Cardio",  brand: "Matrix",  warranty: 24, count: 12, desc: "Máy chạy bộ điện tử cao cấp dùng cho khu Cardio." },
-  { id: "ET02", name: "Xe đạp tĩnh",     category: "Cardio",  brand: "Keiser",  warranty: 18, count: 10, desc: "Xe đạp tĩnh với hệ thống kháng lực từ tính." },
-  { id: "ET03", name: "Tạ đa năng",      category: "Gym",     brand: "Smith",   warranty: 36, count: 8,  desc: "Giàn tạ đa năng cho khu vực Free Weight." },
-  { id: "ET04", name: "Máy kéo cáp",     category: "Gym",     brand: "Hoist",   warranty: 24, count: 6,  desc: "Máy tập kéo cáp toàn thân." },
-  { id: "ET05", name: "Thảm Yoga",       category: "Yoga",    brand: "Liforme", warranty: 12, count: 30, desc: "Thảm Yoga chống trượt, dày 6mm." },
-  { id: "ET06", name: "Bao đấm Boxing",  category: "Other",   brand: "Everlast",warranty: 12, count: 5,  desc: "Bao đấm tiêu chuẩn thi đấu." },
-];
+const EQUIPMENT_TYPES: any[] = [];
 
-const EQUIPMENT_ITEMS = [
-  { code: "TB-128", typeId: "ET01", room: "Cardio Zone", purchased: "10/03/2024", status: "Đang bảo trì" },
-  { code: "TB-129", typeId: "ET01", room: "Cardio Zone", purchased: "10/03/2024", status: "Hoạt động" },
-  { code: "TB-130", typeId: "ET01", room: "Cardio Zone", purchased: "10/03/2024", status: "Hoạt động" },
-  { code: "TB-076", typeId: "ET02", room: "Cardio Zone", purchased: "22/06/2024", status: "Đang bảo trì" },
-  { code: "TB-077", typeId: "ET02", room: "Cardio Zone", purchased: "22/06/2024", status: "Hoạt động" },
-  { code: "TB-204", typeId: "ET03", room: "Sảnh Gym A",  purchased: "14/01/2024", status: "Đang bảo trì" },
-  { code: "TB-205", typeId: "ET03", room: "Sảnh Gym A",  purchased: "14/01/2024", status: "Hoạt động" },
-  { code: "TB-311", typeId: "ET04", room: "Fitness Lab", purchased: "05/11/2024", status: "Đang bảo trì" },
-  { code: "TB-401", typeId: "ET05", room: "Yoga Studio", purchased: "01/02/2025", status: "Hoạt động" },
-  { code: "TB-501", typeId: "ET06", room: "Boxing Room", purchased: "12/04/2025", status: "Hoạt động" },
-];
+const EQUIPMENT_ITEMS: any[] = [];
 
-const MAINTENANCE = [
-  { code: "TB-128", name: "Máy chạy bộ Matrix",  room: "Cardio Zone", who: "Trần Mỹ Linh", date: "21/05/2026", desc: "Băng tải bị lệch, kêu lớn khi chạy >10km/h", status: "Chờ xử lý" },
-  { code: "TB-204", name: "Tạ đa năng Smith",    room: "Sảnh Gym A",  who: "Lê Đức Mạnh",  date: "20/05/2026", desc: "Kẹt thanh đẩy ở vị trí cao nhất",         status: "Đang xử lý" },
-  { code: "TB-076", name: "Xe đạp tĩnh Keiser",  room: "Cardio Zone", who: "Phan Thu Hà",  date: "18/05/2026", desc: "Màn hình hiển thị nhấp nháy",              status: "Đã xử lý" },
-  { code: "TB-311", name: "Máy kéo cáp Hoist",   room: "Fitness Lab", who: "Nguyễn Văn Khoa", date: "17/05/2026", desc: "Dây cáp bị sờn cần thay mới",       status: "Chờ xử lý" },
-];
+const MAINTENANCE: any[] = [];
 
-const FEEDBACK = [
-  { id: "FB-091", member: "Phạm Khánh An",  type: "Thiết bị",  content: "Phòng tắm thiếu khăn vào giờ cao điểm, mong shop bổ sung thêm.", date: "22/05/2026", status: "Chờ xử lý" },
-  { id: "FB-090", member: "Hoàng Minh Tú",  type: "Nhân viên", content: "Đề xuất thêm lớp Yoga buổi tối thứ 4 và thứ 6.",                date: "21/05/2026", status: "Đã phản hồi" },
-  { id: "FB-089", member: "Bùi Quỳnh Anh",  type: "Nhân viên", content: "PT Mạnh hướng dẫn rất tâm huyết, cảm ơn trung tâm!",            date: "20/05/2026", status: "Đã phản hồi" },
-  { id: "FB-088", member: "Ngô Hữu Đức",    type: "Thiết bị",  content: "Máy chạy số 4 ở Cardio Zone hơi kêu, cần kiểm tra.",            date: "20/05/2026", status: "Chờ xử lý" },
-];
+const FEEDBACK: any[] = [];
 
-const MEMBERS = [
-  { code: "HV0241", name: "Phạm Khánh An",   phone: "0901 222 333", pkg: "Elite VIP 6T", remain: "Hết hạn 12/11/2026", status: "Đang hoạt động" },
-  { code: "HV0240", name: "Hoàng Minh Tú",   phone: "0912 545 121", pkg: "Gym Pro 3T",    remain: "32 ngày",            status: "Đang hoạt động" },
-  { code: "HV0239", name: "Bùi Quỳnh Anh",   phone: "0938 119 200", pkg: "Personal 24B",  remain: "14 buổi",            status: "Đang hoạt động" },
-  { code: "HV0238", name: "Ngô Hữu Đức",     phone: "0977 343 998", pkg: "Gym Starter",   remain: "3 buổi",             status: "Sắp hết hạn" },
-  { code: "HV0237", name: "Trịnh Bảo Long",  phone: "0902 565 232", pkg: "Yoga Flow 1T",  remain: "Hết hạn 02/04/2026", status: "Đã hết hạn" },
-  { code: "HV0236", name: "Lý Thanh Vy",     phone: "0913 444 010", pkg: "Combo Cardio",  remain: "8 buổi",             status: "Đang hoạt động" },
-];
+const MEMBERS: any[] = [];
 
-const REVENUE = [
-  { m: "T12", v: 142 }, { m: "T1", v: 168 }, { m: "T2", v: 154 },
-  { m: "T3", v: 189 }, { m: "T4", v: 212 }, { m: "T5", v: 246 },
-];
-const NEW_MEMBERS = [
-  { m: "T12", v: 24 }, { m: "T1", v: 31 }, { m: "T2", v: 28 },
-  { m: "T3", v: 38 }, { m: "T4", v: 44 }, { m: "T5", v: 52 },
-];
-const PKG_BREAKDOWN = [
-  { name: "Gym Pro",  value: 38, color: "#6C63FF" },
-  { name: "Elite VIP",value: 22, color: "#00C9A7" },
-  { name: "Personal", value: 18, color: "#FFB547" },
-  { name: "Yoga",     value: 14, color: "#38BDF8" },
-  { name: "Cardio",   value: 8,  color: "#FF5C5C" },
-];
+const REVENUE: any[] = [];
+const NEW_MEMBERS: any[] = [];
+const PKG_BREAKDOWN: any[] = [];
 
 /* ───────────────────────────── Primitives ───────────────────────────── */
 
@@ -298,7 +231,7 @@ function Field({ label, children, hint }: { label: React.ReactNode; children: Re
 
 /* ───────────────────────────── Sidebar + Header ───────────────────────────── */
 
-function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
+function Sidebar({ role, user, theme, onToggleTheme, onLogout }: { role: Role; user?: any; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const view = location.pathname === "/" ? "home" : location.pathname.slice(1).replace(/\//g, ".");
@@ -321,10 +254,10 @@ function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: 
 
       <div className="mx-4 mb-4 flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/40">
         <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-          {ROLE_META[role].initials}
+          {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : ROLE_META[role].initials}
         </div>
         <div className="flex-1 text-left leading-tight min-w-0">
-          <div className="text-[12.5px] font-medium truncate">{ROLE_META[role].person}</div>
+          <div className="text-[12.5px] font-medium truncate">{user?.name || ROLE_META[role].person}</div>
           <div className="text-[10.5px] text-muted-foreground truncate">{ROLE_META[role].name}</div>
         </div>
       </div>
@@ -382,7 +315,7 @@ function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: 
   );
 }
 
-function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string[]; onLogout: () => void }) {
+function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; breadcrumb: string[]; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [cur, setCur] = useState("");
@@ -419,10 +352,10 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
         <div className="relative">
           <button onClick={() => setOpen(!open)} className="flex items-center gap-2.5 pr-1 pl-1 py-1 rounded-lg hover:bg-accent/60 transition">
             <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-              {ROLE_META[role].initials}
+              {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : ROLE_META[role].initials}
             </div>
             <div className="leading-tight text-left">
-              <div className="text-[12.5px] font-medium">Xin chào, {ROLE_META[role].person.split(" ").pop()}</div>
+              <div className="text-[12.5px] font-medium">Xin chào, {user?.name ? user.name.split(" ").pop() : ROLE_META[role].person.split(" ").pop()}</div>
               <div className="text-[10.5px] text-muted-foreground">{ROLE_META[role].name}</div>
             </div>
             <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
@@ -433,10 +366,10 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
               <div className="absolute right-0 top-full mt-1 w-56 rounded-xl bg-popover border border-border shadow-xl z-50 overflow-hidden">
                 <div className="p-3 border-b border-border/60 flex items-center gap-2.5">
                   <div className={cn("size-9 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-                    {ROLE_META[role].initials}
+                    {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : ROLE_META[role].initials}
                   </div>
                   <div className="leading-tight">
-                    <div className="text-[12.5px] font-medium">{ROLE_META[role].person}</div>
+                    <div className="text-[12.5px] font-medium">{user?.name || ROLE_META[role].person}</div>
                     <div className="text-[10.5px] text-muted-foreground">{ROLE_META[role].name}</div>
                   </div>
                 </div>
@@ -543,16 +476,32 @@ function ThemeToggle({ theme, onToggle, floating }: { theme: "light" | "dark"; o
   );
 }
 
-function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role) => void; theme: "light" | "dark"; onToggleTheme: () => void }) {
+function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?: any) => void; theme: "light" | "dark"; onToggleTheme: () => void }) {
   const [email, setEmail] = useState("owner@gymos.vn");
   const [password, setPassword] = useState("owner@123");
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const submit = () => {
-    const acc = ACCOUNTS.find((a) => a.email.toLowerCase() === email.trim().toLowerCase() && a.password === password);
-    if (!acc) { setError("Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại."); return; }
-    setError(null);
-    onEnter(acc.role);
+  const submit = async () => {
+    try {
+      setError(null);
+      const res = await fetch("http://localhost:5000/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.message || "Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.");
+        return;
+      }
+      const rawRole = data.data.user.role;
+      const normalizedRole = rawRole === "manager" ? "staff" : rawRole === "pt" ? "trainer" : rawRole;
+      localStorage.setItem("gymos_token", data.data.token);
+      localStorage.setItem("gymos_user", JSON.stringify(data.data.user));
+      onEnter(normalizedRole, data.data.user);
+    } catch (err) {
+      setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+    }
   };
   const quickFill = (a: typeof ACCOUNTS[number]) => { setEmail(a.email); setPassword(a.password); setError(null); };
   return (
@@ -1369,7 +1318,7 @@ function Packages() {
           setList(res.data.map((d: any) => {
             let t = "";
             if (d.packageType === "session") t = `${d.numberOfWorkout || 0} buổi`;
-            else t = `${d.duration || 0} tháng`;
+            else t = `${d.duration || 0} ${d.durationUnit || "tháng"}`;
             return {
               id: d.packageId,
               name: d.packageName,
@@ -1397,13 +1346,14 @@ function Packages() {
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filtered = list.filter((p) =>
-    (statusFilter === "Tất cả" || p.status === statusFilter) &&
+  const filtered = list.filter((p) => {
+    const displayId = `PKG-${p.id.split('-')[0].toUpperCase()}`;
+    return (statusFilter === "Tất cả" || p.status === statusFilter) &&
     (typeFilter === "Tất cả" || (typeFilter === "session" ? /buổi/i.test(p.type) : !/buổi/i.test(p.type))) &&
     (!filterVip || p.vip) &&
     (!filterTrainer || p.trainer) &&
-    (p.name.toLowerCase().includes(query.toLowerCase()) || p.id.toLowerCase().includes(query.toLowerCase()))
-  );
+    (p.name.toLowerCase().includes(query.toLowerCase()) || displayId.toLowerCase().includes(query.toLowerCase()));
+  });
   const viewing = viewId ? list.find((p) => p.id === viewId) : null;
   const editing = editId ? list.find((p) => p.id === editId) : null;
   const deleting = deleteId ? list.find((p) => p.id === deleteId) : null;
@@ -1411,11 +1361,17 @@ function Packages() {
   const handleAdd = (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
+    let durationUnit = "tháng";
+    if (!isSession) {
+      if (data.type.includes("tuần")) durationUnit = "tuần";
+      else if (data.type.includes("ngày")) durationUnit = "ngày";
+    }
     const payload = {
       packageName: data.name,
       packageType: isSession ? "session" : "duration",
       numberOfWorkout: isSession ? num : null,
       duration: !isSession ? num : null,
+      durationUnit: !isSession ? durationUnit : null,
       vipIncluded: data.vip,
       trainerIncluded: data.trainer,
       price: data.price,
@@ -1435,11 +1391,17 @@ function Packages() {
     if (!editId) return;
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
+    let durationUnit = "tháng";
+    if (!isSession) {
+      if (data.type.includes("tuần")) durationUnit = "tuần";
+      else if (data.type.includes("ngày")) durationUnit = "ngày";
+    }
     const payload = {
       packageName: data.name,
       packageType: isSession ? "session" : "duration",
       numberOfWorkout: isSession ? num : null,
       duration: !isSession ? num : null,
+      durationUnit: !isSession ? durationUnit : null,
       vipIncluded: data.vip,
       trainerIncluded: data.trainer,
       price: data.price,
@@ -1506,7 +1468,7 @@ function Packages() {
               {filtered.map((p) => (
                 <tr key={p.id} className="bg-card hover:bg-muted/30 transition">
                   <td className="px-4 py-3">
-                    <div className="font-mono text-[11px] text-muted-foreground">{p.id}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>PKG-{p.id.split('-')[0].toUpperCase()}</div>
                     <div className="font-medium">{p.name}</div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{p.type}</td>
@@ -1541,7 +1503,7 @@ function Packages() {
             <div className="absolute inset-x-0 top-0 h-0.5 bg-border" />
             <div className="flex items-start justify-between">
               <div>
-                <div className="font-mono text-[11px] text-muted-foreground">{p.id}</div>
+                <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>PKG-{p.id.split('-')[0].toUpperCase()}</div>
                 <h3 className="font-display text-[17px] mt-0.5">{p.name}</h3>
                 <div className="text-[12.5px] text-muted-foreground mt-0.5">{p.type}</div>
               </div>
@@ -1586,7 +1548,7 @@ function Packages() {
           <div className="space-y-4">
             <div className="flex items-start justify-between p-4 rounded-xl bg-muted/40 border border-border/70">
               <div>
-                <div className="font-mono text-[11px] text-muted-foreground">{viewing.id}</div>
+                <div className="font-mono text-[11px] text-muted-foreground" title={viewing.id}>PKG-{viewing.id.split('-')[0].toUpperCase()}</div>
                 <h3 className="font-display text-[19px] mt-0.5">{viewing.name}</h3>
                 <div className="text-[12.5px] text-muted-foreground mt-0.5">{viewing.type}</div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
@@ -1602,7 +1564,7 @@ function Packages() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                ["Mã gói", viewing.id],
+                ["Mã gói", `PKG-${viewing.id.split('-')[0].toUpperCase()}`],
                 ["Loại gói", /buổi/i.test(viewing.type) ? "Theo số buổi" : "Theo thời gian"],
                 ["Thời lượng / Số buổi", viewing.type],
                 ["Trạng thái", viewing.status],
@@ -1627,7 +1589,7 @@ function Packages() {
         {deleting && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa gói <span className="font-medium">{deleting.name}</span> ({deleting.id})?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa gói <span className="font-medium">{deleting.name}</span> (PKG-{deleting.id.split('-')[0].toUpperCase()})?</p>
             <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái gói tập sang "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hội viên đang sử dụng gói sẽ không bị ảnh hưởng cho đến khi gia hạn.</p>
           </div>
         )}
@@ -3940,7 +3902,14 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [authed, setAuthed] = useState(() => localStorage.getItem("gymos_authed") === "true");
-  const [role, setRole] = useState<Role>(() => (localStorage.getItem("gymos_role") as Role) || "owner");
+  const [role, setRole] = useState<Role>(() => {
+    const rawRole = (localStorage.getItem("gymos_role") as Role) || "owner";
+    return (rawRole as any) === "manager" ? "staff" : (rawRole as any) === "pt" ? "trainer" : rawRole;
+  });
+  const [user, setUser] = useState<any>(() => {
+    const stored = localStorage.getItem("gymos_user");
+    return stored ? JSON.parse(stored) : null;
+  });
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const [editStaff, setEditStaff] = useState<string | null>(null);
@@ -3991,14 +3960,24 @@ export default function App() {
     return ["GymOS"];
   }, [location.pathname]);
 
-  if (!authed) return <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}><Login onEnter={(r) => { setRole(r); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} /></div>;
+  const handleLogout = () => {
+    setAuthed(false);
+    setUser(null);
+    localStorage.removeItem("gymos_authed");
+    localStorage.removeItem("gymos_role");
+    localStorage.removeItem("gymos_user");
+    localStorage.removeItem("gymos_token");
+    navigate("/");
+  };
+
+  if (!authed) return <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}><Login onEnter={(r, u) => { setRole(r); setUser(u); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} /></div>;
 
   return (
     <div className={cn(theme === "dark" && "dark", "min-h-screen flex bg-background text-foreground")}>
-      <Sidebar role={role} theme={theme} onToggleTheme={toggleTheme} onLogout={() => { setAuthed(false); navigate("/"); }} />
+      <Sidebar role={role} user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <Header role={role} breadcrumb={breadcrumb} onLogout={() => { setAuthed(false); navigate("/"); }} />
+        <Header role={role} user={user} breadcrumb={breadcrumb} onLogout={handleLogout} />
         <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
           <Routes>
             <Route path="/" element={<HomeWidgets role={role} />} />
