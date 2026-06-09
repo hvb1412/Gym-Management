@@ -193,8 +193,8 @@ function StatusPill({ value }: { value: string }) {
 }
 
 function Button({
-  children, variant = "primary", icon: Icon, onClick, className,
-}: { children?: React.ReactNode; variant?: "primary" | "secondary" | "ghost" | "danger" | "outline"; icon?: any; onClick?: () => void; className?: string }) {
+  children, variant = "primary", icon: Icon, onClick, className, ...props
+}: { children?: React.ReactNode; variant?: "primary" | "secondary" | "ghost" | "danger" | "outline"; icon?: any; onClick?: () => void; className?: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const map: Record<string, string> = {
     primary:   "bg-[#6C63FF] hover:bg-[#7A72FF] text-white shadow-[0_8px_24px_-12px_rgba(108,99,255,0.8)]",
     secondary: "bg-[#00C9A7] hover:bg-[#13d9b7] text-[#07120F]",
@@ -205,7 +205,7 @@ function Button({
   return (
     <button onClick={onClick} className={cn(
       "inline-flex items-center gap-2 h-9 px-3.5 rounded-lg text-[13px] font-medium transition-all active:scale-[0.98]",
-      map[variant], className)}>
+      map[variant], className)} {...props}>
       {Icon && <Icon className="size-4 stroke-[1.75]" />}
       {children}
     </button>
@@ -713,34 +713,59 @@ function HomeWidgets({ role, setView }: { role: Role; setView: (v: string) => vo
 }
 
 /* ── Staff form (shared by Add + Edit) ── */
-type StaffRecord = typeof STAFF[number];
+export type StaffRecord = {
+  code: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  join: string;
+  status: string;
+  gender?: string;
+  dateOfBirth?: string;
+  address?: string;
+};
 
 const Req = () => <span className="text-[#FF5C5C] ml-0.5">*</span>;
 
-function StaffForm({ data }: { data?: StaffRecord }) {
+function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?: (data: any) => void; onCancel?: () => void }) {
   const isEdit = !!data;
-  const [selectedRole, setSelectedRole] = useState(data?.role ?? "Nhân viên quản lý");
-  const needsAccount = /Nhân viên|Huấn luyện/.test(selectedRole);
+  const [formData, setFormData] = useState({
+    name: data?.name ?? "",
+    dateOfBirth: data?.dateOfBirth ?? "",
+    gender: data?.gender ?? "Nam",
+    phone: data?.phone ?? "",
+    address: data?.address ?? "",
+    role: data?.role ?? "Nhân viên quản lý",
+    email: data?.email ?? "",
+    password: "",
+    status: data?.status ?? "Đang làm"
+  });
+
+  const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
+  
+  const needsAccount = /Nhân viên|Huấn luyện/.test(formData.role);
+
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit?.(formData); }} className="grid grid-cols-2 gap-4">
       {isEdit && (
         <Field label="Mã nhân sự">
-          <Input value={data!.code} />
+          <Input value={data!.code} readOnly className="bg-muted opacity-70" />
         </Field>
       )}
-      <Field label={<>Họ tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={data?.name ?? ""} /></Field>
-      <Field label={<>Ngày sinh<Req /></>}><Input type="date" value="1995-04-12" /></Field>
+      <Field label={<>Họ tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={formData.name} onChange={(e: any) => handleChange("name", e.target.value)} required /></Field>
+      <Field label={<>Ngày sinh<Req /></>}><Input type="date" value={formData.dateOfBirth} onChange={(e: any) => handleChange("dateOfBirth", e.target.value)} required /></Field>
       <Field label={<>Giới tính<Req /></>}>
         <div className="flex gap-2">{["Nam", "Nữ", "Khác"].map((g, i) => (
-          <button key={g} className={cn("h-10 flex-1 rounded-lg border text-[13px]", i === 0 ? "border-[#6C63FF] bg-[#6C63FF]/10 text-[#6C63FF] dark:text-white" : "border-border text-muted-foreground")}>{g}</button>
+          <button type="button" key={g} onClick={() => handleChange("gender", g)} className={cn("h-10 flex-1 rounded-lg border text-[13px]", formData.gender === g ? "border-[#6C63FF] bg-[#6C63FF]/10 text-[#6C63FF] dark:text-white" : "border-border text-muted-foreground hover:bg-accent")}>{g}</button>
         ))}</div>
       </Field>
-      <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={data?.phone ?? ""} /></Field>
-      <Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận…" value={isEdit ? "Số 12, Trần Đại Nghĩa, Hai Bà Trưng, Hà Nội" : ""} /></Field>
+      <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phone} onChange={(e: any) => handleChange("phone", e.target.value)} required /></Field>
+      <Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận…" value={formData.address} onChange={(e: any) => handleChange("address", e.target.value)} required /></Field>
       <Field label={<>Role<Req /></>}>
         <div className="relative">
-          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-            <option>Nhân viên quản lý</option><option>Huấn luyện viên</option><option>Lễ tân</option>
+          <select value={formData.role} onChange={(e) => handleChange("role", e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
+            <option>Nhân viên quản lý</option><option>Huấn luyện viên</option><option>Chủ phòng tập</option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         </div>
@@ -748,35 +773,41 @@ function StaffForm({ data }: { data?: StaffRecord }) {
       {needsAccount && (
         <>
           <Field label={<>Email đăng nhập<Req /></>}>
-            <Input icon={Mail} placeholder="email@gymos.vn" value={data?.email ?? ""} />
+            <Input icon={Mail} placeholder="email@gymos.vn" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
           </Field>
-          <Field label={<>{isEdit ? "Đặt lại mật khẩu" : "Mật khẩu"}{!isEdit && <Req />}</>} hint={isEdit ? "Để trống nếu không đổi" : undefined}>
-            <Input icon={Lock} type="password" placeholder="••••••••" />
+          <Field label={<>{isEdit ? "Đặt lại mật khẩu" : "Mật khẩu"}</>} hint={isEdit ? "Để trống nếu không đổi" : "Mặc định 123456 nếu để trống"}>
+            <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => handleChange("password", e.target.value)} />
           </Field>
         </>
       )}
       {isEdit && (
         <Field label={<>Trạng thái<Req /></>}>
           <div className="relative">
-            <select defaultValue={data!.status} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
+            <select value={formData.status} onChange={(e) => handleChange("status", e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
               <option>Đang làm</option><option>Nghỉ phép</option><option>Đã thôi việc</option><option>Đã vô hiệu hóa</option>
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           </div>
         </Field>
       )}
-    </div>
+      
+      {/* Footer actions built into form */}
+      <div className="col-span-2 flex items-center justify-end gap-2 pt-4 mt-2 border-t border-border">
+        <Button variant="ghost" type="button" onClick={onCancel}>Hủy</Button>
+        <Button icon={CheckCircle2} type="submit">{isEdit ? "Lưu thay đổi" : "Lưu nhân sự"}</Button>
+      </div>
+    </form>
   );
 }
 
 /* ── Staff list ── */
-function StaffList({ onSelect, onEdit = () => {} }: { onSelect: (id: string) => void; onEdit?: (code: string) => void }) {
+function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: StaffRecord[]; refresh: () => void; onSelect: (id: string) => void; onEdit?: (code: string) => void }) {
   const [modal, setModal] = useState<"new" | "del" | null>(null);
   const [delTarget, setDelTarget] = useState<StaffRecord | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"Tất cả" | "Nhân viên quản lý" | "Huấn luyện viên">("Tất cả");
 
-  const filtered = STAFF.filter((s) => {
+  const filtered = staffs.filter((s) => {
     const q = query.trim().toLowerCase();
     const matchQ = !q || s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""));
     const matchR = roleFilter === "Tất cả" || s.role === roleFilter;
@@ -785,7 +816,7 @@ function StaffList({ onSelect, onEdit = () => {} }: { onSelect: (id: string) => 
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Danh sách nhân sự" sub={`Hiển thị ${filtered.length} / ${STAFF.length} nhân sự`} actions={
+      <SectionTitle title="Danh sách nhân sự" sub={`Hiển thị ${filtered.length} / ${staffs.length} nhân sự`} actions={
         <>
           <Button icon={Plus} onClick={() => setModal("new")}>Thêm nhân sự</Button>
         </>
@@ -857,13 +888,29 @@ function StaffList({ onSelect, onEdit = () => {} }: { onSelect: (id: string) => 
         )}
       </Card>
 
-      <Modal open={modal === "new"} onClose={() => setModal(null)} title="Thêm nhân sự mới" wide
-        footer={<><Button variant="ghost" onClick={() => setModal(null)}>Hủy</Button><Button onClick={() => setModal(null)}>Lưu nhân sự</Button></>}>
-        <StaffForm />
+      <Modal open={modal === "new"} onClose={() => setModal(null)} title="Thêm nhân sự mới" wide>
+        <StaffForm 
+          onCancel={() => setModal(null)} 
+          onSubmit={(data) => {
+            fetch("http://localhost:5000/api/v1/staffs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            }).then(res => res.json()).then(() => {
+              refresh();
+              setModal(null);
+            });
+          }} 
+        />
       </Modal>
 
       <Modal open={modal === "del"} onClose={() => setModal(null)} title="Xác nhận xóa"
-        footer={<><Button variant="ghost" onClick={() => setModal(null)}>Hủy</Button><Button variant="danger" icon={Trash2} onClick={() => setModal(null)}>Xác nhận xóa</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setModal(null)}>Hủy</Button><Button variant="danger" icon={Trash2} onClick={() => {
+          if (delTarget) {
+            fetch(`http://localhost:5000/api/v1/staffs/${delTarget.code}`, { method: "DELETE" })
+              .then(res => res.json()).then(() => { refresh(); setModal(null); });
+          }
+        }}>Xác nhận xóa</Button></>}>
         <div className="flex items-start gap-3">
           <div className="size-10 rounded-full bg-[#FF5C5C]/15 grid place-items-center text-[#B91C1C] dark:text-[#FFA0A0]"><Trash2 className="size-5" /></div>
           <div>
@@ -916,8 +963,9 @@ function Pagination() {
 }
 
 /* ── Staff Detail ── */
-function StaffDetail({ id, onBack, onEdit = () => {} }: { id: string; onBack: () => void; onEdit?: (code: string) => void }) {
-  const s = STAFF.find((x) => x.code === id) ?? STAFF[0];
+function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: string; staffs: StaffRecord[]; refresh: () => void; onBack: () => void; onEdit?: (code: string) => void }) {
+  const s = staffs.find((x) => x.code === id);
+  if (!s) return <div className="text-center p-10 text-muted-foreground">Không tìm thấy nhân viên.</div>;
   const [delOpen, setDelOpen] = useState(false);
   const today = new Date();
   const [calMonth, setCalMonth] = useState(today.getMonth());
@@ -1028,7 +1076,14 @@ function StaffDetail({ id, onBack, onEdit = () => {} }: { id: string; onBack: ()
       </div>
 
       <Modal open={delOpen} onClose={() => setDelOpen(false)} title="Xác nhận xóa"
-        footer={<><Button variant="ghost" onClick={() => setDelOpen(false)}>Hủy</Button><Button variant="danger" icon={Trash2} onClick={() => { setDelOpen(false); onBack(); }}>Xác nhận xóa</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setDelOpen(false)}>Hủy</Button><Button variant="danger" icon={Trash2} onClick={() => {
+          fetch(`http://localhost:5000/api/v1/staffs/${s.code}`, { method: "DELETE" })
+            .then(res => res.json()).then(() => {
+              setDelOpen(false);
+              refresh();
+              onBack();
+            });
+        }}>Xác nhận xóa</Button></>}>
         <div className="flex items-start gap-3">
           <div className="size-10 rounded-full bg-[#FF5C5C]/15 grid place-items-center text-[#B91C1C] dark:text-[#FFA0A0]"><Trash2 className="size-5" /></div>
           <div>
@@ -1042,24 +1097,30 @@ function StaffDetail({ id, onBack, onEdit = () => {} }: { id: string; onBack: ()
 }
 
 /* ── Attendance ── */
-function Attendance() {
+function Attendance({ staffs }: { staffs: StaffRecord[] }) {
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
   const [query, setQuery] = useState("");
-  const [picked, setPicked] = useState<typeof STAFF[number] | null>(null);
-  const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>([
-    { code: "NS002", name: "Lê Đức Mạnh",   time: "08:42", kind: "in" },
-    { code: "NS003", name: "Phan Thu Hà",   time: "08:35", kind: "in" },
-    { code: "NS001", name: "Trần Mỹ Linh",  time: "08:12", kind: "in" },
-  ]);
+  const [picked, setPicked] = useState<StaffRecord | null>(null);
+  const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>(() => {
+    try {
+      const saved = localStorage.getItem("gym_recent_activities");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("gym_recent_activities", JSON.stringify(recent));
+  }, [recent]);
   const suggestions = query.trim().length === 0
     ? []
-    : STAFF.filter((s) =>
+    : staffs.filter((s) =>
         s.code.toLowerCase().includes(query.toLowerCase()) ||
         s.name.toLowerCase().includes(query.toLowerCase()) ||
         s.email.toLowerCase().includes(query.toLowerCase())
       ).slice(0, 6);
-  const doCheck = (s: typeof STAFF[number]) => {
+  const doCheck = (s: StaffRecord) => {
     const last = recent.find((r) => r.code === s.code);
     const kind: "in" | "out" = last?.kind === "in" ? "out" : "in";
     const now = new Date();
@@ -1153,7 +1214,7 @@ function Attendance() {
         <Card className="lg:col-span-2">
           <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3 flex items-center justify-between">
             <span>Hoạt động gần đây</span>
-            <span className="flex items-center gap-1 normal-case tracking-normal text-[11.5px]"><Activity className="size-3.5" /> 128 lượt hôm nay</span>
+            <span className="flex items-center gap-1 normal-case tracking-normal text-[11.5px]"><Activity className="size-3.5" /> {recent.length} lượt hôm nay</span>
           </div>
           <ul className="space-y-1.5">
             {recent.map((r) => (
@@ -1200,14 +1261,39 @@ function Attendance() {
 /* ── Packages ── */
 type PackageRecord = (typeof PACKAGES)[number];
 
-function PackageForm({ data }: { data?: PackageRecord }) {
+function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmit: (e: React.FormEvent, data: Omit<PackageRecord, "id">) => void; formId: string }) {
   const inferType: "session" | "duration" = data
     ? /buổi/i.test(data.type) ? "session" : "duration"
     : "session";
   const [pkgType, setPkgType] = useState<"session" | "duration">(inferType);
+  const [name, setName] = useState(data?.name ?? "");
   const numMatch = data?.type.match(/\d+/)?.[0] ?? "";
+  const [num, setNum] = useState(numMatch);
+  
+  const initialUnit = data ? (data.type.includes("tháng") ? "month" : data.type.includes("tuần") ? "week" : data.type.includes("ngày") ? "day" : "month") : "month";
+  const [unit, setUnit] = useState(initialUnit);
+  
+  const [price, setPrice] = useState(data ? data.price.toString() : "");
+  const [vip, setVip] = useState(data?.vip ?? false);
+  const [trainer, setTrainer] = useState(data?.trainer ?? false);
+  const [status, setStatus] = useState(data?.status ?? "Đang kinh doanh");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !num || !price) return;
+    const finalType = pkgType === "session" ? `${num} buổi` : `${num} ${unit === "month" ? "tháng" : unit === "week" ? "tuần" : "ngày"}`;
+    onSubmit(e, {
+      name,
+      type: finalType,
+      vip,
+      trainer,
+      price: parseInt(price.replace(/\D/g, "") || "0"),
+      status
+    });
+  };
+
   return (
-    <div className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <Field label="Loại gói">
         <div className="grid grid-cols-2 gap-2">
           {([["session", "Theo số buổi"], ["duration", "Theo thời gian"]] as const).map(([k, label]) => {
@@ -1232,15 +1318,15 @@ function PackageForm({ data }: { data?: PackageRecord }) {
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label={<>Tên gói tập<Req /></>}>
-          <Input placeholder={pkgType === "session" ? "VD: Gym Pro 24 buổi" : "VD: Gym Pro 6 tháng"} value={data?.name} />
+          <Input placeholder={pkgType === "session" ? "VD: Gym Pro 24 buổi" : "VD: Gym Pro 6 tháng"} value={name} onChange={(e: any) => setName(e.target.value)} required />
         </Field>
         {pkgType === "session" ? (
-          <Field label={<>Số buổi<Req /></>}><Input placeholder="VD: 24" type="number" value={numMatch} /></Field>
+          <Field label={<>Số buổi<Req /></>}><Input placeholder="VD: 24" type="number" value={num} onChange={(e: any) => setNum(e.target.value)} required /></Field>
         ) : (
           <Field label={<>Thời hạn<Req /></>}>
             <div className="grid grid-cols-[1fr_auto] gap-2">
-              <Input placeholder="VD: 6" type="number" value={numMatch} />
-              <select className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              <Input placeholder="VD: 6" type="number" value={num} onChange={(e: any) => setNum(e.target.value)} required />
+              <select value={unit} onChange={(e: any) => setUnit(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="month">Tháng</option>
                 <option value="week">Tuần</option>
                 <option value="day">Ngày</option>
@@ -1248,11 +1334,11 @@ function PackageForm({ data }: { data?: PackageRecord }) {
             </div>
           </Field>
         )}
-        <Field label={<>Giá (VND)<Req /></>}><Input placeholder="VD: 2.400.000" value={data ? data.price.toLocaleString("vi-VN") : undefined} /></Field>
+        <Field label={<>Giá (VND)<Req /></>}><Input placeholder="VD: 2.400.000" value={price} onChange={(e: any) => setPrice(e.target.value)} required /></Field>
         <Field label="Tùy chọn">
           <div className="space-y-2 pt-1">
-            {([["VIP", data?.vip ?? true], ["Kèm Huấn luyện viên", data?.trainer ?? false], ["Đang kinh doanh", (data?.status ?? "Đang kinh doanh") === "Đang kinh doanh"]] as const).map(([n, on]) => (
-              <div key={n} className="flex items-center justify-between bg-muted/40 px-3 py-2 rounded-lg border border-border/70">
+            {([["VIP", vip, setVip], ["Kèm Huấn luyện viên", trainer, setTrainer], ["Đang kinh doanh", status === "Đang kinh doanh", (v: boolean) => setStatus(v ? "Đang kinh doanh" : "Ngừng kinh doanh")]] as const).map(([n, on, setter]) => (
+              <div key={n as string} className="flex items-center justify-between bg-muted/40 px-3 py-2 rounded-lg border border-border/70 cursor-pointer select-none" onClick={() => setter(!on)}>
                 <span className="text-[13px]">{n}</span>
                 <div className={cn("w-9 h-5 rounded-full p-0.5 transition", on ? "bg-[#6C63FF]" : "bg-accent")}>
                   <div className={cn("size-4 rounded-full bg-white transition", on && "translate-x-4")} />
@@ -1262,12 +1348,39 @@ function PackageForm({ data }: { data?: PackageRecord }) {
           </div>
         </Field>
       </div>
-    </div>
+    </form>
   );
 }
 
 function Packages() {
-  const [list, setList] = useState<PackageRecord[]>(PACKAGES);
+  const [list, setList] = useState<PackageRecord[]>([]);
+
+  const fetchPackages = () => {
+    fetch("http://localhost:5000/api/v1/packages")
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          setList(res.data.map((d: any) => {
+            let t = "";
+            if (d.packageType === "session") t = `${d.numberOfWorkout || 0} buổi`;
+            else t = `${d.duration || 0} tháng`;
+            return {
+              id: d.packageId,
+              name: d.packageName,
+              type: t,
+              vip: d.vipIncluded,
+              trainer: d.trainerIncluded,
+              price: Number(d.price),
+              status: d.status || "Đang kinh doanh"
+            };
+          }));
+        }
+      });
+  };
+
+  useEffect(() => {
+    fetchPackages();
+  }, []);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
@@ -1288,6 +1401,63 @@ function Packages() {
   const viewing = viewId ? list.find((p) => p.id === viewId) : null;
   const editing = editId ? list.find((p) => p.id === editId) : null;
   const deleting = deleteId ? list.find((p) => p.id === deleteId) : null;
+
+  const handleAdd = (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+    const isSession = data.type.includes("buổi");
+    const num = parseInt(data.type.replace(/\D/g, "") || "0");
+    const payload = {
+      packageName: data.name,
+      packageType: isSession ? "session" : "duration",
+      numberOfWorkout: isSession ? num : null,
+      duration: !isSession ? num : null,
+      vipIncluded: data.vip,
+      trainerIncluded: data.trainer,
+      price: data.price,
+      status: data.status
+    };
+    fetch("http://localhost:5000/api/v1/packages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(() => {
+      fetchPackages();
+      setOpen(false);
+    });
+  };
+
+  const handleEdit = (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+    if (!editId) return;
+    const isSession = data.type.includes("buổi");
+    const num = parseInt(data.type.replace(/\D/g, "") || "0");
+    const payload = {
+      packageName: data.name,
+      packageType: isSession ? "session" : "duration",
+      numberOfWorkout: isSession ? num : null,
+      duration: !isSession ? num : null,
+      vipIncluded: data.vip,
+      trainerIncluded: data.trainer,
+      price: data.price,
+      status: data.status
+    };
+    fetch(`http://localhost:5000/api/v1/packages/${editId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(() => {
+      fetchPackages();
+      setEditId(null);
+    });
+  };
+
+  const handleDelete = () => {
+    if (!deleteId) return;
+    fetch(`http://localhost:5000/api/v1/packages/${deleteId}`, {
+      method: "DELETE"
+    }).then(() => {
+      fetchPackages();
+      setDeleteId(null);
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -1395,13 +1565,13 @@ function Packages() {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm gói tập mới" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button onClick={() => setOpen(false)}>Lưu gói tập</Button></>}>
-        <PackageForm />
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-pkg-form">Lưu gói tập</Button></>}>
+        <PackageForm formId="add-pkg-form" onSubmit={handleAdd} />
       </Modal>
 
       <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa gói — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <PackageForm data={editing} />}
+        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-pkg-form" icon={CheckCircle2}>Lưu thay đổi</Button></>}>
+        {editing && <PackageForm formId="edit-pkg-form" data={editing} onSubmit={handleEdit} />}
       </Modal>
 
       <Modal open={!!viewing} onClose={() => setViewId(null)} title={`Chi tiết gói — ${viewing?.name ?? ""}`} wide
@@ -1446,7 +1616,7 @@ function Packages() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa gói tập"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((p) => p.id !== deleteId)); setDeleteId(null); }}>Xóa gói</Button>
+          <Button icon={Trash2} onClick={handleDelete}>Xóa gói</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
@@ -1746,39 +1916,40 @@ type EquipmentItem = (typeof EQUIPMENT_ITEMS)[number];
 type MaintenanceRecord = (typeof MAINTENANCE)[number];
 const EQUIPMENT_CATEGORIES = ["Cardio", "Gym", "Yoga", "Fitness", "Other"] as const;
 
-function EquipmentTypeForm({ data }: { data?: EquipmentType }) {
+function EquipmentTypeForm({ data, onChange }: { data?: Partial<EquipmentType>; onChange: (d: Partial<EquipmentType>) => void }) {
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Field label={<>Mã loại<Req /></>}><Input placeholder="VD: ET07" value={data?.id} /></Field>
-      <Field label={<>Tên loại thiết bị<Req /></>}><Input placeholder="VD: Máy tập đẩy ngực" value={data?.name} /></Field>
+      <Field label={<>Mã loại<Req /></>}><Input placeholder="VD: ET07" value={data?.id || ""} onChange={(e: any) => onChange({ ...data, id: e.target.value })} /></Field>
+      <Field label={<>Tên loại thiết bị<Req /></>}><Input placeholder="VD: Máy tập đẩy ngực" value={data?.name || ""} onChange={(e: any) => onChange({ ...data, name: e.target.value })} /></Field>
       <Field label={<>Phân loại<Req /></>}>
-        <select defaultValue={data?.category ?? "Cardio"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+        <select value={data?.category || "Cardio"} onChange={(e) => onChange({ ...data, category: e.target.value as any })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </Field>
-      <Field label={<>Hãng / Nhà sản xuất<Req /></>}><Input placeholder="VD: Matrix" value={data?.brand} /></Field>
-      <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="number" value={data?.warranty?.toString()} /></Field>
+      <Field label={<>Hãng / Nhà sản xuất<Req /></>}><Input placeholder="VD: Matrix" value={data?.brand || ""} onChange={(e: any) => onChange({ ...data, brand: e.target.value })} /></Field>
+      <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="number" value={data?.warranty?.toString() || ""} onChange={(e: any) => onChange({ ...data, warranty: parseInt(e.target.value) || 0 })} /></Field>
       <div className="col-span-2">
         <Field label={<>Mô tả<Req /></>}>
-          <textarea defaultValue={data?.desc} placeholder="Mô tả chi tiết loại thiết bị…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
+          <textarea value={data?.desc || ""} onChange={(e) => onChange({ ...data, desc: e.target.value })} placeholder="Mô tả chi tiết loại thiết bị…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
         </Field>
       </div>
     </div>
   );
 }
 
-function EquipmentItemForm({ data }: { data?: EquipmentItem }) {
+function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<EquipmentItem>; onChange: (d: Partial<EquipmentItem>) => void; roomList?: any[] }) {
+  const rooms = roomList || ROOMS;
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code} /></Field>
+      <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
       <Field label={<>Phòng / Khu vực<Req /></>}>
-        <select defaultValue={data?.room ?? ROOMS[0].name} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {ROOMS.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+        <select value={data?.room || rooms[0]?.name} onChange={(e) => onChange({ ...data, room: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+          {rooms.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
         </select>
       </Field>
-      <Field label={<>Ngày mua<Req /></>}><Input placeholder="DD/MM/YYYY" value={data?.purchased} /></Field>
+      <Field label={<>Ngày mua<Req /></>}><Input placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
       <Field label={<>Trạng thái<Req /></>}>
-        <select defaultValue={data?.status ?? "Hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+        <select value={data?.status || "Hoạt động"} onChange={(e) => onChange({ ...data, status: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Hoạt động">Hoạt động</option>
           <option value="Đang bảo trì">Đang bảo trì</option>
           <option value="Ngừng sử dụng">Ngừng sử dụng</option>
@@ -1789,9 +1960,26 @@ function EquipmentItemForm({ data }: { data?: EquipmentItem }) {
 }
 
 function Equipment() {
-  const [types, setTypes] = useState<EquipmentType[]>(EQUIPMENT_TYPES);
-  const [items, setItems] = useState<EquipmentItem[]>(EQUIPMENT_ITEMS);
+  const [types, setTypes] = useState<any[]>(EQUIPMENT_TYPES);
+  const [items, setItems] = useState<any[]>(EQUIPMENT_ITEMS);
+  const [rooms, setRooms] = useState<any[]>(ROOMS);
   const [typeQuery, setTypeQuery] = useState("");
+
+  const fetchEquipmentsData = () => {
+    Promise.all([
+      fetch("http://localhost:5000/api/v1/equipment-types").then(res => res.json()),
+      fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()),
+      fetch("http://localhost:5000/api/v1/rooms").then(res => res.json())
+    ]).then(([typesRes, itemsRes, roomsRes]) => {
+      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
+      if (Array.isArray(itemsRes)) setItems(itemsRes.map((i: any) => ({ id: i.equipmentId, code: i.equipmentCode, typeId: i.typeId, room: i.Room?.roomName, purchased: i.importDate, status: i.usageStatus })));
+      if (Array.isArray(roomsRes) && roomsRes.length > 0) setRooms(roomsRes.map((r: any) => ({ id: r.roomId, name: r.roomName })));
+    }).catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchEquipmentsData();
+  }, []);
   const [catFilter, setCatFilter] = useState<string>("Tất cả");
   const [addType, setAddType] = useState(false);
   const [viewTypeId, setViewTypeId] = useState<string | null>(null);
@@ -1800,6 +1988,8 @@ function Equipment() {
   const [addItemForType, setAddItemForType] = useState<string | null>(null);
   const [editItemCode, setEditItemCode] = useState<string | null>(null);
   const [deleteItemCode, setDeleteItemCode] = useState<string | null>(null);
+  const [typeForm, setTypeForm] = useState<Partial<EquipmentType>>({});
+  const [itemForm, setItemForm] = useState<Partial<EquipmentItem>>({});
 
   const filteredTypes = types.filter((t) =>
     (catFilter === "Tất cả" || t.category === catFilter) &&
@@ -1816,7 +2006,7 @@ function Equipment() {
   return (
     <div className="space-y-5">
       <SectionTitle title="Danh sách loại thiết bị" sub={`${types.length} loại — ${totalItems} máy đang quản lý, ${inMaintenance} đang bảo trì`}
-        actions={<Button icon={Plus} onClick={() => setAddType(true)}>Thêm loại thiết bị</Button>} />
+        actions={<Button icon={Plus} onClick={() => { setTypeForm({ category: "Cardio" }); setAddType(true); }}>Thêm loại thiết bị</Button>} />
 
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên loại hoặc mã…" className="max-w-xs" value={typeQuery} onChange={(e: any) => setTypeQuery(e.target.value)} />
@@ -1854,7 +2044,7 @@ function Equipment() {
                     <td className="px-4 py-3">
                       <div className="flex gap-1 justify-end">
                         <IconBtn icon={Eye} onClick={() => setViewTypeId(t.id)} />
-                        <IconBtn icon={Pencil} onClick={() => setEditTypeId(t.id)} />
+                        <IconBtn icon={Pencil} onClick={() => { setTypeForm(t); setEditTypeId(t.id); }} />
                         <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteTypeId(t.id)} />
                       </div>
                     </td>
@@ -1902,7 +2092,7 @@ function Equipment() {
                 <span className="text-[11.5px] text-muted-foreground">{t.brand} • BH {t.warranty}t</span>
                 <div className="flex gap-1">
                   <IconBtn icon={Eye} onClick={() => setViewTypeId(t.id)} />
-                  <IconBtn icon={Pencil} onClick={() => setEditTypeId(t.id)} />
+                  <IconBtn icon={Pencil} onClick={() => { setTypeForm(t); setEditTypeId(t.id); }} />
                   <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteTypeId(t.id)} />
                 </div>
               </div>
@@ -1916,16 +2106,39 @@ function Equipment() {
 
       {/* ── Type modals ── */}
       <Modal open={addType} onClose={() => setAddType(false)} title="Thêm loại thiết bị mới" wide
-        footer={<><Button variant="ghost" onClick={() => setAddType(false)}>Hủy</Button><Button onClick={() => setAddType(false)}>Lưu loại thiết bị</Button></>}>
-        <EquipmentTypeForm />
+        footer={<><Button variant="ghost" onClick={() => setAddType(false)}>Hủy</Button><Button onClick={() => {
+          fetch("http://localhost:5000/api/v1/equipment-types", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
+          }).then(() => {
+            fetchEquipmentsData();
+            setAddType(false);
+          });
+        }}>Lưu loại thiết bị</Button></>}>
+        <EquipmentTypeForm data={typeForm} onChange={setTypeForm} />
       </Modal>
       <Modal open={!!editingType} onClose={() => setEditTypeId(null)} title={`Chỉnh sửa loại — ${editingType?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditTypeId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditTypeId(null)}>Lưu thay đổi</Button></>}>
-        {editingType && <EquipmentTypeForm data={editingType} />}
+        footer={<><Button variant="ghost" onClick={() => setEditTypeId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => {
+          fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
+          }).then(() => {
+            fetchEquipmentsData();
+            setEditTypeId(null);
+          });
+        }}>Lưu thay đổi</Button></>}>
+        {editingType && <EquipmentTypeForm data={typeForm} onChange={setTypeForm} />}
       </Modal>
       <Modal open={!!deletingType} onClose={() => setDeleteTypeId(null)} title="Xóa loại thiết bị"
         footer={<><Button variant="ghost" onClick={() => setDeleteTypeId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setItems(items.filter((i) => i.typeId !== deleteTypeId)); setTypes(types.filter((t) => t.id !== deleteTypeId)); setDeleteTypeId(null); }}>Xóa loại</Button></>}>
+          <Button icon={Trash2} onClick={() => { 
+            fetch(`http://localhost:5000/api/v1/equipment-types/${deleteTypeId}`, { method: "DELETE" }).then(() => {
+              fetchEquipmentsData();
+              setDeleteTypeId(null);
+            });
+          }}>Xóa loại</Button></>}>
         {deletingType && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -1937,7 +2150,7 @@ function Equipment() {
       <Modal open={!!viewingType} onClose={() => setViewTypeId(null)} title={`Chi tiết loại — ${viewingType?.name ?? ""}`} wide
         footer={<><Button variant="ghost" onClick={() => setViewTypeId(null)}>Đóng</Button>
           <Button variant="outline" icon={Trash2} onClick={() => { const id = viewingType!.id; setViewTypeId(null); setDeleteTypeId(id); }}>Xóa loại</Button>
-          <Button icon={Pencil} onClick={() => { const id = viewingType!.id; setViewTypeId(null); setEditTypeId(id); }}>Sửa loại</Button></>}>
+          <Button icon={Pencil} onClick={() => { const id = viewingType!.id; setViewTypeId(null); setTypeForm(viewingType!); setEditTypeId(id); }}>Sửa loại</Button></>}>
         {viewingType && (
           <div className="space-y-4">
             <div className="flex items-start justify-between p-4 rounded-xl bg-muted/40 border border-border/70">
@@ -1962,7 +2175,7 @@ function Equipment() {
             <div className="rounded-xl border border-border/70 bg-card overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
                 <h4 className="font-display">Danh sách thiết bị</h4>
-                <Button icon={Plus} onClick={() => setAddItemForType(viewingType.id)}>Thêm thiết bị</Button>
+                <Button icon={Plus} onClick={() => { setItemForm({ room: ROOMS[0].name, status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
               </div>
               {items.filter((i) => i.typeId === viewingType.id).length === 0
                 ? <p className="text-[13px] text-muted-foreground text-center py-6">Chưa có thiết bị nào.</p>
@@ -1973,7 +2186,7 @@ function Equipment() {
                       i.purchased,
                       <StatusPill value={i.status} />,
                       <div className="flex items-center justify-end gap-0.5">
-                        <IconBtn icon={Pencil} onClick={() => setEditItemCode(i.code)} />
+                        <IconBtn icon={Pencil} onClick={() => { setItemForm(i); setEditItemCode(i.code); }} />
                         <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteItemCode(i.code)} />
                       </div>,
                     ])} />
@@ -1983,16 +2196,43 @@ function Equipment() {
         )}
       </Modal>
       <Modal open={!!addItemForType} onClose={() => setAddItemForType(null)} title="Thêm thiết bị mới" wide
-        footer={<><Button variant="ghost" onClick={() => setAddItemForType(null)}>Hủy</Button><Button onClick={() => setAddItemForType(null)}>Lưu thiết bị</Button></>}>
-        <EquipmentItemForm />
+        footer={<><Button variant="ghost" onClick={() => setAddItemForType(null)}>Hủy</Button><Button onClick={() => {
+          const rId = rooms.find(r => r.name === (itemForm.room || rooms[0]?.name))?.id;
+          fetch("http://localhost:5000/api/v1/equipments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ equipmentCode: itemForm.code || `TB-${Date.now().toString().slice(-4)}`, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased || new Date().toLocaleDateString('vi-VN'), usageStatus: itemForm.status || "Hoạt động" })
+          }).then(() => {
+            fetchEquipmentsData();
+            setAddItemForType(null);
+          });
+        }}>Lưu thiết bị</Button></>}>
+        <EquipmentItemForm data={itemForm} onChange={setItemForm} roomList={rooms} />
       </Modal>
       <Modal open={!!editingItem} onClose={() => setEditItemCode(null)} title={`Chỉnh sửa thiết bị — ${editingItem?.code ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditItemCode(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditItemCode(null)}>Lưu thay đổi</Button></>}>
-        {editingItem && <EquipmentItemForm data={editingItem} />}
+        footer={<><Button variant="ghost" onClick={() => setEditItemCode(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => {
+          const target = items.find(i => i.code === editItemCode);
+          const rId = rooms.find(r => r.name === (itemForm.room || target?.room))?.id;
+          fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ equipmentCode: itemForm.code, roomId: rId, importDate: itemForm.purchased, usageStatus: itemForm.status })
+          }).then(() => {
+            fetchEquipmentsData();
+            setEditItemCode(null);
+          });
+        }}>Lưu thay đổi</Button></>}>
+        {editingItem && <EquipmentItemForm data={itemForm} onChange={setItemForm} roomList={rooms} />}
       </Modal>
       <Modal open={!!deletingItem} onClose={() => setDeleteItemCode(null)} title="Xóa thiết bị"
         footer={<><Button variant="ghost" onClick={() => setDeleteItemCode(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setItems(items.filter((i) => i.code !== deleteItemCode)); setDeleteItemCode(null); }}>Xóa thiết bị</Button></>}>
+          <Button icon={Trash2} onClick={() => { 
+            const target = items.find(i => i.code === deleteItemCode);
+            fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, { method: "DELETE" }).then(() => {
+              fetchEquipmentsData();
+              setDeleteItemCode(null);
+            });
+          }}>Xóa thiết bị</Button></>}>
         {deletingItem && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -2007,24 +2247,46 @@ function Equipment() {
 
 /* ── Equipment Maintenance (Owner) ── */
 function EquipmentMaintenance() {
-  const [items, setItems] = useState<EquipmentItem[]>(EQUIPMENT_ITEMS);
-  const [maintList, setMaintList] = useState<MaintenanceRecord[]>(MAINTENANCE);
+  const [maintList, setMaintList] = useState<any[]>(MAINTENANCE);
   const [maintStatus, setMaintStatus] = useState<string>("Tất cả");
   const [viewId, setViewId] = useState<string | null>(null);
   const [deleteMaint, setDeleteMaint] = useState<string | null>(null);
+
+  const fetchReports = () => {
+    fetch("http://localhost:5000/api/v1/equipment-reports")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+        }
+      }).catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
 
   const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus);
   const viewing = viewId ? maintList.find((m) => m.code === viewId) : null;
   const deletingMaint = deleteMaint ? maintList.find((m) => m.code === deleteMaint) : null;
 
   const handleMaintenance = (code: string) => {
-    setMaintList(maintList.map((m) => m.code === code ? { ...m, status: "Đang xử lý" } : m));
-    setViewId(null);
+    const report = maintList.find(m => m.code === code);
+    if (!report) return;
+    fetch(`http://localhost:5000/api/v1/equipment-reports/${report.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolveStatus: "Đang xử lý" })
+    }).then(() => { fetchReports(); setViewId(null); });
   };
   const handleComplete = (code: string) => {
-    setMaintList(maintList.map((m) => m.code === code ? { ...m, status: "Đã xử lý" } : m));
-    setItems(items.map((i) => i.code === code ? { ...i, status: "Hoạt động" } : i));
-    setViewId(null);
+    const report = maintList.find(m => m.code === code);
+    if (!report) return;
+    fetch(`http://localhost:5000/api/v1/equipment-reports/${report.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolveStatus: "Đã xử lý" })
+    }).then(() => { fetchReports(); setViewId(null); });
   };
 
   return (
@@ -2108,7 +2370,13 @@ function EquipmentMaintenance() {
 
       <Modal open={!!deletingMaint} onClose={() => setDeleteMaint(null)} title="Xóa yêu cầu bảo trì"
         footer={<><Button variant="ghost" onClick={() => setDeleteMaint(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setMaintList(maintList.filter((m) => m.code !== deleteMaint)); setDeleteMaint(null); }}>Xóa yêu cầu</Button></>}>
+          <Button icon={Trash2} onClick={() => { 
+            const target = maintList.find(m => m.code === deleteMaint);
+            fetch(`http://localhost:5000/api/v1/equipment-reports/${target?.id}`, { method: "DELETE" }).then(() => {
+              fetchReports();
+              setDeleteMaint(null);
+            });
+          }}>Xóa yêu cầu</Button></>}>
         {deletingMaint && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -2123,11 +2391,28 @@ function EquipmentMaintenance() {
 
 /* ── Equipment maintenance (owner) ── */
 function MaintenanceOwner() {
-  const [list, setList] = useState<MaintenanceRecord[]>(MAINTENANCE);
+  const [list, setList] = useState<any[]>(MAINTENANCE);
+  const [items, setItems] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [addOpen, setAddOpen] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [addForm, setAddForm] = useState<any>({});
+
+  const fetchReports = () => {
+    fetch("http://localhost:5000/api/v1/equipment-reports")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+        }
+      }).catch(console.error);
+    fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).then(data => {
+      if (Array.isArray(data)) setItems(data.map((i: any) => ({ id: i.equipmentId, code: i.equipmentCode, room: i.Room?.roomName })));
+    }).catch(console.error);
+  };
+
+  useEffect(() => { fetchReports(); }, []);
 
   const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter);
   const viewing = viewId ? list.find((m) => m.code === viewId) : null;
@@ -2183,36 +2468,33 @@ function MaintenanceOwner() {
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm yêu cầu bảo trì" wide
         footer={<>
           <Button variant="ghost" onClick={() => setAddOpen(false)}>Hủy</Button>
-          <Button icon={CheckCircle2} onClick={() => setAddOpen(false)}>Gửi yêu cầu</Button>
+          <Button icon={CheckCircle2} onClick={() => {
+            fetch("http://localhost:5000/api/v1/equipment-reports", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString('vi-VN'), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
+            }).then(() => { fetchReports(); setAddOpen(false); });
+          }}>Gửi yêu cầu</Button>
         </>}>
         <div className="grid grid-cols-2 gap-4">
-          <Field label={<>Mã thiết bị<Req /></>}>
-            <select className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {EQUIPMENT_ITEMS.map((i) => <option key={i.code} value={i.code}>{i.code} — {i.room}</option>)}
-            </select>
-          </Field>
-          <Field label={<>Tên thiết bị<Req /></>}><Input placeholder="VD: Máy chạy bộ Matrix" /></Field>
-          <Field label={<>Phòng<Req /></>}>
-            <select className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {ROOMS.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
-            </select>
-          </Field>
-          <Field label={<>Ngày báo<Req /></>}><Input type="date" /></Field>
           <div className="col-span-2">
-            <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground px-3 py-2 rounded-lg bg-muted/40 border border-border/60">
+            <Field label={<>Chọn thiết bị<Req /></>}>
+              <select value={addForm.equipmentId || items[0]?.id} onChange={e => setAddForm({...addForm, equipmentId: e.target.value})} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+                {items.map((i) => <option key={i.id} value={i.id}>{i.code} — {i.room}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label={<>Ngày báo<Req /></>}><Input type="date" value={addForm.date || ""} onChange={(e: any) => setAddForm({...addForm, date: e.target.value})} /></Field>
+          <div className="flex flex-col justify-end">
+            <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground px-3 py-2.5 rounded-lg bg-muted/40 border border-border/60">
               <span>Người báo:</span>
               <span className="font-medium text-foreground">Trần Mỹ Linh</span>
               <Badge tone="sky">Tự động</Badge>
             </div>
           </div>
-          <Field label={<>Mức độ ưu tiên<Req /></>}>
-            <select className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option>Bình thường</option><option>Cao</option><option>Khẩn cấp</option>
-            </select>
-          </Field>
           <div className="col-span-2">
             <Field label={<>Mô tả lỗi<Req /></>}>
-              <textarea rows={4} placeholder="Mô tả hiện tượng, mức độ hư hỏng…" className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 resize-none" />
+              <textarea value={addForm.desc || ""} onChange={e => setAddForm({...addForm, desc: e.target.value})} rows={4} placeholder="Mô tả hiện tượng, mức độ hư hỏng…" className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 resize-none" />
             </Field>
           </div>
         </div>
@@ -2223,8 +2505,11 @@ function MaintenanceOwner() {
           <Button variant="ghost" onClick={() => setViewId(null)}>Đóng</Button>
           {viewing?.status === "Đã xử lý" && (
             <Button icon={CheckCircle2} onClick={() => {
-              setList(list.map((m) => m.code === viewId ? { ...m, status: "Hoàn thành" } : m));
-              setViewId(null);
+              fetch(`http://localhost:5000/api/v1/equipment-reports/${viewing.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ resolveStatus: "Hoàn thành" })
+              }).then(() => { fetchReports(); setViewId(null); });
             }}>Kết thúc bảo trì</Button>
           )}
         </>}>
@@ -3626,7 +3911,22 @@ export default function App() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const [editStaff, setEditStaff] = useState<string | null>(null);
-  const editingStaff = editStaff ? STAFF.find((x) => x.code === editStaff) : null;
+  
+  // Real backend staff data
+  const [staffData, setStaffData] = useState<StaffRecord[]>([]);
+  const fetchStaffs = () => {
+    fetch("http://localhost:5000/api/v1/staffs")
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") setStaffData(data.data);
+      })
+      .catch(console.error);
+  };
+  useEffect(() => {
+    fetchStaffs();
+  }, []);
+
+  const editingStaff = editStaff ? staffData.find((x) => x.code === editStaff) : null;
 
   const breadcrumb = useMemo(() => {
     const map: Record<string, string[]> = {
@@ -3665,9 +3965,9 @@ export default function App() {
         <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
           {view === "home" && <HomeWidgets role={role} setView={setView} />}
 
-          {role === "owner" && view === "staff" && !detailId && <StaffList onSelect={(id) => setDetailId(id)} onEdit={(code) => setEditStaff(code)} />}
-          {role === "owner" && view === "staff" && detailId && <StaffDetail id={detailId} onBack={() => setDetailId(null)} onEdit={(code) => setEditStaff(code)} />}
-          {role === "owner" && view === "attendance" && <Attendance />}
+          {role === "owner" && view === "staff" && !detailId && <StaffList staffs={staffData} refresh={fetchStaffs} onSelect={(id) => setDetailId(id)} onEdit={(code) => setEditStaff(code)} />}
+          {role === "owner" && view === "staff" && detailId && <StaffDetail id={detailId} staffs={staffData} refresh={fetchStaffs} onBack={() => setDetailId(null)} onEdit={(code) => setEditStaff(code)} />}
+          {role === "owner" && view === "attendance" && <Attendance staffs={staffData} />}
           {role === "owner" && view === "packages" && <Packages />}
           {role === "owner" && view === "rooms" && !detailId && <Rooms onSelect={(id) => setDetailId(id)} />}
           {role === "owner" && view === "rooms" && detailId && <RoomDetail id={detailId} onBack={() => setDetailId(null)} />}
@@ -3701,9 +4001,23 @@ export default function App() {
         open={!!editingStaff}
         onClose={() => setEditStaff(null)}
         title={`Sửa thông tin nhân sự — ${editingStaff?.name ?? ""}`}
-        wide
-        footer={<><Button variant="ghost" onClick={() => setEditStaff(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditStaff(null)}>Lưu thay đổi</Button></>}>
-        {editingStaff && <StaffForm data={editingStaff} />}
+        wide>
+        {editingStaff && (
+          <StaffForm 
+            data={editingStaff} 
+            onCancel={() => setEditStaff(null)}
+            onSubmit={(data) => {
+              fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+              }).then(res => res.json()).then(() => {
+                fetchStaffs();
+                setEditStaff(null);
+              });
+            }}
+          />
+        )}
       </Modal>
 
     </div>

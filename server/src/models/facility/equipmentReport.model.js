@@ -9,8 +9,10 @@ EquipmentReport.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    reportDate: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
-    resolveStatus: { type: DataTypes.STRING, defaultValue: "pending" },
+    reportDate: { type: DataTypes.STRING }, // Use string for DD/MM/YYYY support to match frontend quickly
+    resolveStatus: { type: DataTypes.STRING, defaultValue: "Chờ xử lý" },
+    errorDescription: { type: DataTypes.TEXT },
+    reporterName: { type: DataTypes.STRING }, // since we might not have full auth context linked correctly
   },
   {
     sequelize,
