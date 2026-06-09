@@ -4,6 +4,8 @@ import staffRoute from './staff.routes.js';
 import equipmentReportRoute from './equipmentReport.routes.js';
 import subscriptionPackageRoute from './subscriptionPackage.routes.js';
 import staffWorkLogRoute from './staffWorkLog.routes.js';
+import memberRoute from './member.routes.js';
+import subscriptionRoute from './subscription.routes.js';
 
 const router = express.Router();
 
@@ -12,6 +14,8 @@ router.use('/staffs', staffRoute);
 router.use('/equipment-reports', equipmentReportRoute);
 router.use('/packages', subscriptionPackageRoute);
 router.use('/work-logs', staffWorkLogRoute);
+router.use('/members', memberRoute);
+router.use('/subscriptions', subscriptionRoute);
 
 
 export default router;

@@ -22,6 +22,18 @@ SubscriptionPlan.init(
       type: DataTypes.UUID,
       allowNull: true, // Cho phép null để tạo gói trước khi thanh toán
     },
+    startDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    expireDate: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    remainingSessions: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
     status: {
       type: DataTypes.ENUM("pending_payment", "active", "expired", "cancelled"),
       defaultValue: "pending_payment",

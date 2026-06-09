@@ -11,6 +11,7 @@ Member.init(
     },
     memberName: { type: DataTypes.STRING, allowNull: false },
     dateOfBirth: { type: DataTypes.DATEONLY },
+    gender: { type: DataTypes.STRING },
     occupation: { type: DataTypes.STRING },
     phoneNumber: { type: DataTypes.STRING, unique: true },
     joinDate: { type: DataTypes.DATEONLY, defaultValue: DataTypes.NOW },
