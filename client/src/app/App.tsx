@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from "react-router";
 
 import {
   Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calendar as CalIcon,
@@ -297,7 +298,10 @@ function Field({ label, children, hint }: { label: React.ReactNode; children: Re
 
 /* ───────────────────────────── Sidebar + Header ───────────────────────────── */
 
-function Sidebar({ role, view, setView, theme, onToggleTheme, onLogout }: { role: Role; view: string; setView: (v: string) => void; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
+function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const view = location.pathname === "/" ? "home" : location.pathname.slice(1).replace(/\//g, ".");
   const [open, setOpen] = useState<string | null>(null);
   const nav = NAV[role];
   return (
@@ -333,7 +337,7 @@ function Sidebar({ role, view, setView, theme, onToggleTheme, onLogout }: { role
           return (
             <div key={item.id}>
               <button
-                onClick={() => { item.children ? setOpen(isOpen ? null : item.id) : setView(item.id); }}
+                onClick={() => { item.children ? setOpen(isOpen ? null : item.id) : navigate(item.id === "home" ? "/" : "/" + item.id.replace(/\./g, "/")); }}
                 className={cn(
                   "w-full group relative flex items-center gap-3 px-2.5 py-2 rounded-lg text-[13px] transition-all",
                   isActive ? "bg-sidebar-accent text-foreground" : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent/60"
@@ -346,7 +350,7 @@ function Sidebar({ role, view, setView, theme, onToggleTheme, onLogout }: { role
               {item.children && isOpen && (
                 <div className="ml-9 my-1 border-l border-border pl-2 space-y-0.5">
                   {item.children.map((c) => (
-                    <button key={c.id} onClick={() => setView(c.id)}
+                    <button key={c.id} onClick={() => navigate("/" + c.id.replace(/\./g, "/"))}
                       className={cn("w-full text-left px-2.5 py-1.5 text-[12.5px] rounded-md transition",
                         view === c.id ? "text-foreground bg-sidebar-accent" : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60")}>
                       {c.label}
@@ -618,7 +622,9 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role) => voi
   );
 }
 
-function HomeWidgets({ role, setView }: { role: Role; setView: (v: string) => void }) {
+function HomeWidgets({ role }: { role: Role }) {
+  const navigate = useNavigate();
+  const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
   const widgets: Record<Role, { icon: any; title: string; desc: string; view: string; tone: string }[]> = {
     owner: [
       { icon: Users,        title: "Quản lý nhân sự",   desc: "Danh sách, chấm công, đánh giá nhân sự",  view: "staff",      tone: "from-[#6C63FF]/20 to-transparent" },
@@ -1919,7 +1925,7 @@ const EQUIPMENT_CATEGORIES = ["Cardio", "Gym", "Yoga", "Fitness", "Other"] as co
 function EquipmentTypeForm({ data, onChange }: { data?: Partial<EquipmentType>; onChange: (d: Partial<EquipmentType>) => void }) {
   return (
     <div className="grid grid-cols-2 gap-4">
-      <Field label={<>Mã loại<Req /></>}><Input placeholder="VD: ET07" value={data?.id || ""} onChange={(e: any) => onChange({ ...data, id: e.target.value })} /></Field>
+      <Field label={<>Mã loại<Req /></>}><Input placeholder="VD: ET07" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
       <Field label={<>Tên loại thiết bị<Req /></>}><Input placeholder="VD: Máy tập đẩy ngực" value={data?.name || ""} onChange={(e: any) => onChange({ ...data, name: e.target.value })} /></Field>
       <Field label={<>Phân loại<Req /></>}>
         <select value={data?.category || "Cardio"} onChange={(e) => onChange({ ...data, category: e.target.value as any })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
@@ -1971,7 +1977,7 @@ function Equipment() {
       fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()),
       fetch("http://localhost:5000/api/v1/rooms").then(res => res.json())
     ]).then(([typesRes, itemsRes, roomsRes]) => {
-      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
+      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, code: t.typeCode || t.typeId.split('-')[0].toUpperCase(), name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
       if (Array.isArray(itemsRes)) setItems(itemsRes.map((i: any) => ({ id: i.equipmentId, code: i.equipmentCode, typeId: i.typeId, room: i.Room?.roomName, purchased: i.importDate, status: i.usageStatus })));
       if (Array.isArray(roomsRes) && roomsRes.length > 0) setRooms(roomsRes.map((r: any) => ({ id: r.roomId, name: r.roomName })));
     }).catch(console.error);
@@ -1993,7 +1999,7 @@ function Equipment() {
 
   const filteredTypes = types.filter((t) =>
     (catFilter === "Tất cả" || t.category === catFilter) &&
-    (t.name.toLowerCase().includes(typeQuery.toLowerCase()) || t.id.toLowerCase().includes(typeQuery.toLowerCase()))
+    (t.name.toLowerCase().includes(typeQuery.toLowerCase()) || t.code.toLowerCase().includes(typeQuery.toLowerCase()))
   );
   const viewingType = viewTypeId ? types.find((t) => t.id === viewTypeId) : null;
   const editingType = editTypeId ? types.find((t) => t.id === editTypeId) : null;
@@ -2033,7 +2039,7 @@ function Equipment() {
                 return (
                   <tr key={t.id} className="bg-card hover:bg-muted/30 transition">
                     <td className="px-4 py-3">
-                      <div className="font-mono text-[11px] text-muted-foreground">{t.id}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground">{t.code}</div>
                       <div className="font-medium">{t.name}</div>
                     </td>
                     <td className="px-4 py-3"><Badge tone={t.category === "Cardio" ? "red" : t.category === "Gym" ? "violet" : t.category === "Yoga" ? "emerald" : t.category === "Fitness" ? "amber" : "sky"}>{t.category}</Badge></td>
@@ -2071,7 +2077,7 @@ function Equipment() {
                     <Dumbbell className="size-5 text-[#4F46E5] dark:text-[#A8A2FF]" />
                   </div>
                   <div>
-                    <div className="font-mono text-[11px] text-muted-foreground">{t.id}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground">{t.code}</div>
                     <h3 className="font-display text-[16px]">{t.name}</h3>
                   </div>
                 </div>
@@ -2110,7 +2116,7 @@ function Equipment() {
           fetch("http://localhost:5000/api/v1/equipment-types", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
+            body: JSON.stringify({ typeCode: typeForm.code || `ET-${Date.now().toString().slice(-4)}`, equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
           }).then(() => {
             fetchEquipmentsData();
             setAddType(false);
@@ -3903,93 +3909,141 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
 
 /* ───────────────────────────── Router ───────────────────────────── */
 
+
+function StaffDetailWrapper({ staffs, refresh, onEdit }: { staffs: StaffRecord[]; refresh: () => void; onEdit: (code: string) => void }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return <StaffDetail id={id!} staffs={staffs} refresh={refresh} onBack={() => navigate("/staff")} onEdit={onEdit} />;
+}
+function RoomDetailWrapper() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return <RoomDetail id={id!} onBack={() => navigate("/rooms")} />;
+}
+function MemberDetailWrapper({ disablePackage, readonly }: { disablePackage?: boolean, readonly?: boolean }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const base = readonly ? "/students" : "/members";
+  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew")} disablePackage={disablePackage} readonly={readonly} />;
+}
+function RenewWrapper({ role }: { role: Role }) {
+  const navigate = useNavigate();
+  return <Renew onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
+}
+function ReportsWrapper() {
+  const location = useLocation();
+  const view = location.pathname.slice(1).replace(/\//g, ".");
+  return <Reports view={view} />;
+}
+
 export default function App() {
-  const [authed, setAuthed] = useState(false);
-  const [role, setRole] = useState<Role>("owner");
-  const [view, setView] = useState("home");
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [authed, setAuthed] = useState(() => localStorage.getItem("gymos_authed") === "true");
+  const [role, setRole] = useState<Role>(() => (localStorage.getItem("gymos_role") as Role) || "owner");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const [editStaff, setEditStaff] = useState<string | null>(null);
   
   // Real backend staff data
-  const [staffData, setStaffData] = useState<StaffRecord[]>([]);
+  const [staffData, setStaffData] = useState<any[]>([]);
   const fetchStaffs = () => {
     fetch("http://localhost:5000/api/v1/staffs")
       .then(res => res.json())
       .then(data => {
-        if (data.status === "success") setStaffData(data.data);
+        if (data.success) setStaffData(data.data);
       })
       .catch(console.error);
   };
   useEffect(() => {
-    fetchStaffs();
-  }, []);
+    if (authed) fetchStaffs();
+  }, [authed]);
+
+  useEffect(() => {
+    localStorage.setItem("gymos_authed", String(authed));
+    localStorage.setItem("gymos_role", role);
+  }, [authed, role]);
 
   const editingStaff = editStaff ? staffData.find((x) => x.code === editStaff) : null;
 
   const breadcrumb = useMemo(() => {
-    const map: Record<string, string[]> = {
-      home: ["GymOS", "Trang chủ"],
-      staff: ["Quản lý nhân sự", "Danh sách nhân sự"],
-      attendance: ["Quản lý nhân sự", "Chấm công nhân sự"],
-      packages: ["Quản lý gói tập"],
-      rooms: ["Quản lý phòng tập"],
-      equipment: ["Quản lý thiết bị", "Danh sách loại thiết bị"],
-      "equipment.maintenance": ["Quản lý thiết bị", "Xử lý bảo trì"],
-      feedback: ["Phản hồi hội viên"],
-      reports: ["Báo cáo thống kê", "Báo cáo chung"],
-      "reports.revenue": ["Báo cáo thống kê", "Doanh thu"],
-      "reports.members": ["Báo cáo thống kê", "Hội viên"],
-      "reports.staff":   ["Báo cáo thống kê", "Nhân sự"],
-      members: ["Quản lý hội viên", "Danh sách"],
-      "members.new": ["Quản lý hội viên", "Thêm hội viên"],
-      maintenance: ["Bảo trì thiết bị"],
-      students: ["Học viên của tôi"],
-      renew: ["Gia hạn gói tập"],
-      history: ["Lịch sử tập luyện"],
-      mpayments: ["Lịch sử thanh toán"],
-      mfeedback: ["Phản hồi"],
-    };
-    return map[view] ?? ["GymOS"];
-  }, [view]);
+    const path = location.pathname;
+    if (path === "/") return ["GymOS", "Trang chủ"];
+    if (path.startsWith("/staff")) return ["Quản lý nhân sự", path.length > 7 ? "Chi tiết nhân sự" : "Danh sách nhân sự"];
+    if (path.startsWith("/attendance")) return ["Quản lý nhân sự", "Chấm công nhân sự"];
+    if (path.startsWith("/packages")) return ["Quản lý gói tập"];
+    if (path.startsWith("/rooms")) return ["Quản lý phòng tập", path.length > 7 ? "Chi tiết phòng tập" : "Danh sách"];
+    if (path.startsWith("/equipment/maintenance")) return ["Quản lý thiết bị", "Xử lý bảo trì"];
+    if (path.startsWith("/equipment")) return ["Quản lý thiết bị", "Danh sách loại thiết bị"];
+    if (path.startsWith("/feedback")) return ["Phản hồi hội viên"];
+    if (path.startsWith("/reports/revenue")) return ["Báo cáo thống kê", "Doanh thu"];
+    if (path.startsWith("/reports/members")) return ["Báo cáo thống kê", "Hội viên"];
+    if (path.startsWith("/reports/staff")) return ["Báo cáo thống kê", "Nhân sự"];
+    if (path.startsWith("/reports")) return ["Báo cáo thống kê", "Báo cáo chung"];
+    if (path.startsWith("/members/new")) return ["Quản lý hội viên", "Thêm hội viên"];
+    if (path.startsWith("/members")) return ["Quản lý hội viên", path.length > 9 ? "Chi tiết hội viên" : "Danh sách hội viên"];
+    if (path.startsWith("/maintenance")) return ["Bảo trì thiết bị"];
+    if (path.startsWith("/students")) return ["Học viên của tôi", path.length > 10 ? "Chi tiết học viên" : "Danh sách"];
+    if (path.startsWith("/renew")) return ["Gia hạn gói tập"];
+    if (path.startsWith("/history")) return ["Lịch sử tập luyện"];
+    if (path.startsWith("/mpayments")) return ["Lịch sử thanh toán"];
+    if (path.startsWith("/mfeedback")) return ["Phản hồi"];
+    return ["GymOS"];
+  }, [location.pathname]);
 
-  if (!authed) return <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}><Login onEnter={(r) => { setRole(r); setView("home"); setDetailId(null); setAuthed(true); }} theme={theme} onToggleTheme={toggleTheme} /></div>;
+  if (!authed) return <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}><Login onEnter={(r) => { setRole(r); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} /></div>;
 
   return (
     <div className={cn(theme === "dark" && "dark", "min-h-screen flex bg-background text-foreground")}>
-      <Sidebar role={role} view={view} setView={(v) => { setView(v); setDetailId(null); }} theme={theme} onToggleTheme={toggleTheme} onLogout={() => { setAuthed(false); setView("home"); setDetailId(null); }} />
+      <Sidebar role={role} theme={theme} onToggleTheme={toggleTheme} onLogout={() => { setAuthed(false); navigate("/"); }} />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <Header role={role} breadcrumb={breadcrumb} onLogout={() => { setAuthed(false); setView("home"); setDetailId(null); }} />
+        <Header role={role} breadcrumb={breadcrumb} onLogout={() => { setAuthed(false); navigate("/"); }} />
         <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
-          {view === "home" && <HomeWidgets role={role} setView={setView} />}
+          <Routes>
+            <Route path="/" element={<HomeWidgets role={role} />} />
+            
+            {/* Owner routes */}
+            {role === "owner" && <>
+              <Route path="/staff" element={<StaffList staffs={staffData} refresh={fetchStaffs} onSelect={(id) => navigate("/staff/" + id)} onEdit={(code) => setEditStaff(code)} />} />
+              <Route path="/staff/:id" element={<StaffDetailWrapper staffs={staffData} refresh={fetchStaffs} onEdit={(code) => setEditStaff(code)} />} />
+              <Route path="/attendance" element={<Attendance staffs={staffData} />} />
+              <Route path="/packages" element={<Packages />} />
+              <Route path="/rooms" element={<Rooms onSelect={(id) => navigate("/rooms/" + id)} />} />
+              <Route path="/rooms/:id" element={<RoomDetailWrapper />} />
+              <Route path="/equipment" element={<Equipment />} />
+              <Route path="/equipment/maintenance" element={<EquipmentMaintenance />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/reports/*" element={<ReportsWrapper />} />
+            </>}
 
-          {role === "owner" && view === "staff" && !detailId && <StaffList staffs={staffData} refresh={fetchStaffs} onSelect={(id) => setDetailId(id)} onEdit={(code) => setEditStaff(code)} />}
-          {role === "owner" && view === "staff" && detailId && <StaffDetail id={detailId} staffs={staffData} refresh={fetchStaffs} onBack={() => setDetailId(null)} onEdit={(code) => setEditStaff(code)} />}
-          {role === "owner" && view === "attendance" && <Attendance staffs={staffData} />}
-          {role === "owner" && view === "packages" && <Packages />}
-          {role === "owner" && view === "rooms" && !detailId && <Rooms onSelect={(id) => setDetailId(id)} />}
-          {role === "owner" && view === "rooms" && detailId && <RoomDetail id={detailId} onBack={() => setDetailId(null)} />}
-          {role === "owner" && view === "equipment" && <Equipment />}
-          {role === "owner" && view === "equipment.maintenance" && <EquipmentMaintenance />}
-          {(role === "owner" || role === "staff") && view === "feedback" && <Feedback />}
-          {role === "owner" && view.startsWith("reports") && <Reports view={view} />}
+            {/* Staff routes */}
+            {role === "staff" && <>
+              <Route path="/members" element={<MembersList onSelect={(id) => navigate("/members/" + id)} onAdd={() => navigate("/members/new")} disablePackage />} />
+              <Route path="/members/new" element={<NewMember onBack={() => navigate("/members")} />} />
+              <Route path="/members/:id" element={<MemberDetailWrapper disablePackage />} />
+              <Route path="/renew" element={<RenewWrapper role={role} />} />
+              <Route path="/maintenance" element={<MaintenanceOwner />} />
+              <Route path="/feedback" element={<Feedback />} />
+            </>}
 
-          {role === "staff" && view === "members" && !detailId && <MembersList onSelect={(id) => setDetailId(id)} onAdd={() => setView("members.new")} disablePackage />}
-          {role === "staff" && view === "members" && detailId && <MemberDetail id={detailId} onBack={() => setDetailId(null)} onRenew={() => setView("renew")} disablePackage />}
-          {role === "staff" && view === "members.new" && <NewMember onBack={() => setView("members")} />}
-          {role === "staff" && view === "renew" && <Renew onBack={() => setView("members")} memberName={MEMBERS.find((m) => m.code === detailId)?.name} />}
-          {role === "staff" && view === "maintenance" && <MaintenanceOwner />}
+            {/* Trainer routes */}
+            {role === "trainer" && <>
+              <Route path="/students" element={<PtStudents onSelect={(id) => navigate("/students/" + id)} />} />
+              <Route path="/students/:id" element={<MemberDetailWrapper disablePackage readonly />} />
+              <Route path="/renew" element={<RenewWrapper role={role} />} />
+            </>}
 
-          {role === "trainer" && view === "students" && !detailId && <PtStudents onSelect={(id) => setDetailId(id)} />}
-          {role === "trainer" && view === "students" && detailId && <MemberDetail id={detailId} onBack={() => setDetailId(null)} onRenew={() => setView("renew")} readonly disablePackage />}
-          {role === "trainer" && view === "renew" && <Renew onBack={() => setView("students")} memberName={MEMBERS.find((m) => m.code === detailId)?.name} />}
+            {/* Member routes */}
+            {role === "member" && <>
+              <Route path="/renew" element={<RenewWrapper role={role} />} />
+              <Route path="/history" element={<MemberHistory />} />
+              <Route path="/mpayments" element={<MemberPayments />} />
+              <Route path="/mfeedback" element={<MemberFeedback />} />
+            </>}
 
-          {role === "member" && view === "renew" && <Renew />}
-          {role === "member" && view === "history" && <MemberHistory />}
-          {role === "member" && view === "mpayments" && <MemberPayments />}
-          {role === "member" && view === "mfeedback" && <MemberFeedback />}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
         <footer className="px-7 py-4 text-[11px] text-muted-foreground border-t border-border/60 flex justify-between">
           <span>© 2026 GymOS — ITSS Project</span>
@@ -4019,7 +4073,6 @@ export default function App() {
           />
         )}
       </Modal>
-
     </div>
   );
 }
