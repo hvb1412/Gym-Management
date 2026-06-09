@@ -9,6 +9,7 @@ EquipmentType.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    typeCode: { type: DataTypes.STRING },
     equipmentName: { type: DataTypes.STRING, allowNull: false },
     category: { type: DataTypes.STRING },
     brand: { type: DataTypes.STRING },
