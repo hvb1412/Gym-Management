@@ -1960,9 +1960,9 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
 }
 
 function Equipment() {
-  const [types, setTypes] = useState<any[]>(EQUIPMENT_TYPES);
-  const [items, setItems] = useState<any[]>(EQUIPMENT_ITEMS);
-  const [rooms, setRooms] = useState<any[]>(ROOMS);
+  const [types, setTypes] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [typeQuery, setTypeQuery] = useState("");
 
   const fetchEquipmentsData = () => {
@@ -2247,7 +2247,7 @@ function Equipment() {
 
 /* ── Equipment Maintenance (Owner) ── */
 function EquipmentMaintenance() {
-  const [maintList, setMaintList] = useState<any[]>(MAINTENANCE);
+  const [maintList, setMaintList] = useState<any[]>([]);
   const [maintStatus, setMaintStatus] = useState<string>("Tất cả");
   const [viewId, setViewId] = useState<string | null>(null);
   const [deleteMaint, setDeleteMaint] = useState<string | null>(null);
