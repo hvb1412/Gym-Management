@@ -9,6 +9,7 @@ Room.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    roomCode: { type: DataTypes.STRING, unique: true, allowNull: true },
     roomName: { type: DataTypes.STRING, allowNull: false },
     roomType: { type: DataTypes.STRING },
     operatingStatus: { type: DataTypes.STRING, defaultValue: "active" },
