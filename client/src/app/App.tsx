@@ -699,7 +699,7 @@ function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?
 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
   
-  const needsAccount = /Nhân viên|Huấn luyện/.test(formData.role);
+  const needsAccount = true;
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit?.(formData); }} className="grid grid-cols-2 gap-4">
@@ -958,11 +958,11 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: s
 
           <dl className="mt-6 space-y-3 text-[13px]">
             {[
-              ["Email", s.email, Mail],
-              ["Số điện thoại", s.phone, Phone],
-              ["Ngày sinh", "12/04/1995", CalIcon],
-              ["Địa chỉ", "Số 12, Trần Đại Nghĩa, Hai Bà Trưng, Hà Nội", Building2],
-              ["Ngày vào làm", s.join, ShieldCheck],
+              ["Email", s.email || "Chưa cập nhật", Mail],
+              ["Số điện thoại", s.phone || "Chưa cập nhật", Phone],
+              ["Ngày sinh", s.dateOfBirth ? s.dateOfBirth.split("-").reverse().join("/") : "Chưa cập nhật", CalIcon],
+              ["Địa chỉ", s.address || "Chưa cập nhật", Building2],
+              ["Ngày vào làm", s.join || "Chưa cập nhật", ShieldCheck],
             ].map(([k, v, I]: any) => (
               <div key={k} className="flex items-start gap-3 py-2 border-b border-border/60 last:border-0">
                 <I className="size-4 text-muted-foreground mt-0.5" />
