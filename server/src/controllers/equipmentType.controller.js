@@ -2,7 +2,7 @@ import { EquipmentType } from '../models/index.js';
 
 export const getEquipmentTypes = async (req, res) => {
   try {
-    const types = await EquipmentType.findAll();
+    const types = await EquipmentType.findAll({ where: { isActive: true } });
     res.status(200).json(types);
   } catch (error) {
     res.status(500).json({ message: "Lỗi lấy danh sách loại thiết bị", error: error.message });
@@ -36,13 +36,13 @@ export const updateEquipmentType = async (req, res) => {
 export const deleteEquipmentType = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await EquipmentType.destroy({ where: { typeId: id } });
-    if (deleted) {
-      res.status(204).send();
-    } else {
-      res.status(404).json({ message: "Không tìm thấy loại thiết bị" });
+    const type = await EquipmentType.findOne({ where: { typeId: id, isActive: true } });
+    if (!type) {
+      return res.status(404).json({ message: "Không tìm thấy loại thiết bị" });
     }
+    await type.update({ isActive: false });
+    res.status(200).json({ message: "Đã vô hiệu hóa loại thiết bị thành công" });
   } catch (error) {
-    res.status(500).json({ message: "Lỗi xóa", error: error.message });
+    res.status(500).json({ message: "Lỗi vô hiệu hóa", error: error.message });
   }
 };

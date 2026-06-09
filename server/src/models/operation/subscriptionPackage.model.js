@@ -9,6 +9,7 @@ SubscriptionPackage.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    packageCode: { type: DataTypes.STRING, allowNull: true },
     packageName: { type: DataTypes.STRING, allowNull: false },
     packageType: { type: DataTypes.STRING, allowNull: false },
     duration: { type: DataTypes.INTEGER },

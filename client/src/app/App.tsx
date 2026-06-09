@@ -253,12 +253,12 @@ function Sidebar({ role, user, theme, onToggleTheme, onLogout }: { role: Role; u
       </div>
 
       <div className="mx-4 mb-4 flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/40">
-        <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-          {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : ROLE_META[role].initials}
+        <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", (ROLE_META[role] || ROLE_META["member"]).tone)}>
+          {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : (ROLE_META[role] || ROLE_META["member"]).initials}
         </div>
         <div className="flex-1 text-left leading-tight min-w-0">
-          <div className="text-[12.5px] font-medium truncate">{user?.name || ROLE_META[role].person}</div>
-          <div className="text-[10.5px] text-muted-foreground truncate">{ROLE_META[role].name}</div>
+          <div className="text-[12.5px] font-medium truncate">{user?.name || (ROLE_META[role] || ROLE_META["member"]).person}</div>
+          <div className="text-[10.5px] text-muted-foreground truncate">{(ROLE_META[role] || ROLE_META["member"]).name}</div>
         </div>
       </div>
 
@@ -316,6 +316,11 @@ function Sidebar({ role, user, theme, onToggleTheme, onLogout }: { role: Role; u
 }
 
 function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; breadcrumb: string[]; onLogout: () => void }) {
+  const meta = ROLE_META[role] || ROLE_META["member"];
+  const personName = user?.name || meta.person;
+  const firstName = personName.split(" ").pop();
+  const initials = personName.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase();
+
   const [open, setOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [cur, setCur] = useState("");
@@ -351,12 +356,12 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
       <div className="flex items-center gap-2">
         <div className="relative">
           <button onClick={() => setOpen(!open)} className="flex items-center gap-2.5 pr-1 pl-1 py-1 rounded-lg hover:bg-accent/60 transition">
-            <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-              {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : ROLE_META[role].initials}
+            <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", meta.tone)}>
+              {initials}
             </div>
             <div className="leading-tight text-left">
-              <div className="text-[12.5px] font-medium">Xin chào, {user?.name ? user.name.split(" ").pop() : ROLE_META[role].person.split(" ").pop()}</div>
-              <div className="text-[10.5px] text-muted-foreground">{ROLE_META[role].name}</div>
+              <div className="text-[12.5px] font-medium">Xin chào, {firstName}</div>
+              <div className="text-[10.5px] text-muted-foreground">{meta.name}</div>
             </div>
             <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
           </button>
@@ -365,12 +370,12 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
               <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
               <div className="absolute right-0 top-full mt-1 w-56 rounded-xl bg-popover border border-border shadow-xl z-50 overflow-hidden">
                 <div className="p-3 border-b border-border/60 flex items-center gap-2.5">
-                  <div className={cn("size-9 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-                    {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : ROLE_META[role].initials}
+                  <div className={cn("size-9 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", meta.tone)}>
+                    {initials}
                   </div>
                   <div className="leading-tight">
-                    <div className="text-[12.5px] font-medium">{user?.name || ROLE_META[role].person}</div>
-                    <div className="text-[10.5px] text-muted-foreground">{ROLE_META[role].name}</div>
+                    <div className="text-[12.5px] font-medium">{personName}</div>
+                    <div className="text-[10.5px] text-muted-foreground">{meta.name}</div>
                   </div>
                 </div>
                 <div className="p-1.5">
@@ -601,7 +606,7 @@ function HomeWidgets({ role }: { role: Role }) {
     ],
   };
 
-  const me = ROLE_META[role];
+  const me = ROLE_META[role] || ROLE_META["member"];
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-3xl border border-border bg-muted/30 p-8">
@@ -686,6 +691,7 @@ const Req = () => <span className="text-[#FF5C5C] ml-0.5">*</span>;
 function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?: (data: any) => void; onCancel?: () => void }) {
   const isEdit = !!data;
   const [formData, setFormData] = useState({
+    code: "",
     name: data?.name ?? "",
     dateOfBirth: data?.dateOfBirth ?? "",
     gender: data?.gender ?? "Nam",
@@ -703,9 +709,13 @@ function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit?.(formData); }} className="grid grid-cols-2 gap-4">
-      {isEdit && (
+      {isEdit ? (
         <Field label="Mã nhân sự">
           <Input value={data!.code} readOnly className="bg-muted opacity-70" />
+        </Field>
+      ) : (
+        <Field label="Mã nhân sự" hint="Để trống để hệ thống tự tạo mã">
+          <Input placeholder="VD: NS1001" value={formData.code} onChange={(e: any) => handleChange("code", e.target.value)} />
         </Field>
       )}
       <Field label={<>Họ tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={formData.name} onChange={(e: any) => handleChange("name", e.target.value)} required /></Field>
@@ -761,17 +771,23 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
   const [delTarget, setDelTarget] = useState<StaffRecord | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"Tất cả" | "Nhân viên quản lý" | "Huấn luyện viên">("Tất cả");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
-  const filtered = staffs.filter((s) => {
+  const activeStaffs = staffs.filter((s) => s.status !== "Đã vô hiệu hóa");
+
+  const filtered = activeStaffs.filter((s) => {
     const q = query.trim().toLowerCase();
     const matchQ = !q || s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""));
     const matchR = roleFilter === "Tất cả" || s.role === roleFilter;
     return matchQ && matchR;
   });
 
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="space-y-5">
-      <SectionTitle title="Danh sách nhân sự" sub={`Hiển thị ${filtered.length} / ${staffs.length} nhân sự`} actions={
+      <SectionTitle title="Danh sách nhân sự" sub={`Hiển thị ${filtered.length} / ${activeStaffs.length} nhân sự`} actions={
         <>
           <Button icon={Plus} onClick={() => setModal("new")}>Thêm nhân sự</Button>
         </>
@@ -782,7 +798,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
             placeholder="Tìm theo tên, mã nhân sự, email, SĐT…"
             className="w-full h-10 rounded-lg bg-input-background border border-border pl-9 pr-9 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition"
           />
@@ -794,7 +810,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
         </div>
         <div className="flex items-center gap-2">
           {(["Tất cả", "Nhân viên quản lý", "Huấn luyện viên"] as const).map((c) => (
-            <button key={c} onClick={() => setRoleFilter(c)} className={cn(
+            <button key={c} onClick={() => { setRoleFilter(c); setPage(1); }} className={cn(
               "h-9 px-3 rounded-lg text-[12.5px] border transition",
               roleFilter === c
                 ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-[#4F46E5] dark:text-[#A8A2FF]"
@@ -812,13 +828,13 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
             </div>
             <h3 className="font-display mt-4">Không tìm thấy kết quả</h3>
             <p className="text-[13px] text-muted-foreground mt-1">Thử thay đổi từ khóa hoặc bộ lọc role.</p>
-            <Button variant="outline" className="mt-4" onClick={() => { setQuery(""); setRoleFilter("Tất cả"); }}>Xóa bộ lọc</Button>
+            <Button variant="outline" className="mt-4" onClick={() => { setQuery(""); setRoleFilter("Tất cả"); setPage(1); }}>Xóa bộ lọc</Button>
           </div>
         ) : (
           <>
             <DataTable
               head={["Mã NS", "Họ tên", "Role", "Email", "SĐT", "Ngày vào", "Trạng thái", ""]}
-              rows={filtered.map((s) => [
+              rows={paginated.map((s) => [
                 <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{s.code}</span>,
                 <button onClick={() => onSelect(s.code)} className="flex items-center gap-2.5 text-left hover:text-[#4F46E5] dark:text-[#A8A2FF]">
                   <div className="size-7 rounded-full bg-gradient-to-br from-[#6C63FF] to-[#3F39C7] grid place-items-center text-[10.5px] text-white font-semibold">
@@ -838,7 +854,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
                 </div>,
               ])}
             />
-            <Pagination />
+            <Pagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} />
           </>
         )}
       </Card>
@@ -903,15 +919,39 @@ function DataTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }
   );
 }
 
-function Pagination() {
+function Pagination({ total = 32, page = 1, pageSize = 6, onPageChange }: { total?: number; page?: number; pageSize?: number; onPageChange?: (p: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pages.push(i);
+  }
+
   return (
     <div className="flex items-center justify-between px-5 py-4 text-[12.5px] text-muted-foreground">
-      <div>Hiển thị 1–6 trên 32 kết quả</div>
+      <div>Hiển thị {start}–{end} trên {total} kết quả</div>
       <div className="flex items-center gap-1">
-        {["‹", "1", "2", "3", "4", "›"].map((p, i) => (
-          <button key={i} className={cn("size-8 grid place-items-center rounded-md text-[12.5px]",
-            i === 1 ? "bg-[#6C63FF] text-white" : "hover:bg-accent border border-border")}>{p}</button>
+        <button 
+          onClick={() => onPageChange?.(page - 1)} 
+          disabled={page === 1}
+          className="size-8 grid place-items-center rounded-md text-[12.5px] hover:bg-accent border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+        >‹</button>
+        {pages.map((p) => (
+          <button 
+            key={p} 
+            onClick={() => onPageChange?.(p)}
+            className={cn("size-8 grid place-items-center rounded-md text-[12.5px]",
+              p === page ? "bg-[#6C63FF] text-white border-transparent" : "hover:bg-accent border border-border")}
+          >{p}</button>
         ))}
+        <button 
+          onClick={() => onPageChange?.(page + 1)} 
+          disabled={page === totalPages}
+          className="size-8 grid place-items-center rounded-md text-[12.5px] hover:bg-accent border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+        >›</button>
       </div>
     </div>
   );
@@ -1304,6 +1344,7 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
     ? /buổi/i.test(data.type) ? "session" : "duration"
     : "session";
   const [pkgType, setPkgType] = useState<"session" | "duration">(inferType);
+  const [code, setCode] = useState((data as any)?.code ?? "");
   const [name, setName] = useState(data?.name ?? "");
   const numMatch = data?.type.match(/\d+/)?.[0] ?? "";
   const [num, setNum] = useState(numMatch);
@@ -1321,13 +1362,14 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
     if (!name || !num || !price) return;
     const finalType = pkgType === "session" ? `${num} buổi` : `${num} ${unit === "month" ? "tháng" : unit === "week" ? "tuần" : "ngày"}`;
     onSubmit(e, {
+      code,
       name,
       type: finalType,
       vip,
       trainer,
       price: parseInt(price.replace(/\D/g, "") || "0"),
       status
-    });
+    } as any);
   };
 
   return (
@@ -1355,6 +1397,9 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
         </div>
       </Field>
       <div className="grid grid-cols-2 gap-4">
+        <Field label={<>Mã gói<Req /></>}>
+          <Input placeholder="VD: GP-001" value={code} onChange={(e: any) => setCode(e.target.value)} required />
+        </Field>
         <Field label={<>Tên gói tập<Req /></>}>
           <Input placeholder={pkgType === "session" ? "VD: Gym Pro 24 buổi" : "VD: Gym Pro 6 tháng"} value={name} onChange={(e: any) => setName(e.target.value)} required />
         </Field>
@@ -1404,6 +1449,7 @@ function Packages() {
             else t = `${d.duration || 0} ${d.durationUnit || "tháng"}`;
             return {
               id: d.packageId,
+              code: d.packageCode || "",
               name: d.packageName,
               type: t,
               vip: d.vipIncluded,
@@ -1429,13 +1475,14 @@ function Packages() {
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const getPackageCode = (p: any) => p.code || `PKG-${p.id.split('-')[0].toUpperCase()}`;
   const filtered = list.filter((p) => {
-    const displayId = `PKG-${p.id.split('-')[0].toUpperCase()}`;
+    const displayCode = getPackageCode(p);
     return (statusFilter === "Tất cả" || p.status === statusFilter) &&
     (typeFilter === "Tất cả" || (typeFilter === "session" ? /buổi/i.test(p.type) : !/buổi/i.test(p.type))) &&
     (!filterVip || p.vip) &&
     (!filterTrainer || p.trainer) &&
-    (p.name.toLowerCase().includes(query.toLowerCase()) || displayId.toLowerCase().includes(query.toLowerCase()));
+    (p.name.toLowerCase().includes(query.toLowerCase()) || displayCode.toLowerCase().includes(query.toLowerCase()));
   });
   const viewing = viewId ? list.find((p) => p.id === viewId) : null;
   const editing = editId ? list.find((p) => p.id === editId) : null;
@@ -1450,6 +1497,7 @@ function Packages() {
       else if (data.type.includes("ngày")) durationUnit = "ngày";
     }
     const payload = {
+      packageCode: (data as any).code || "",
       packageName: data.name,
       packageType: isSession ? "session" : "duration",
       numberOfWorkout: isSession ? num : null,
@@ -1480,6 +1528,7 @@ function Packages() {
       else if (data.type.includes("ngày")) durationUnit = "ngày";
     }
     const payload = {
+      packageCode: (data as any).code || "",
       packageName: data.name,
       packageType: isSession ? "session" : "duration",
       numberOfWorkout: isSession ? num : null,
@@ -1551,7 +1600,7 @@ function Packages() {
               {filtered.map((p) => (
                 <tr key={p.id} className="bg-card hover:bg-muted/30 transition">
                   <td className="px-4 py-3">
-                    <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>PKG-{p.id.split('-')[0].toUpperCase()}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>{getPackageCode(p)}</div>
                     <div className="font-medium">{p.name}</div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{p.type}</td>
@@ -1586,7 +1635,7 @@ function Packages() {
             <div className="absolute inset-x-0 top-0 h-0.5 bg-border" />
             <div className="flex items-start justify-between">
               <div>
-                <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>PKG-{p.id.split('-')[0].toUpperCase()}</div>
+                <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>{getPackageCode(p)}</div>
                 <h3 className="font-display text-[17px] mt-0.5">{p.name}</h3>
                 <div className="text-[12.5px] text-muted-foreground mt-0.5">{p.type}</div>
               </div>
@@ -1631,7 +1680,7 @@ function Packages() {
           <div className="space-y-4">
             <div className="flex items-start justify-between p-4 rounded-xl bg-muted/40 border border-border/70">
               <div>
-                <div className="font-mono text-[11px] text-muted-foreground" title={viewing.id}>PKG-{viewing.id.split('-')[0].toUpperCase()}</div>
+                <div className="font-mono text-[11px] text-muted-foreground" title={viewing.id}>{getPackageCode(viewing)}</div>
                 <h3 className="font-display text-[19px] mt-0.5">{viewing.name}</h3>
                 <div className="text-[12.5px] text-muted-foreground mt-0.5">{viewing.type}</div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
@@ -1672,7 +1721,7 @@ function Packages() {
         {deleting && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa gói <span className="font-medium">{deleting.name}</span> (PKG-{deleting.id.split('-')[0].toUpperCase()})?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa gói <span className="font-medium">{deleting.name}</span> ({getPackageCode(deleting)})?</p>
             <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái gói tập sang "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hội viên đang sử dụng gói sẽ không bị ảnh hưởng cho đến khi gia hạn.</p>
           </div>
         )}
@@ -1813,7 +1862,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
                   <Building2 className="size-5 text-[#4F46E5] dark:text-[#A8A2FF]" />
                 </div>
                 <div>
-                  <div className="font-mono text-[11px] text-muted-foreground" title={r.id}>RM-{r.id.split('-')[0].toUpperCase()}</div>
+                  <div className="font-mono text-[11px] text-muted-foreground" title={r.id}>{r.code}</div>
                   <h3 className="font-display text-[16px]">{r.name}</h3>
                 </div>
               </div>
@@ -1860,7 +1909,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
         {deleting && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{deleting.name}</span> (RM-{deleting.id.split('-')[0].toUpperCase()})?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{deleting.name}</span> ({deleting.code})?</p>
             <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái phòng tập và các thiết bị thuộc phòng này sang trạng thái "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hãy đảm bảo các thiết bị cần giữ lại đã được chuyển sang khu vực khác trước khi xóa.</p>
           </div>
         )}
@@ -2057,7 +2106,7 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
           {rooms.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
         </select>
       </Field>
-      <Field label={<>Ngày mua<Req /></>}><Input placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
+      <Field label={<>Ngày mua<Req /></>}><Input type="date" placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
       <Field label={<>Trạng thái<Req /></>}>
         <select value={data?.status || "Hoạt động"} onChange={(e) => onChange({ ...data, status: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Hoạt động">Hoạt động</option>
@@ -2081,7 +2130,7 @@ function Equipment() {
       fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()),
       fetch("http://localhost:5000/api/v1/rooms").then(res => res.json())
     ]).then(([typesRes, itemsRes, roomsRes]) => {
-      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, code: t.typeCode || t.typeId.split('-')[0].toUpperCase(), name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
+      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, code: t.typeCode || "", name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
       if (Array.isArray(itemsRes)) setItems(itemsRes.map((i: any) => ({ id: i.equipmentId, code: i.equipmentCode, typeId: i.typeId, room: i.Room?.roomName, purchased: i.importDate, status: i.usageStatus })));
       if (Array.isArray(roomsRes) && roomsRes.length > 0) setRooms(roomsRes.map((r: any) => ({ id: r.roomId, name: r.roomName })));
     }).catch(console.error);
@@ -2233,7 +2282,7 @@ function Equipment() {
           fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
+            body: JSON.stringify({ typeCode: typeForm.code, equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
           }).then(() => {
             fetchEquipmentsData();
             setEditTypeId(null);
@@ -2252,7 +2301,7 @@ function Equipment() {
         {deletingType && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa loại <span className="font-medium">{deletingType.name}</span> ({deletingType.id})?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa loại <span className="font-medium">{deletingType.name}</span> ({deletingType.code || deletingType.id})?</p>
             <p className="text-[12.5px] text-muted-foreground">{items.filter((i) => i.typeId === deletingType.id).length} thiết bị thuộc loại này cũng sẽ bị xóa khỏi hệ thống.</p>
           </div>
         )}
@@ -2267,7 +2316,7 @@ function Equipment() {
               <div className="flex items-center gap-3">
                 <div className="size-14 rounded-xl bg-card border border-border grid place-items-center"><Dumbbell className="size-6 text-[#4F46E5] dark:text-[#A8A2FF]" /></div>
                 <div>
-                  <div className="font-mono text-[11px] text-muted-foreground">{viewingType.id}</div>
+                  <div className="font-mono text-[11px] text-muted-foreground">{viewingType.code || viewingType.id}</div>
                   <h3 className="font-display text-[19px] mt-0.5">{viewingType.name}</h3>
                   <div className="flex items-center gap-1.5 mt-2">
                     <Badge tone="violet">{viewingType.category}</Badge>
@@ -2285,7 +2334,7 @@ function Equipment() {
             <div className="rounded-xl border border-border/70 bg-card overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
                 <h4 className="font-display">Danh sách thiết bị</h4>
-                <Button icon={Plus} onClick={() => { setItemForm({ room: ROOMS[0].name, status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
+                <Button icon={Plus} onClick={() => { setItemForm({ room: rooms[0]?.name ?? "", status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
               </div>
               {items.filter((i) => i.typeId === viewingType.id).length === 0
                 ? <p className="text-[13px] text-muted-foreground text-center py-6">Chưa có thiết bị nào.</p>
@@ -4045,12 +4094,17 @@ export default function App() {
   const location = useLocation();
   const [authed, setAuthed] = useState(() => localStorage.getItem("gymos_authed") === "true");
   const [role, setRole] = useState<Role>(() => {
-    const rawRole = (localStorage.getItem("gymos_role") as Role) || "owner";
-    return (rawRole as any) === "manager" ? "staff" : (rawRole as any) === "pt" ? "trainer" : rawRole;
+    let rawRole = localStorage.getItem("gymos_role");
+    if (!rawRole || rawRole === "undefined" || rawRole === "null") rawRole = "member";
+    return (rawRole as any) === "manager" ? "staff" : (rawRole as any) === "pt" ? "trainer" : (rawRole as Role);
   });
   const [user, setUser] = useState<any>(() => {
-    const stored = localStorage.getItem("gymos_user");
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem("gymos_user");
+      return stored && stored !== "undefined" ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   });
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));

@@ -15,6 +15,7 @@ EquipmentType.init(
     brand: { type: DataTypes.STRING },
     warrantyDuration: { type: DataTypes.INTEGER }, // Tính theo tháng
     description: { type: DataTypes.TEXT },
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
   },
   {
     sequelize,

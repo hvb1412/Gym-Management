@@ -2,7 +2,7 @@ import { Room } from '../models/index.js';
 
 export const getRooms = async (req, res) => {
     try {
-        const rooms = await Room.findAll();
+        const rooms = await Room.findAll({ where: { operatingStatus: 'active' } });
         res.status(200).json(rooms);
     } catch (error) {
         res.status(500).json({ message: "Lỗi khi lấy danh sách phòng tập", error: error.message });
@@ -37,13 +37,13 @@ export const updateRoom = async (req, res) => {
 export const deleteRoom = async (req, res) => {
     try {
         const { id } = req.params;
-        const room = await Room.findByPk(id);
+        const room = await Room.findOne({ where: { roomId: id, operatingStatus: 'active' } });
         if (!room) {
             return res.status(404).json({ message: "Không tìm thấy phòng tập" });
         }
-        await room.destroy();
-        res.status(200).json({ success: true, message: "Đã xóa phòng tập" });
+        await room.update({ operatingStatus: 'inactive' });
+        res.status(200).json({ success: true, message: "Đã vô hiệu hóa phòng tập thành công" });
     } catch (error) {
-        res.status(500).json({ message: "Lỗi khi xóa phòng tập", error: error.message });
+        res.status(500).json({ message: "Lỗi khi vô hiệu hóa phòng tập", error: error.message });
     }
 };

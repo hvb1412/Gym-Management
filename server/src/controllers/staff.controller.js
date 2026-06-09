@@ -86,7 +86,7 @@ export const getStaffByCode = catchAsync(async (req, res, next) => {
 
 // Tạo nhân sự mới
 export const createStaff = catchAsync(async (req, res, next) => {
-  const { name, role, email, phone, dateOfBirth, gender, address } = req.body;
+  const { name, role, email, phone, dateOfBirth, gender, address, code } = req.body;
   let { password } = req.body;
 
   // Kiểm tra email
@@ -119,13 +119,24 @@ export const createStaff = catchAsync(async (req, res, next) => {
       );
     }
 
-    // 2. Tạo staff code ngẫu nhiên (NS + 4 chữ số)
+    // 2. Xác định staff code: dùng code từ frontend nếu có, ngược lại tự sinh
     let staffCode;
-    let isUnique = false;
-    while (!isUnique) {
-      staffCode = "NS" + Math.floor(1000 + Math.random() * 9000);
-      const exist = await Staff.findOne({ where: { staffCode }, transaction });
-      if (!exist) isUnique = true;
+    if (code && code.trim() !== "") {
+      // Kiểm tra mã do người dùng nhập đã tồn tại chưa
+      const exist = await Staff.findOne({ where: { staffCode: code.trim() }, transaction });
+      if (exist) {
+        await transaction.rollback();
+        return next(new AppError("Mã nhân sự này đã tồn tại, vui lòng chọn mã khác", 409));
+      }
+      staffCode = code.trim();
+    } else {
+      // Tự sinh mã ngẫu nhiên (NS + 4 chữ số)
+      let isUnique = false;
+      while (!isUnique) {
+        staffCode = "NS" + Math.floor(1000 + Math.random() * 9000);
+        const exist = await Staff.findOne({ where: { staffCode }, transaction });
+        if (!exist) isUnique = true;
+      }
     }
 
     // 3. Tạo Staff

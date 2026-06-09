@@ -13,6 +13,7 @@ EquipmentReport.init(
     resolveStatus: { type: DataTypes.STRING, defaultValue: "Chờ xử lý" },
     errorDescription: { type: DataTypes.TEXT },
     reporterName: { type: DataTypes.STRING }, // since we might not have full auth context linked correctly
+    isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
   },
   {
     sequelize,
