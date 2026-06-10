@@ -4033,7 +4033,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   );
 }
 
-function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "card" | "qr" | "cash"; formData: any; pkgId: string; pkg: any; onBack: () => void; onComplete?: () => void }) {
+function Payment({ kind, formData, pkgId, pkg, onBack, onComplete, mode = "new" }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew" }) {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -4134,7 +4134,7 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
           <div className="mt-4 space-y-3 text-[13px]">
             {[
               ["Gói tập", pkg.name],
-              ["Hội viên", formData.memberName],
+              ["Hội viên", formData?.memberName || "Bạn"],
               ["Ngày bắt đầu", new Date().toLocaleDateString("vi-VN")]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
@@ -4158,6 +4158,27 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
               setLoading(true);
               setError(null);
               try {
+                const methodMap: Record<string, string> = { card: "card", qr: "transfer", cash: "cash" };
+                if (mode === "renew") {
+                  const rRes = await fetch("http://localhost:5000/api/v1/subscriptions/renew", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+                    },
+                    body: JSON.stringify({
+                      packageId: pkgId,
+                      paymentMethod: methodMap[kind] || "cash"
+                    })
+                  });
+                  const rData = await rRes.json();
+                  if (!rData.success) throw new Error(rData.message || "Lỗi gia hạn gói tập");
+                  
+                  setDone(true);
+                  if (onComplete) onComplete();
+                  return;
+                }
+
                 // 1. Create Member
                 const mRes = await fetch("http://localhost:5000/api/v1/members", {
                   method: "POST",
@@ -4194,10 +4215,9 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
                 const sData = await sRes.json();
                 if (!sData.success) throw new Error(sData.message || "Lỗi tạo subscription");
 
-                const subId = sData.data.subscription.subscriptionId;
+                const subId = sData.data.subscription.planId || sData.data.subscription.subscriptionId;
 
                 // 3. Process Payment
-                const methodMap: Record<string, string> = { card: "card", qr: "transfer", cash: "cash" };
                 const pRes = await fetch(`http://localhost:5000/api/v1/subscriptions/${subId}/pay`, {
                   method: "POST",
                   headers: {
@@ -4212,6 +4232,7 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
                 if (!pData.success) throw new Error(pData.message || "Lỗi thanh toán");
 
                 setDone(true);
+                if (onComplete) onComplete();
               } catch (err: any) {
                 setError(err.message);
               } finally {
@@ -4531,54 +4552,121 @@ function MemberPayments() {
   );
 }
 
-type MyFeedback = { id: string; d: string; c: string; s: string; r: string | null; type: "Thiết bị" | "Nhân viên"; ref?: string };
+type MyFeedback = { feedbackId: string; feedbackDate: string; feedbackContent: string; answerContent: string | null; feedbackType: string; createdAt?: string };
 function MemberFeedback() {
-  const [list, setList] = useState<MyFeedback[]>([
-    { id: "f1", d: "22/05/2026", c: "Phòng tắm thiếu khăn vào giờ cao điểm…", s: "Chờ xử lý", r: null, type: "Thiết bị" },
-    { id: "f2", d: "12/05/2026", c: "Đề xuất thêm lớp Yoga buổi tối thứ 4 và thứ 6.", s: "Đã phản hồi", r: "Cảm ơn bạn đã đóng góp. Trung tâm sẽ mở lớp Yoga thứ 6 từ tuần sau. ❤️", type: "Nhân viên" },
-  ]);
+  const [list, setList] = useState<MyFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+
+  const fetchFeedbacks = () => {
+    fetch("http://localhost:5000/api/v1/feedbacks/me", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setList(data.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchFeedbacks();
+    fetch("http://localhost:5000/api/v1/staffs")
+      .then(res => res.json())
+      .then(data => { if (data.success) setStaffList(data.data); });
+    fetch("http://localhost:5000/api/v1/equipments")
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setEquipmentList(data); });
+  }, []);
+
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
   const [fbType, setFbType] = useState<"Thiết bị" | "Nhân viên">("Thiết bị");
   const [ref, setRef] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const deleting = deleteId ? list.find((f) => f.id === deleteId) : null;
+  const deleting = deleteId ? list.find((f) => f.feedbackId === deleteId) : null;
 
-  const today = new Date().toLocaleDateString("vi-VN");
-  const submit = () => {
+  const submit = async () => {
     if (!content.trim()) return;
-    setList([{ id: "f" + Date.now(), d: today, c: content.trim(), s: "Chờ xử lý", r: null, type: fbType, ref: ref || undefined }, ...list]);
-    setContent(""); setRef("");
-    setOpen(false);
+    
+    let finalContent = content.trim();
+    if (ref) {
+       const refType = fbType === "Thiết bị" ? "Thiết bị liên quan" : "Nhân viên liên quan";
+       finalContent = `[${refType}: ${ref}]\n\n${finalContent}`;
+    }
+
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/feedbacks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+        },
+        body: JSON.stringify({
+          feedbackType: fbType,
+          feedbackContent: finalContent
+        })
+      });
+      if (res.ok) {
+        setContent(""); setRef(""); setOpen(false);
+        fetchFeedbacks();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const deleteFeedback = async () => {
+    if (!deleteId) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${deleteId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      });
+      if (res.ok) {
+        setDeleteId(null);
+        fetchFeedbacks();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Phản hồi của tôi" sub={`${list.length} phản hồi — theo dõi tiến độ xử lý`}
+      <SectionTitle title="Phản hồi của tôi" sub={loading ? "Đang tải..." : `${list.length} phản hồi — theo dõi tiến độ xử lý`}
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
-        {list.map((f) => (
-          <Card key={f.id}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <span>Bạn · {f.d}</span>
-                  <Badge tone={f.type === "Thiết bị" ? "amber" : "sky"}>{f.type}</Badge>
-                  <StatusPill value={f.s} />
-                </div>
-                <p className="mt-2 text-[14px]">{f.c}</p>
-                {f.r && (
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
-                    <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ quản lý</div>
-                    <p className="text-[13px] mt-1">{f.r}</p>
+        {list.map((f) => {
+          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("vi-VN") : "";
+          const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
+          return (
+            <Card key={f.feedbackId}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <span>Bạn · {d}</span>
+                    <Badge tone={f.feedbackType === "Thiết bị" ? "amber" : "sky"}>{f.feedbackType}</Badge>
+                    <StatusPill value={s} />
                   </div>
+                  <p className="mt-2 text-[14px] whitespace-pre-wrap">{f.feedbackContent}</p>
+                  {f.answerContent && (
+                    <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
+                      <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ quản lý</div>
+                      <p className="text-[13px] mt-1 whitespace-pre-wrap">{f.answerContent}</p>
+                    </div>
+                  )}
+                </div>
+                {!f.answerContent && (
+                  <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.feedbackId)} />
                 )}
               </div>
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.id)} />
-            </div>
-          </Card>
-        ))}
-        {list.length === 0 && (
+            </Card>
+          );
+        })}
+        {!loading && list.length === 0 && (
           <Card><div className="text-center text-muted-foreground py-6 text-[13px]">Bạn chưa gửi phản hồi nào</div></Card>
         )}
       </div>
@@ -4602,7 +4690,7 @@ function MemberFeedback() {
               <select value={ref} onChange={(e) => setRef(e.target.value)}
                 className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="">— Không chọn —</option>
-                {EQUIPMENT_ITEMS.map((i) => <option key={i.code} value={i.code}>{i.code} — {i.room}</option>)}
+                {equipmentList.map((i) => <option key={i.equipmentCode} value={i.equipmentCode}>{i.equipmentCode} — {i.Room?.roomName}</option>)}
               </select>
             </Field>
           )}
@@ -4611,7 +4699,7 @@ function MemberFeedback() {
               <select value={ref} onChange={(e) => setRef(e.target.value)}
                 className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="">— Không chọn —</option>
-                {STAFF.map((s) => <option key={s.code} value={s.code}>{s.code} — {s.name} ({s.role})</option>)}
+                {staffList.map((s) => <option key={s.code} value={s.code}>{s.code} — {s.name} ({s.role})</option>)}
               </select>
             </Field>
           )}
@@ -4624,25 +4712,28 @@ function MemberFeedback() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((f) => f.id !== deleteId)); setDeleteId(null); }}>Xóa phản hồi</Button>
+          <Button icon={Trash2} onClick={deleteFeedback}>Xóa phản hồi</Button>
         </>}>
-        {deleting && (
-          <div className="space-y-3">
-            <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa phản hồi đã gửi ngày <span className="font-medium">{deleting.d}</span>?</p>
-            <p className="text-[12.5px] text-muted-foreground line-clamp-2">"{deleting.c}"</p>
-          </div>
-        )}
+        {deleting && (() => {
+          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("vi-VN") : "";
+          return (
+            <div className="space-y-3">
+              <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
+              <p className="text-[14px]">Xóa phản hồi đã gửi ngày <span className="font-medium">{d}</span>?</p>
+              <p className="text-[12.5px] text-muted-foreground line-clamp-2">"{deleting.feedbackContent}"</p>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );
 }
 
-function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: string) => void }) {
+function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChange: (id: string) => void; packages: any[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const list = PACKAGES.filter((p) => p.status === "Đang kinh doanh");
-  const selected = list.find((p) => p.id === pkgId);
+  const list = packages;
+  const selected = list.find((p) => p.packageId === pkgId);
 
   useEffect(() => {
     if (!open) return;
@@ -4652,10 +4743,12 @@ function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: st
   }, [open]);
 
   const renderRow = (p: typeof list[number], inList: boolean) => {
+    const isSession = p.packageType === "session";
+    const durationLabel = isSession ? `${p.numberOfWorkout || 0} buổi` : `${p.duration || 0} ${p.durationUnit || "tháng"}`;
     const perks = [
-      p.type.includes("buổi") ? `${p.type} (theo lượt tập)` : `Tập không giới hạn trong ${p.type}`,
-      p.vip ? "Phòng tắm VIP + tủ đồ riêng" : "Sử dụng toàn bộ khu vực tập luyện",
-      p.trainer ? "Có Huấn luyện viên 1-kèm-1" : "Tự tập theo lịch cá nhân",
+      isSession ? `${durationLabel} (theo lượt tập)` : `Tập không giới hạn trong ${durationLabel}`,
+      p.vipIncluded ? "Phòng tắm VIP + tủ đồ riêng" : "Sử dụng toàn bộ khu vực tập luyện",
+      p.trainerIncluded ? "Có Huấn luyện viên 1-kèm-1" : "Tự tập theo lịch cá nhân",
     ];
     return (
       <div className="flex items-start gap-3 w-full">
@@ -4665,15 +4758,15 @@ function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: st
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-[11px] text-muted-foreground">{p.id}</span>
-              <span className="font-display font-semibold text-[14px] truncate">{p.name}</span>
+              <span className="font-mono text-[11px] text-muted-foreground">{p.packageCode}</span>
+              <span className="font-display font-semibold text-[14px] truncate">{p.packageName}</span>
             </div>
-            <div className="font-display font-bold text-[15px] whitespace-nowrap">{p.price.toLocaleString("vi-VN")} ₫</div>
+            <div className="font-display font-bold text-[15px] whitespace-nowrap">{Number(p.price).toLocaleString("vi-VN")} ₫</div>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <Badge tone="sky">{p.type}</Badge>
-            {p.vip && <Badge tone="amber">★ VIP</Badge>}
-            {p.trainer && <Badge tone="violet">Có HLV</Badge>}
+            <Badge tone="sky">{durationLabel}</Badge>
+            {p.vipIncluded && <Badge tone="amber">★ VIP</Badge>}
+            {p.trainerIncluded && <Badge tone="violet">Có HLV</Badge>}
           </div>
           {inList && (
             <ul className="mt-2 space-y-1 text-[11.5px] text-muted-foreground">
@@ -4703,10 +4796,10 @@ function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: st
         <div className="absolute z-30 left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
           <div className="max-h-[360px] overflow-y-auto py-1">
             {list.map((p) => {
-              const active = p.id === pkgId;
+              const active = p.packageId === pkgId;
               return (
-                <button key={p.id} type="button"
-                  onClick={() => { onChange(p.id); setOpen(false); }}
+                <button key={p.packageId} type="button"
+                  onClick={() => { onChange(p.packageId); setOpen(false); }}
                   className={cn("w-full text-left px-3 py-3 border-b border-border/60 last:border-0 transition",
                     active ? "bg-[#6C63FF]/10" : "hover:bg-muted/60")}>
                   {renderRow(p, true)}
@@ -4725,8 +4818,40 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/packages")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
+      });
+    
+    fetch("http://localhost:5000/api/v1/subscriptions/me", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data.subscriptions) {
+          const active = data.data.subscriptions.find((s: any) => s.status === 'active');
+          if (active) setCurrentPlan(active);
+        }
+      });
+  }, []);
+
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
-  if (pay) return <Payment kind={pay} onBack={() => { setPay(null); setSelected(null); }} />;
+  if (pay) {
+    const pkg = packages.find((p) => p.packageId === selected);
+    return <Payment kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} onBack={() => { setPay(null); setSelected(null); }} onComplete={() => navigate("/history")} />;
+  }
+
+  const calDaysRemain = (expireDate: string) => {
+    const diff = new Date(expireDate).getTime() - new Date().getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
+  };
+
   return (
     <div className="space-y-5">
       {onBack && (
@@ -4739,16 +4864,25 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <Badge tone="amber">Gói hiện tại</Badge>
-            <h3 className="font-display text-[20px] mt-2">Elite VIP 6 tháng</h3>
-            <div className="text-[12.5px] text-muted-foreground">Còn 172 ngày — Hết hạn 12/11/2026</div>
+            {currentPlan ? (
+              <>
+                <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("vi-VN")}</div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-display text-[20px] mt-2 text-muted-foreground">Chưa có gói tập</h3>
+                <div className="text-[12.5px] text-muted-foreground">Bạn chưa đăng ký gói tập nào hoặc gói đã hết hạn.</div>
+              </>
+            )}
           </div>
-          <Badge tone="emerald">Đang hoạt động</Badge>
+          <Badge tone={currentPlan ? "emerald" : "zinc"}>{currentPlan ? "Đang hoạt động" : "Không có gói"}</Badge>
         </div>
       </Card>
       <Card>
         <h3 className="font-display mb-4">Chọn gói gia hạn</h3>
         <Field label="Gói tập">
-          <PackageDropdown pkgId={pkgId} onChange={setPkgId} />
+          <PackageDropdown pkgId={pkgId} onChange={setPkgId} packages={packages} />
         </Field>
         {pkgId && (
           <div className="mt-5 flex justify-end">
@@ -4757,21 +4891,23 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         )}
       </Card>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${PACKAGES.find((p) => p.id === selected)?.name ?? ""}`} wide
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
           <Button variant="ghost" onClick={() => setSelected(null)}>Hủy</Button>
           <Button icon={ArrowRight} onClick={() => setPay(method)}>Tiến hành thanh toán</Button>
         </>}>
         {selected && (() => {
-          const pkg = PACKAGES.find((p) => p.id === selected)!;
+          const pkg = packages.find((p) => p.packageId === selected)!;
+          const isSession = pkg.packageType === "session";
+          const durationLabel = isSession ? `${pkg.numberOfWorkout || 0} buổi` : `${pkg.duration || 0} ${pkg.durationUnit || "tháng"}`;
           return (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border/70">
                 <div>
-                  <div className="font-display font-semibold text-[16px]">{pkg.name}</div>
-                  <div className="text-[12.5px] text-muted-foreground">{pkg.type}</div>
+                  <div className="font-display font-semibold text-[16px]">{pkg.packageName}</div>
+                  <div className="text-[12.5px] text-muted-foreground">{durationLabel}</div>
                 </div>
-                <div className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</div>
+                <div className="font-display font-bold text-[22px]">{Number(pkg.price).toLocaleString("vi-VN")} ₫</div>
               </div>
               <Field label="Phương thức thanh toán">
                 <div className="grid grid-cols-3 gap-2">

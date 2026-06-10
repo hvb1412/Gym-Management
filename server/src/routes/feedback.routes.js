@@ -8,42 +8,30 @@ import {
     getAllFeedbacks,
     createFeedback,
     answerFeedback,
-    deleteFeedback,
-    getFeedbackStats,
-    getReportStats
+    getMemberFeedbacks,
+    deleteFeedback
 } from "../controllers/feedback.controller.js";
 
 const router = express.Router();
 
-/* List all feedbacks (owner/staff) */
 router.get(
-    "/",
+    "/me",
     verifyToken,
-    getAllFeedbacks
+    getMemberFeedbacks
 );
 
-/* Feedback stats summary */
-router.get(
-    "/stats",
-    verifyToken,
-    getFeedbackStats
-);
-
-/* Report stats (revenue, members, packages) */
-router.get(
-    "/report-stats",
-    verifyToken,
-    getReportStats
-);
-
-/* Member creates a feedback */
 router.post(
     "/",
     verifyToken,
     createFeedback
 );
 
-/* Owner/staff replies to feedback */
+router.delete(
+    "/:id",
+    verifyToken,
+    deleteFeedback
+);
+
 router.put(
     "/:id/answer",
     verifyToken,

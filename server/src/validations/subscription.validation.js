@@ -24,3 +24,19 @@ export const paySubscriptionSchema = Joi.object({
       }),
   }),
 });
+
+export const renewSubscriptionSchema = Joi.object({
+  body: Joi.object({
+    packageId: Joi.string().uuid().required().messages({
+      'string.uuid': 'packageId phải là UUID hợp lệ',
+      'any.required': 'Vui lòng cung cấp packageId',
+    }),
+    paymentMethod: Joi.string()
+      .valid('cash', 'card', 'transfer')
+      .required()
+      .messages({
+        'any.only': "paymentMethod chỉ chấp nhận 'cash', 'card', hoặc 'transfer'",
+        'any.required': 'Vui lòng cung cấp paymentMethod',
+      }),
+  }),
+});

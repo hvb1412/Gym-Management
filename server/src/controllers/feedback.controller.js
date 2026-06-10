@@ -12,45 +12,68 @@ import {
     SubscriptionPackage
 } from "../models/index.js";
 
-/* GET all feedbacks (for owner/staff) with member name */
-export const getAllFeedbacks = catchAsync(async (req, res, next) => {
-    const feedbacks = await Feedback.findAll({
-        include: [
-            {
-                model: Member,
-                attributes: ["memberId", "memberName", "phoneNumber"],
-                include: [
-                    {
-                        model: Account,
-                        attributes: ["email"]
-                    }
-                ]
-            },
-            {
-                model: Staff,
-                as: "Answerer",
-                attributes: ["staffId", "staffName"]
-            }
-        ],
-        order: [["createdAt", "DESC"]]
-    });
+export const getMemberFeedbacks = catchAsync(
+    async (req, res, next) => {
+        const accountId = req.user.accountId;
+        
+        const member = await Member.findOne({
+            where: { accountId }
+        });
 
-    res.status(200).json({
-        success: true,
-        data: feedbacks
-    });
-});
+        if (!member) {
+            return next(new AppError("Member not found", 404));
+        }
 
-/* POST /feedbacks — member creates a feedback */
-export const createFeedback = catchAsync(async (req, res, next) => {
-    const { feedbackType, feedbackContent } = req.body;
-    const accountId = req.user.accountId;
+        const feedbacks = await Feedback.findAll({
+            where: { memberId: member.memberId },
+            order: [["feedbackDate", "DESC"], ["createdAt", "DESC"]]
+        });
 
-    const member = await Member.findOne({ where: { accountId } });
-
-    if (!member) {
-        return next(new AppError("Member not found", 404));
+        res.status(200).json({
+            success: true,
+            data: feedbacks
+        });
     }
+);
+
+export const deleteFeedback = catchAsync(
+    async (req, res, next) => {
+        const { id } = req.params;
+        const accountId = req.user.accountId;
+
+        const member = await Member.findOne({
+            where: { accountId }
+        });
+
+        if (!member) {
+            return next(new AppError("Member not found", 404));
+        }
+
+        const feedback = await Feedback.findOne({
+            where: {
+                feedbackId: id,
+                memberId: member.memberId
+            }
+        });
+
+        if (!feedback) {
+            return next(new AppError("Feedback not found or you don't have permission to delete it", 404));
+        }
+
+        await feedback.destroy();
+
+        res.status(200).json({
+            success: true,
+            message: "Feedback deleted successfully"
+        });
+    }
+);
+
+export const createFeedback = catchAsync(
+    async (req, res, next) => {
+
+        const { feedbackType, feedbackContent } =
+            req.body;
 
     const feedback = await Feedback.create({
         memberId: member.memberId,
