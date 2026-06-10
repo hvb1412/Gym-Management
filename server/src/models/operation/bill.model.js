@@ -22,10 +22,6 @@ Bill.init({
         type: DataTypes.DATE,
         allowNull: true,
     },
-    payDate: {
-        type: DataTypes.TIME,
-        allowNull: false,
-    }
 }, {
     sequelize,
     modelName: 'Bill',

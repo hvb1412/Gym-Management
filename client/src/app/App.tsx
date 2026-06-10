@@ -1982,7 +1982,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("vi-VN") : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
-            : e.usageStatus || "Hoạt động",
+              : e.usageStatus || "Hoạt động",
           rawStatus: e.usageStatus,
         })));
       }
@@ -2832,7 +2832,7 @@ function MaintenanceOwner() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa yêu cầu bảo trì"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { 
+          <Button icon={Trash2} onClick={() => {
             fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting.id}`, { method: "DELETE" }).then(() => { fetchReports(); setDeleteId(null); });
           }}>Xóa yêu cầu</Button>
         </>}>
@@ -3224,10 +3224,10 @@ function Reports({ view }: { view: string }) {
 
 function ReportsOverview() {
   const [revenue, setRevenue] = useState(0);
-  const [revenueByMonth, setRevenueByMonth] = useState<{m:string;v:number}[]>([]);
+  const [revenueByMonth, setRevenueByMonth] = useState<{ m: string; v: number }[]>([]);
   const [newMembers, setNewMembers] = useState(0);
   const [totalMembers, setTotalMembers] = useState(0);
-  const [membersByMonth, setMembersByMonth] = useState<{m:string;v:number}[]>([]);
+  const [membersByMonth, setMembersByMonth] = useState<{ m: string; v: number }[]>([]);
   const [staffCount, setStaffCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("gymos_token");
@@ -3259,7 +3259,7 @@ function ReportsOverview() {
         actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("vi-VN")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
-          { k: "Doanh thu", v: loading ? "…" : `${(revenue/1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
+          { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
           { k: "Hội viên mới", v: loading ? "…" : newMembers, icon: UserPlus, tone: "emerald" },
           { k: "Tổng hội viên", v: loading ? "…" : totalMembers.toLocaleString("vi-VN"), icon: Users, tone: "amber" },
           { k: "Nhân sự", v: loading ? "…" : staffCount, icon: ShieldCheck, tone: "sky" },
@@ -3344,7 +3344,7 @@ function ReportsOverview() {
 
 function RevenueReport() {
   const [txns, setTxns] = useState<any[]>([]);
-  const [revenueByMonth, setRevenueByMonth] = useState<{m:string;v:number}[]>([]);
+  const [revenueByMonth, setRevenueByMonth] = useState<{ m: string; v: number }[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"month" | "year">("month");
@@ -3397,7 +3397,7 @@ function RevenueReport() {
         <Card>
           <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Trung bình/tháng</div>
           <div className="font-display font-bold text-[28px] mt-1">
-            {loading || revenueByMonth.length === 0 ? "…" : `${Math.round(revenueByMonth.reduce((s,d)=>s+d.v,0)/revenueByMonth.length)} tr`}
+            {loading || revenueByMonth.length === 0 ? "…" : `${Math.round(revenueByMonth.reduce((s, d) => s + d.v, 0) / revenueByMonth.length)} tr`}
           </div>
           <Badge tone="sky">{revenueByMonth.length} tháng</Badge>
         </Card>
@@ -3460,8 +3460,8 @@ function RevenueReport() {
 
 
 function MembersReport() {
-  const [membersByMonth, setMembersByMonth] = useState<{m:string;v:number}[]>([]);
-  const [pkgBreakdown, setPkgBreakdown] = useState<{name:string;value:number}[]>([]);
+  const [membersByMonth, setMembersByMonth] = useState<{ m: string; v: number }[]>([]);
+  const [pkgBreakdown, setPkgBreakdown] = useState<{ name: string; value: number }[]>([]);
   const [newMembers, setNewMembers] = useState(0);
   const [totalMembers, setTotalMembers] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -3720,7 +3720,7 @@ function StaffReport() {
                   </div>
                   <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
                 </div>,
-                <IconBtn icon={Eye} onClick={() => {}} />,
+                <IconBtn icon={Eye} onClick={() => { }} />,
               ];
             })}
           />
@@ -4173,9 +4173,8 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete, mode = "new" 
                   });
                   const rData = await rRes.json();
                   if (!rData.success) throw new Error(rData.message || "Lỗi gia hạn gói tập");
-                  
+
                   setDone(true);
-                  if (onComplete) onComplete();
                   return;
                 }
 
@@ -4232,7 +4231,6 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete, mode = "new" 
                 if (!pData.success) throw new Error(pData.message || "Lỗi thanh toán");
 
                 setDone(true);
-                if (onComplete) onComplete();
               } catch (err: any) {
                 setError(err.message);
               } finally {
@@ -4590,11 +4588,11 @@ function MemberFeedback() {
 
   const submit = async () => {
     if (!content.trim()) return;
-    
+
     let finalContent = content.trim();
     if (ref) {
-       const refType = fbType === "Thiết bị" ? "Thiết bị liên quan" : "Nhân viên liên quan";
-       finalContent = `[${refType}: ${ref}]\n\n${finalContent}`;
+      const refType = fbType === "Thiết bị" ? "Thiết bị liên quan" : "Nhân viên liên quan";
+      finalContent = `[${refType}: ${ref}]\n\n${finalContent}`;
     }
 
     try {
@@ -4833,7 +4831,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
       .then(data => {
         if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
       });
-    
+
     fetch("http://localhost:5000/api/v1/subscriptions/me", {
       headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
     })
@@ -5198,4 +5196,4 @@ export default function App() {
       } />
     </Routes>
   );
-}
+}  
