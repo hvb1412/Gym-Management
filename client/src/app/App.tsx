@@ -3767,6 +3767,19 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
   );
 }
 
+const getExpireDate = (plan: any) => {
+  if (!plan) return null;
+  const pkg = plan.SubscriptionPackage;
+  if (plan.startDate && pkg?.duration && pkg?.durationUnit) {
+    const start = new Date(plan.startDate);
+    if (pkg.durationUnit === "days") start.setDate(start.getDate() + pkg.duration);
+    if (pkg.durationUnit === "months") start.setMonth(start.getMonth() + pkg.duration);
+    if (pkg.durationUnit === "years") start.setFullYear(start.getFullYear() + pkg.duration);
+    return start;
+  }
+  return plan.expireDate ? new Date(plan.expireDate) : null;
+};
+
 function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: (id: string) => void; onAdd: () => void; readonly?: boolean; disablePackage?: boolean }) {
   const [list, setList] = useState<any[]>([]);
   const [query, setQuery] = useState("");
@@ -3784,7 +3797,8 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
 
   const computeStatus = (plan: any): string => {
     if (!plan) return "Chưa có gói";
-    const expire = new Date(plan.expireDate);
+    const expire = getExpireDate(plan);
+    if (!expire) return "Đang hoạt động";
     const diffDays = Math.ceil((expire.getTime() - Date.now()) / 86400000);
     if (diffDays < 0) return "Đã hết hạn";
     if (diffDays <= 14) return "Sắp hết hạn";
@@ -3794,7 +3808,8 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
   const formatRemain = (plan: any): string => {
     if (!plan) return "—";
     if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
-    if (plan.expireDate) return new Date(plan.expireDate).toLocaleDateString("vi-VN");
+    const expire = getExpireDate(plan);
+    if (expire) return expire.toLocaleDateString("vi-VN");
     return "—";
   };
 
@@ -4371,6 +4386,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
   const [saving, setSaving] = useState(false);
   const [deletingMember, setDeletingMember] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const [checked, setChecked] = useState(false);
 
   const token = localStorage.getItem("gymos_token");
   const headers: any = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -4440,7 +4456,9 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
   const plan = member.activePlan;
   const pkg = plan?.SubscriptionPackage;
-  const expireDate = plan?.expireDate ? new Date(plan.expireDate) : null;
+  
+  const expireDate = getExpireDate(plan);
+  
   const diffDays = expireDate ? Math.ceil((expireDate.getTime() - Date.now()) / 86400000) : null;
 
   return (
@@ -4469,6 +4487,9 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && !disablePackage && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
+            <Button variant={checked ? "danger" : "secondary"} icon={CheckCircle2} onClick={() => setChecked(!checked)}>
+              {checked ? "Check out hôm nay" : "Check in hôm nay"}
+            </Button>
           </div>
         </div>
 
