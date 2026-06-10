@@ -4003,6 +4003,8 @@ function NewMember({ onBack }: { onBack?: () => void }) {
 
   const [sellable, setSellable] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
+  const [trainerList, setTrainerList] = useState<any[]>([]);
+  const [trainerId, setTrainerId] = useState("");
 
   const [formData, setFormData] = useState({
     memberName: "",
@@ -4016,27 +4018,34 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   });
   const updateForm = (k: string, v: any) => setFormData(prev => ({ ...prev, [k]: v }));
 
+  const token = localStorage.getItem("gymos_token");
   useEffect(() => {
+    const headers: any = { Authorization: `Bearer ${token}` };
     fetch("http://localhost:5000/api/v1/packages")
-      .then(res => res.json())
+      .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.status === "active").map((d: any) => ({
-            id: d.packageId,
-            name: d.packageName,
+          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive).map((d: any) => ({
+            id: d.packageId, name: d.packageName,
             type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
-            price: Number(d.price),
-            vip: d.vipIncluded,
-            trainer: d.trainerIncluded
+            price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded
           }));
           setSellable(list);
           if (list.length > 0) setPkgId(list[0].id);
         }
       });
+    fetch("http://localhost:5000/api/v1/staffs", { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setTrainerList((res.data || []).filter((s: any) => s.role === "Huấn luyện viên"));
+        }
+      });
   }, []);
 
+
   const pkg = sellable.find((p) => p.id === pkgId);
-  if (pay && pkg) return <Payment kind={pay} formData={formData} pkgId={pkgId} pkg={pkg} onBack={() => setPay(null)} onComplete={onBack} />;
+  if (pay && pkg) return <Payment kind={pay} formData={formData} pkgId={pkgId} pkg={pkg} trainerId={trainerId} onBack={() => setPay(null)} onComplete={onBack} />;
   return (
     <div className="space-y-6">
       {onBack && (
@@ -4122,8 +4131,11 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               {pkg?.trainer && (
                 <Field label="Huấn luyện viên" hint="Bắt buộc khi gói có Trainer">
                   <div className="relative">
-                    <select className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-                      <option>Lê Đức Mạnh</option><option>Phan Thu Hà</option><option>Đỗ Anh Tuấn</option>
+                    <select value={trainerId} onChange={(e: any) => setTrainerId(e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
+                      <option value="">— Chọn huấn luyện viên —</option>
+                      {trainerList.map((t: any) => (
+                        <option key={t.staffId || t.code} value={t.staffId || t.code}>{t.name}</option>
+                      ))}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                   </div>
@@ -4163,7 +4175,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   );
 }
 
-function Payment({ kind, formData, pkgId, pkg, onBack, onComplete, mode = "new" }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew" }) {
+function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplete, mode = "new" }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; trainerId?: string; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew" }) {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -4338,7 +4350,8 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete, mode = "new" 
                   },
                   body: JSON.stringify({
                     memberId,
-                    packageId: pkgId
+                    packageId: pkgId,
+                    ...(trainerId ? { trainerId } : {})
                   })
                 });
                 const sData = await sRes.json();
@@ -5174,16 +5187,44 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
 
 /* ── PT students ── */
 function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
-  const [list, setList] = useState<MemberRecord[]>(MEMBERS.slice(0, 4));
+  const [list, setList] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
-  const [editId, setEditId] = useState<string | null>(null);
+
+  const token = localStorage.getItem("gymos_token");
+  const headers: any = { Authorization: `Bearer ${token}` };
+
+  const computeStatus = (plan: any): string => {
+    if (!plan) return "Chưa có gói";
+    const expire = getExpireDate(plan);
+    if (!expire) return "Đang hoạt động";
+    const diff = Math.ceil((expire.getTime() - Date.now()) / 86400000);
+    if (diff < 0) return "Đã hết hạn";
+    if (diff <= 14) return "Sắp hết hạn";
+    return "Đang hoạt động";
+  };
+
+  const formatRemain = (plan: any): string => {
+    if (!plan) return "—";
+    const expire = getExpireDate(plan);
+    if (expire) return expire.toLocaleDateString("vi-VN");
+    return "—";
+  };
+
+  const fetchStudents = () => {
+    const params = query.trim() ? `?search=${encodeURIComponent(query.trim())}` : "";
+    fetch(`http://localhost:5000/api/v1/members/my-students${params}`, { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) setList(res.data.members);
+      });
+  };
+
+  useEffect(() => { fetchStudents(); }, [query]);
 
   const filtered = list.filter((m) =>
-    (statusFilter === "Tất cả" || m.status === statusFilter) &&
-    (m.name.toLowerCase().includes(query.toLowerCase()) || m.code.toLowerCase().includes(query.toLowerCase()) || m.phone.includes(query))
+    statusFilter === "Tất cả" || computeStatus(m.activePlan) === statusFilter
   );
-  const editing = editId ? list.find((m) => m.code === editId) : null;
 
   return (
     <div className="space-y-5">
@@ -5199,15 +5240,14 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
         <DataTable
           head={["Mã HV", "Họ tên", "SĐT", "Gói tập", "Hạn / Buổi còn lại", "Trạng thái", ""]}
           rows={filtered.map((m) => [
-            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{m.code}</span>,
-            <button onClick={() => onSelect(m.code)} className="font-medium hover:text-[#4F46E5] dark:text-[#A8A2FF]">{m.name}</button>,
-            <span className="font-mono text-[12.5px]">{m.phone}</span>,
-            <Badge tone="violet">{m.pkg}</Badge>,
-            <span className="text-muted-foreground">{m.remain}</span>,
-            <StatusPill value={m.status} />,
+            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{m.memberId.substring(0, 8).toUpperCase()}</span>,
+            <button onClick={() => onSelect(m.memberId)} className="font-medium hover:text-[#4F46E5] dark:text-[#A8A2FF]">{m.memberName}</button>,
+            <span className="font-mono text-[12.5px]">{m.phoneNumber || "—"}</span>,
+            <Badge tone="violet">{m.activePlan?.SubscriptionPackage?.packageName ?? "Chưa có gói"}</Badge>,
+            <span className="text-muted-foreground">{formatRemain(m.activePlan)}</span>,
+            <StatusPill value={computeStatus(m.activePlan)} />,
             <div className="flex items-center justify-end gap-0.5">
-              <IconBtn icon={Eye} onClick={() => onSelect(m.code)} />
-              <IconBtn icon={Pencil} onClick={() => setEditId(m.code)} />
+              <IconBtn icon={Eye} onClick={() => onSelect(m.memberId)} />
             </div>,
           ])}
         />
@@ -5215,11 +5255,6 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
           <div className="text-center text-muted-foreground py-10 text-[13px]">Không có học viên nào khớp với bộ lọc</div>
         )}
       </Card>
-
-      <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa học viên — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <MemberForm data={editing} disablePackage />}
-      </Modal>
     </div>
   );
 }
