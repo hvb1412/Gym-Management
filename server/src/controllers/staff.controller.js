@@ -39,6 +39,7 @@ export const getAllStaffs = catchAsync(async (req, res, next) => {
 
     return {
       code: staff.staffCode,
+      staffId: staff.staffId,
       name: staff.staffName,
       role: mapPositionToRole(staff.position),
       email: staff.Account?.email || "",

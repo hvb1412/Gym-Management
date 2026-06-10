@@ -10,6 +10,9 @@ export const createSubscriptionSchema = Joi.object({
       'string.uuid': 'packageId phải là UUID hợp lệ',
       'any.required': 'Vui lòng cung cấp packageId',
     }),
+    trainerId: Joi.string().uuid().optional().allow(null, '').messages({
+      'string.uuid': 'trainerId phải là UUID hợp lệ',
+    }),
   }),
 });
 

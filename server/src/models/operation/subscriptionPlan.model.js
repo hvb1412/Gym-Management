@@ -34,6 +34,10 @@ SubscriptionPlan.init(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
+    trainerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
     status: {
       type: DataTypes.ENUM("pending_payment", "active", "expired", "cancelled"),
       defaultValue: "pending_payment",

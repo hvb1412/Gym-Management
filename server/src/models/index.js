@@ -55,6 +55,10 @@ WorkoutLog.belongsTo(Member, { foreignKey: "memberId" });
 Staff.hasMany(WorkoutLog, { foreignKey: "recorderId" });
 WorkoutLog.belongsTo(Staff, { foreignKey: "recorderId", as: "Recorder" });
 
+// 5b. Trainer phụ trách SubscriptionPlan
+Staff.hasMany(SubscriptionPlan, { foreignKey: "trainerId", as: "TrainedPlans" });
+SubscriptionPlan.belongsTo(Staff, { foreignKey: "trainerId", as: "Trainer" });
+
 // 6. Phản hồi
 Member.hasMany(Feedback, { foreignKey: "memberId" });
 Feedback.belongsTo(Member, { foreignKey: "memberId" });
