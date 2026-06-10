@@ -4612,9 +4612,14 @@ function MemberFeedback() {
       if (res.ok) {
         setContent(""); setRef(""); setOpen(false);
         fetchFeedbacks();
+      } else {
+        const errorData = await res.json();
+        console.error("API Error:", errorData);
+        alert(errorData.message || "Có lỗi xảy ra khi gửi phản hồi!");
       }
     } catch (e) {
       console.error(e);
+      alert("Không thể kết nối đến máy chủ.");
     }
   };
 

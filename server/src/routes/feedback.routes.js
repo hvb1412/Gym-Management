@@ -8,6 +8,7 @@ import {
     createFeedback,
     answerFeedback,
     getMemberFeedbacks,
+    getAllFeedbacks,
     deleteFeedback
 } from "../controllers/feedback.controller.js";
 
@@ -17,6 +18,12 @@ router.get(
     "/me",
     verifyToken,
     getMemberFeedbacks
+);
+
+router.get(
+    "/",
+    verifyToken,
+    getAllFeedbacks
 );
 
 router.post(

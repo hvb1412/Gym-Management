@@ -36,25 +36,50 @@ export const getMemberFeedbacks = catchAsync(
     }
 );
 
+export const getAllFeedbacks = catchAsync(async (req, res, next) => {
+    const feedbacks = await Feedback.findAll({
+        include: [
+            {
+                model: Member,
+                attributes: ["memberId", "memberName", "phoneNumber", "accountId"]
+            },
+            {
+                model: Staff,
+                as: "Answerer",
+                attributes: ["staffId", "staffName"]
+            }
+        ],
+        order: [["feedbackDate", "DESC"], ["createdAt", "DESC"]]
+    });
+
+    res.status(200).json({
+        success: true,
+        data: feedbacks
+    });
+});
+
 export const deleteFeedback = catchAsync(
     async (req, res, next) => {
         const { id } = req.params;
         const accountId = req.user.accountId;
 
-        const member = await Member.findOne({
-            where: { accountId }
-        });
+        let feedback;
 
-        if (!member) {
-            return next(new AppError("Member not found", 404));
-        }
-
-        const feedback = await Feedback.findOne({
-            where: {
-                feedbackId: id,
-                memberId: member.memberId
+        if (req.user.role === 'member') {
+            const member = await Member.findOne({ where: { accountId } });
+            if (!member) {
+                return next(new AppError("Member not found", 404));
             }
-        });
+            feedback = await Feedback.findOne({
+                where: {
+                    feedbackId: id,
+                    memberId: member.memberId
+                }
+            });
+        } else {
+            // Staff/Owner can delete any feedback
+            feedback = await Feedback.findByPk(id);
+        }
 
         if (!feedback) {
             return next(new AppError("Feedback not found or you don't have permission to delete it", 404));
@@ -101,10 +126,15 @@ export const answerFeedback = catchAsync(async (req, res, next) => {
     const { answerContent } = req.body;
     const accountId = req.user.accountId;
 
-    const staff = await Staff.findOne({ where: { accountId } });
+    const staffId = req.user.staffId;
+    let finalStaffId = staffId;
 
-    if (!staff) {
-        return next(new AppError("Staff not found", 404));
+    if (!finalStaffId) {
+        const staff = await Staff.findOne({ where: { accountId } });
+        if (!staff) {
+            return next(new AppError("Staff not found", 404));
+        }
+        finalStaffId = staff.staffId;
     }
 
     const feedback = await Feedback.findByPk(id);
@@ -116,7 +146,7 @@ export const answerFeedback = catchAsync(async (req, res, next) => {
     await feedback.update({
         answerContent,
         answerDate: new Date(),
-        answererId: staff.staffId
+        answererId: finalStaffId
     });
 
     res.status(200).json({
