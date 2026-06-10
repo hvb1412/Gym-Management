@@ -19,149 +19,90 @@ import {
 type Role = "owner" | "staff" | "trainer" | "member";
 
 const ROLE_META: Record<Role, { name: string; person: string; initials: string; tone: string }> = {
-  owner:   { name: "Chủ phòng tập",     person: "Nguyễn Quang Huy",  initials: "QH", tone: "from-violet-500 to-indigo-600" },
-  staff:   { name: "Nhân viên quản lý", person: "Trần Mỹ Linh",       initials: "ML", tone: "from-emerald-400 to-teal-600" },
-  trainer: { name: "Huấn luyện viên",   person: "Lê Đức Mạnh",        initials: "ĐM", tone: "from-amber-400 to-orange-600" },
-  member:  { name: "Hội viên",          person: "Phạm Khánh An",      initials: "KA", tone: "from-sky-400 to-cyan-600" },
+  owner: { name: "Chủ phòng tập", person: "Nguyễn Quang Huy", initials: "QH", tone: "from-violet-500 to-indigo-600" },
+  staff: { name: "Nhân viên quản lý", person: "Trần Mỹ Linh", initials: "ML", tone: "from-emerald-400 to-teal-600" },
+  trainer: { name: "Huấn luyện viên", person: "Lê Đức Mạnh", initials: "ĐM", tone: "from-amber-400 to-orange-600" },
+  member: { name: "Hội viên", person: "Phạm Khánh An", initials: "KA", tone: "from-sky-400 to-cyan-600" },
 };
 
 const ACCOUNTS: { role: Role; email: string; password: string }[] = [
-  { role: "owner",   email: "owner@gymos.vn",   password: "owner@123"   },
-  { role: "staff",   email: "staff@gymos.vn",   password: "staff@123"   },
+  { role: "owner", email: "owner@gymos.vn", password: "owner@123" },
+  { role: "staff", email: "staff@gymos.vn", password: "staff@123" },
   { role: "trainer", email: "trainer@gymos.vn", password: "trainer@123" },
-  { role: "member",  email: "member@gymos.vn",  password: "member@123"  },
+  { role: "member", email: "member@gymos.vn", password: "member@123" },
 ];
 
 type Nav = { id: string; label: string; icon: any; children?: { id: string; label: string }[] };
 
 const NAV: Record<Role, Nav[]> = {
   owner: [
-    { id: "home",       label: "Trang chủ",         icon: Home },
-    { id: "staff",      label: "Quản lý nhân sự",   icon: Users, children: [
-      { id: "staff",     label: "Danh sách nhân sự" },
-      { id: "attendance",label: "Chấm công nhân sự" },
-    ]},
-    { id: "packages",   label: "Quản lý gói tập",   icon: LayoutGrid },
-    { id: "rooms",      label: "Quản lý phòng tập", icon: Building2 },
-    { id: "equipment",  label: "Quản lý thiết bị",  icon: Dumbbell, children: [
-      { id: "equipment",             label: "Danh sách loại thiết bị" },
-      { id: "equipment.maintenance", label: "Xử lý bảo trì" },
-    ]},
-    { id: "feedback",   label: "Phản hồi hội viên", icon: MessageSquare },
-    { id: "reports",    label: "Báo cáo thống kê",  icon: BarChart3, children: [
-      { id: "reports",         label: "Báo cáo chung" },
-      { id: "reports.revenue", label: "Thống kê doanh thu" },
-      { id: "reports.members", label: "Thống kê hội viên" },
-      { id: "reports.staff",   label: "Thống kê nhân sự" },
-    ]},
+    { id: "home", label: "Trang chủ", icon: Home },
+    {
+      id: "staff", label: "Quản lý nhân sự", icon: Users, children: [
+        { id: "staff", label: "Danh sách nhân sự" },
+        { id: "attendance", label: "Chấm công nhân sự" },
+      ]
+    },
+    { id: "packages", label: "Quản lý gói tập", icon: LayoutGrid },
+    { id: "rooms", label: "Quản lý phòng tập", icon: Building2 },
+    {
+      id: "equipment", label: "Quản lý thiết bị", icon: Dumbbell, children: [
+        { id: "equipment", label: "Danh sách loại thiết bị" },
+        { id: "equipment.maintenance", label: "Xử lý bảo trì" },
+      ]
+    },
+    { id: "feedback", label: "Phản hồi hội viên", icon: MessageSquare },
+    {
+      id: "reports", label: "Báo cáo thống kê", icon: BarChart3, children: [
+        { id: "reports", label: "Báo cáo chung" },
+        { id: "reports.revenue", label: "Thống kê doanh thu" },
+        { id: "reports.members", label: "Thống kê hội viên" },
+        { id: "reports.staff", label: "Thống kê nhân sự" },
+      ]
+    },
   ],
   staff: [
-    { id: "home",        label: "Trang chủ",         icon: Home },
-    { id: "members",     label: "Quản lý hội viên",  icon: Users, children: [
-      { id: "members",   label: "Danh sách hội viên" },
-      { id: "feedback",  label: "Phản hồi hội viên" },
-    ]},
-    { id: "maintenance", label: "Bảo trì thiết bị",  icon: Wrench },
+    { id: "home", label: "Trang chủ", icon: Home },
+    {
+      id: "members", label: "Quản lý hội viên", icon: Users, children: [
+        { id: "members", label: "Danh sách hội viên" },
+        { id: "feedback", label: "Phản hồi hội viên" },
+      ]
+    },
+    { id: "maintenance", label: "Bảo trì thiết bị", icon: Wrench },
   ],
   trainer: [
-    { id: "home",     label: "Trang chủ",        icon: Home },
+    { id: "home", label: "Trang chủ", icon: Home },
     { id: "students", label: "Quản lý học viên", icon: Users },
   ],
   member: [
-    { id: "home",     label: "Trang chủ",       icon: Home },
-    { id: "renew",    label: "Gia hạn gói tập", icon: CreditCard },
-    { id: "history",    label: "Lịch sử tập luyện",  icon: CalIcon },
-    { id: "mpayments",  label: "Lịch sử thanh toán", icon: Receipt },
-    { id: "mfeedback",  label: "Phản hồi",            icon: MessageSquare },
+    { id: "home", label: "Trang chủ", icon: Home },
+    { id: "renew", label: "Gia hạn gói tập", icon: CreditCard },
+    { id: "history", label: "Lịch sử tập luyện", icon: CalIcon },
+    { id: "mpayments", label: "Lịch sử thanh toán", icon: Receipt },
+    { id: "mfeedback", label: "Phản hồi", icon: MessageSquare },
   ],
 };
 
-const STAFF = [
-  { code: "NS001", name: "Trần Mỹ Linh",   role: "Nhân viên quản lý", email: "linh.tm@gymos.vn",   phone: "0901 234 567", join: "12/03/2023", status: "Đang làm" },
-  { code: "NS002", name: "Lê Đức Mạnh",     role: "Huấn luyện viên",   email: "manh.ld@gymos.vn",   phone: "0938 111 222", join: "04/06/2023", status: "Đang làm" },
-  { code: "NS003", name: "Phan Thu Hà",     role: "Huấn luyện viên",   email: "ha.pt@gymos.vn",     phone: "0912 888 919", join: "20/09/2023", status: "Đang làm" },
-  { code: "NS004", name: "Nguyễn Văn Khoa", role: "Nhân viên quản lý", email: "khoa.nv@gymos.vn",   phone: "0977 545 121", join: "01/11/2023", status: "Nghỉ phép" },
-  { code: "NS005", name: "Đỗ Anh Tuấn",     role: "Huấn luyện viên",   email: "tuan.da@gymos.vn",   phone: "0902 343 998", join: "15/01/2024", status: "Đang làm" },
-  { code: "NS006", name: "Vũ Thị Bích",     role: "Nhân viên quản lý", email: "bich.vt@gymos.vn",   phone: "0913 234 565", join: "07/02/2024", status: "Đang làm" },
-];
+const STAFF: any[] = [];
 
-const PACKAGES = [
-  { id: "PK01", name: "Gym Starter",    type: "12 buổi",   vip: false, trainer: false, price: 1200000,  status: "Đang kinh doanh" },
-  { id: "PK02", name: "Gym Pro 3 tháng",type: "3 tháng",   vip: false, trainer: false, price: 2400000,  status: "Đang kinh doanh" },
-  { id: "PK03", name: "Elite VIP 6T",   type: "6 tháng",   vip: true,  trainer: true,  price: 9800000,  status: "Đang kinh doanh" },
-  { id: "PK04", name: "Yoga Flow 1T",   type: "1 tháng",   vip: false, trainer: false, price: 850000,   status: "Đang kinh doanh" },
-  { id: "PK05", name: "Personal 24B",   type: "24 buổi",   vip: false, trainer: true,  price: 5600000,  status: "Đang kinh doanh" },
-  { id: "PK06", name: "Combo Cardio",   type: "20 buổi",   vip: false, trainer: false, price: 1900000,  status: "Ngừng kinh doanh" },
-];
+const PACKAGES: any[] = [];
 
-const ROOMS = [
-  { id: "PT01", name: "Sảnh Gym A",     type: "Gym",     count: 24, status: "Hoạt động" },
-  { id: "PT02", name: "Cardio Zone",    type: "Cardio",  count: 18, status: "Hoạt động" },
-  { id: "PT03", name: "Yoga Studio",    type: "Yoga",    count: 8,  status: "Hoạt động" },
-  { id: "PT04", name: "Fitness Lab",    type: "Fitness", count: 14, status: "Bảo trì" },
-  { id: "PT05", name: "Boxing Room",    type: "Other",   count: 9,  status: "Hoạt động" },
-];
+const ROOMS: any[] = [];
 
-const EQUIPMENT_TYPES = [
-  { id: "ET01", name: "Máy chạy bộ",     category: "Cardio",  brand: "Matrix",  warranty: 24, count: 12, desc: "Máy chạy bộ điện tử cao cấp dùng cho khu Cardio." },
-  { id: "ET02", name: "Xe đạp tĩnh",     category: "Cardio",  brand: "Keiser",  warranty: 18, count: 10, desc: "Xe đạp tĩnh với hệ thống kháng lực từ tính." },
-  { id: "ET03", name: "Tạ đa năng",      category: "Gym",     brand: "Smith",   warranty: 36, count: 8,  desc: "Giàn tạ đa năng cho khu vực Free Weight." },
-  { id: "ET04", name: "Máy kéo cáp",     category: "Gym",     brand: "Hoist",   warranty: 24, count: 6,  desc: "Máy tập kéo cáp toàn thân." },
-  { id: "ET05", name: "Thảm Yoga",       category: "Yoga",    brand: "Liforme", warranty: 12, count: 30, desc: "Thảm Yoga chống trượt, dày 6mm." },
-  { id: "ET06", name: "Bao đấm Boxing",  category: "Other",   brand: "Everlast",warranty: 12, count: 5,  desc: "Bao đấm tiêu chuẩn thi đấu." },
-];
+const EQUIPMENT_TYPES: any[] = [];
 
-const EQUIPMENT_ITEMS = [
-  { code: "TB-128", typeId: "ET01", room: "Cardio Zone", purchased: "10/03/2024", status: "Đang bảo trì" },
-  { code: "TB-129", typeId: "ET01", room: "Cardio Zone", purchased: "10/03/2024", status: "Hoạt động" },
-  { code: "TB-130", typeId: "ET01", room: "Cardio Zone", purchased: "10/03/2024", status: "Hoạt động" },
-  { code: "TB-076", typeId: "ET02", room: "Cardio Zone", purchased: "22/06/2024", status: "Đang bảo trì" },
-  { code: "TB-077", typeId: "ET02", room: "Cardio Zone", purchased: "22/06/2024", status: "Hoạt động" },
-  { code: "TB-204", typeId: "ET03", room: "Sảnh Gym A",  purchased: "14/01/2024", status: "Đang bảo trì" },
-  { code: "TB-205", typeId: "ET03", room: "Sảnh Gym A",  purchased: "14/01/2024", status: "Hoạt động" },
-  { code: "TB-311", typeId: "ET04", room: "Fitness Lab", purchased: "05/11/2024", status: "Đang bảo trì" },
-  { code: "TB-401", typeId: "ET05", room: "Yoga Studio", purchased: "01/02/2025", status: "Hoạt động" },
-  { code: "TB-501", typeId: "ET06", room: "Boxing Room", purchased: "12/04/2025", status: "Hoạt động" },
-];
+const EQUIPMENT_ITEMS: any[] = [];
 
-const MAINTENANCE = [
-  { code: "TB-128", name: "Máy chạy bộ Matrix",  room: "Cardio Zone", who: "Trần Mỹ Linh", date: "21/05/2026", desc: "Băng tải bị lệch, kêu lớn khi chạy >10km/h", status: "Chờ xử lý" },
-  { code: "TB-204", name: "Tạ đa năng Smith",    room: "Sảnh Gym A",  who: "Lê Đức Mạnh",  date: "20/05/2026", desc: "Kẹt thanh đẩy ở vị trí cao nhất",         status: "Đang xử lý" },
-  { code: "TB-076", name: "Xe đạp tĩnh Keiser",  room: "Cardio Zone", who: "Phan Thu Hà",  date: "18/05/2026", desc: "Màn hình hiển thị nhấp nháy",              status: "Đã xử lý" },
-  { code: "TB-311", name: "Máy kéo cáp Hoist",   room: "Fitness Lab", who: "Nguyễn Văn Khoa", date: "17/05/2026", desc: "Dây cáp bị sờn cần thay mới",       status: "Chờ xử lý" },
-];
+const MAINTENANCE: any[] = [];
 
-const FEEDBACK = [
-  { id: "FB-091", member: "Phạm Khánh An",  type: "Thiết bị",  content: "Phòng tắm thiếu khăn vào giờ cao điểm, mong shop bổ sung thêm.", date: "22/05/2026", status: "Chờ xử lý" },
-  { id: "FB-090", member: "Hoàng Minh Tú",  type: "Nhân viên", content: "Đề xuất thêm lớp Yoga buổi tối thứ 4 và thứ 6.",                date: "21/05/2026", status: "Đã phản hồi" },
-  { id: "FB-089", member: "Bùi Quỳnh Anh",  type: "Nhân viên", content: "PT Mạnh hướng dẫn rất tâm huyết, cảm ơn trung tâm!",            date: "20/05/2026", status: "Đã phản hồi" },
-  { id: "FB-088", member: "Ngô Hữu Đức",    type: "Thiết bị",  content: "Máy chạy số 4 ở Cardio Zone hơi kêu, cần kiểm tra.",            date: "20/05/2026", status: "Chờ xử lý" },
-];
+const FEEDBACK: any[] = [];
 
-const MEMBERS = [
-  { code: "HV0241", name: "Phạm Khánh An",   phone: "0901 222 333", pkg: "Elite VIP 6T", remain: "Hết hạn 12/11/2026", status: "Đang hoạt động" },
-  { code: "HV0240", name: "Hoàng Minh Tú",   phone: "0912 545 121", pkg: "Gym Pro 3T",    remain: "32 ngày",            status: "Đang hoạt động" },
-  { code: "HV0239", name: "Bùi Quỳnh Anh",   phone: "0938 119 200", pkg: "Personal 24B",  remain: "14 buổi",            status: "Đang hoạt động" },
-  { code: "HV0238", name: "Ngô Hữu Đức",     phone: "0977 343 998", pkg: "Gym Starter",   remain: "3 buổi",             status: "Sắp hết hạn" },
-  { code: "HV0237", name: "Trịnh Bảo Long",  phone: "0902 565 232", pkg: "Yoga Flow 1T",  remain: "Hết hạn 02/04/2026", status: "Đã hết hạn" },
-  { code: "HV0236", name: "Lý Thanh Vy",     phone: "0913 444 010", pkg: "Combo Cardio",  remain: "8 buổi",             status: "Đang hoạt động" },
-];
+const MEMBERS: any[] = [];
 
-const REVENUE = [
-  { m: "T12", v: 142 }, { m: "T1", v: 168 }, { m: "T2", v: 154 },
-  { m: "T3", v: 189 }, { m: "T4", v: 212 }, { m: "T5", v: 246 },
-];
-const NEW_MEMBERS = [
-  { m: "T12", v: 24 }, { m: "T1", v: 31 }, { m: "T2", v: 28 },
-  { m: "T3", v: 38 }, { m: "T4", v: 44 }, { m: "T5", v: 52 },
-];
-const PKG_BREAKDOWN = [
-  { name: "Gym Pro",  value: 38, color: "#6C63FF" },
-  { name: "Elite VIP",value: 22, color: "#00C9A7" },
-  { name: "Personal", value: 18, color: "#FFB547" },
-  { name: "Yoga",     value: 14, color: "#38BDF8" },
-  { name: "Cardio",   value: 8,  color: "#FF5C5C" },
-];
+const REVENUE: any[] = [];
+const NEW_MEMBERS: any[] = [];
+const PKG_BREAKDOWN: any[] = [];
 
 /* ───────────────────────────── Primitives ───────────────────────────── */
 
@@ -169,13 +110,13 @@ const cn = (...x: (string | false | undefined)[]) => x.filter(Boolean).join(" ")
 
 function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "emerald" | "amber" | "red" | "sky" | "gray"; children: React.ReactNode }) {
   const map: Record<string, string> = {
-    default:  "bg-muted text-foreground/80 border-border",
-    violet:   "bg-[#6C63FF]/12 text-[#3F36C9] border-[#6C63FF]/40 dark:bg-[#6C63FF]/15 dark:text-[#A8A2FF] dark:border-[#6C63FF]/30",
-    emerald:  "bg-[#00C9A7]/20 text-[#005E4F] border-[#00C9A7]/50 dark:bg-[#00C9A7]/15 dark:text-[#5FE6CB] dark:border-[#00C9A7]/30",
-    amber:    "bg-[#FFB547]/25 text-[#6B3500] border-[#FFB547]/60 dark:bg-[#FFB547]/15 dark:text-[#FFD89B] dark:border-[#FFB547]/30",
-    red:      "bg-[#FF5C5C]/15 text-[#991B1B] border-[#FF5C5C]/50 dark:bg-[#FF5C5C]/15 dark:text-[#FFA0A0] dark:border-[#FF5C5C]/30",
-    sky:      "bg-sky-400/20 text-sky-900 border-sky-400/50 dark:bg-sky-400/15 dark:text-sky-300 dark:border-sky-400/30",
-    gray:     "bg-muted text-muted-foreground border-border",
+    default: "bg-muted text-foreground/80 border-border",
+    violet: "bg-[#6C63FF]/12 text-[#3F36C9] border-[#6C63FF]/40 dark:bg-[#6C63FF]/15 dark:text-[#A8A2FF] dark:border-[#6C63FF]/30",
+    emerald: "bg-[#00C9A7]/20 text-[#005E4F] border-[#00C9A7]/50 dark:bg-[#00C9A7]/15 dark:text-[#5FE6CB] dark:border-[#00C9A7]/30",
+    amber: "bg-[#FFB547]/25 text-[#6B3500] border-[#FFB547]/60 dark:bg-[#FFB547]/15 dark:text-[#FFD89B] dark:border-[#FFB547]/30",
+    red: "bg-[#FF5C5C]/15 text-[#991B1B] border-[#FF5C5C]/50 dark:bg-[#FF5C5C]/15 dark:text-[#FFA0A0] dark:border-[#FF5C5C]/30",
+    sky: "bg-sky-400/20 text-sky-900 border-sky-400/50 dark:bg-sky-400/15 dark:text-sky-300 dark:border-sky-400/30",
+    gray: "bg-muted text-muted-foreground border-border",
   };
   return (
     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium tracking-wide", map[tone])}>
@@ -187,9 +128,9 @@ function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "
 function StatusPill({ value }: { value: string }) {
   const t =
     /hoạt động|đang làm|đang kinh doanh|đã phản hồi|đã xử lý/i.test(value) ? "emerald" :
-    /chờ|sắp/i.test(value) ? "amber" :
-    /bảo trì|đang xử lý/i.test(value) ? "sky" :
-    /hết hạn|ngừng|nghỉ phép/i.test(value) ? "red" : "gray";
+      /chờ|sắp/i.test(value) ? "amber" :
+        /bảo trì|đang xử lý/i.test(value) ? "sky" :
+          /hết hạn|ngừng|nghỉ phép/i.test(value) ? "red" : "gray";
   return <Badge tone={t as any}>● {value}</Badge>;
 }
 
@@ -197,11 +138,11 @@ function Button({
   children, variant = "primary", icon: Icon, onClick, className, ...props
 }: { children?: React.ReactNode; variant?: "primary" | "secondary" | "ghost" | "danger" | "outline"; icon?: any; onClick?: () => void; className?: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const map: Record<string, string> = {
-    primary:   "bg-[#6C63FF] hover:bg-[#7A72FF] text-white shadow-[0_8px_24px_-12px_rgba(108,99,255,0.8)]",
+    primary: "bg-[#6C63FF] hover:bg-[#7A72FF] text-white shadow-[0_8px_24px_-12px_rgba(108,99,255,0.8)]",
     secondary: "bg-[#00C9A7] hover:bg-[#13d9b7] text-[#07120F]",
-    outline:   "border border-border hover:border-border text-foreground bg-muted/40",
-    ghost:     "hover:bg-accent text-foreground/80",
-    danger:    "bg-[#FF5C5C] hover:bg-[#ff7575] text-white",
+    outline: "border border-border hover:border-border text-foreground bg-muted/40",
+    ghost: "hover:bg-accent text-foreground/80",
+    danger: "bg-[#FF5C5C] hover:bg-[#ff7575] text-white",
   };
   return (
     <button onClick={onClick} className={cn(
@@ -298,7 +239,7 @@ function Field({ label, children, hint }: { label: React.ReactNode; children: Re
 
 /* ───────────────────────────── Sidebar + Header ───────────────────────────── */
 
-function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
+function Sidebar({ role, user, theme, onToggleTheme, onLogout }: { role: Role; user?: any; theme: "light" | "dark"; onToggleTheme: () => void; onLogout: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const view = location.pathname === "/" ? "home" : location.pathname.slice(1).replace(/\//g, ".");
@@ -320,12 +261,12 @@ function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: 
       </div>
 
       <div className="mx-4 mb-4 flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/40">
-        <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-          {ROLE_META[role].initials}
+        <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", (ROLE_META[role] || ROLE_META["member"]).tone)}>
+          {user?.name ? user.name.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase() : (ROLE_META[role] || ROLE_META["member"]).initials}
         </div>
         <div className="flex-1 text-left leading-tight min-w-0">
-          <div className="text-[12.5px] font-medium truncate">{ROLE_META[role].person}</div>
-          <div className="text-[10.5px] text-muted-foreground truncate">{ROLE_META[role].name}</div>
+          <div className="text-[12.5px] font-medium truncate">{user?.name || (ROLE_META[role] || ROLE_META["member"]).person}</div>
+          <div className="text-[10.5px] text-muted-foreground truncate">{(ROLE_META[role] || ROLE_META["member"]).name}</div>
         </div>
       </div>
 
@@ -382,7 +323,12 @@ function Sidebar({ role, theme, onToggleTheme, onLogout }: { role: Role; theme: 
   );
 }
 
-function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string[]; onLogout: () => void }) {
+function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; breadcrumb: string[]; onLogout: () => void }) {
+  const meta = ROLE_META[role] || ROLE_META["member"];
+  const personName = user?.name || meta.person;
+  const firstName = personName.split(" ").pop();
+  const initials = personName.split(" ").map((n: string) => n[0]).slice(-2).join("").toUpperCase();
+
   const [open, setOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [cur, setCur] = useState("");
@@ -393,11 +339,11 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
   const [showCf, setShowCf] = useState(false);
   const mismatch = nw.length > 0 && cf.length > 0 && nw !== cf;
   const rules = [
-    { id: "len",  label: "Tối thiểu 8 ký tự",                 ok: nw.length >= 8 },
-    { id: "case", label: "Có chữ hoa và chữ thường",          ok: /[a-z]/.test(nw) && /[A-Z]/.test(nw) },
-    { id: "num",  label: "Có ít nhất 1 chữ số",               ok: /\d/.test(nw) },
-    { id: "sym",  label: "Có ký tự đặc biệt (!@#…)",          ok: /[^A-Za-z0-9]/.test(nw) },
-    { id: "diff", label: "Khác mật khẩu hiện tại",            ok: nw.length > 0 && nw !== cur },
+    { id: "len", label: "Tối thiểu 8 ký tự", ok: nw.length >= 8 },
+    { id: "case", label: "Có chữ hoa và chữ thường", ok: /[a-z]/.test(nw) && /[A-Z]/.test(nw) },
+    { id: "num", label: "Có ít nhất 1 chữ số", ok: /\d/.test(nw) },
+    { id: "sym", label: "Có ký tự đặc biệt (!@#…)", ok: /[^A-Za-z0-9]/.test(nw) },
+    { id: "diff", label: "Khác mật khẩu hiện tại", ok: nw.length > 0 && nw !== cur },
   ];
   const score = rules.filter((r) => r.ok).length;
   const strengthLabel = nw.length === 0 ? "" : score <= 2 ? "Yếu" : score === 3 ? "Trung bình" : score === 4 ? "Khá mạnh" : "Mạnh";
@@ -418,12 +364,12 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
       <div className="flex items-center gap-2">
         <div className="relative">
           <button onClick={() => setOpen(!open)} className="flex items-center gap-2.5 pr-1 pl-1 py-1 rounded-lg hover:bg-accent/60 transition">
-            <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-              {ROLE_META[role].initials}
+            <div className={cn("size-8 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", meta.tone)}>
+              {initials}
             </div>
             <div className="leading-tight text-left">
-              <div className="text-[12.5px] font-medium">Xin chào, {ROLE_META[role].person.split(" ").pop()}</div>
-              <div className="text-[10.5px] text-muted-foreground">{ROLE_META[role].name}</div>
+              <div className="text-[12.5px] font-medium">Xin chào, {firstName}</div>
+              <div className="text-[10.5px] text-muted-foreground">{meta.name}</div>
             </div>
             <ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
           </button>
@@ -432,12 +378,12 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
               <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
               <div className="absolute right-0 top-full mt-1 w-56 rounded-xl bg-popover border border-border shadow-xl z-50 overflow-hidden">
                 <div className="p-3 border-b border-border/60 flex items-center gap-2.5">
-                  <div className={cn("size-9 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", ROLE_META[role].tone)}>
-                    {ROLE_META[role].initials}
+                  <div className={cn("size-9 rounded-lg grid place-items-center text-white text-[12px] font-semibold bg-gradient-to-br", meta.tone)}>
+                    {initials}
                   </div>
                   <div className="leading-tight">
-                    <div className="text-[12.5px] font-medium">{ROLE_META[role].person}</div>
-                    <div className="text-[10.5px] text-muted-foreground">{ROLE_META[role].name}</div>
+                    <div className="text-[12.5px] font-medium">{personName}</div>
+                    <div className="text-[10.5px] text-muted-foreground">{meta.name}</div>
                   </div>
                 </div>
                 <div className="p-1.5">
@@ -456,11 +402,11 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
 
       <Modal open={pwOpen} onClose={() => { setPwOpen(false); resetForm(); }} title="Đổi mật khẩu"
         footer={saved ? <Button icon={CheckCircle2} onClick={() => { setPwOpen(false); resetForm(); }}>Đóng</Button>
-        : <>
-          <Button variant="ghost" onClick={() => { setPwOpen(false); resetForm(); }}>Hủy</Button>
-          <Button icon={CheckCircle2} className={cn(!canSubmit && "opacity-50 cursor-not-allowed pointer-events-none")}
-            onClick={() => canSubmit && setSaved(true)}>Lưu thay đổi</Button>
-        </>}>
+          : <>
+            <Button variant="ghost" onClick={() => { setPwOpen(false); resetForm(); }}>Hủy</Button>
+            <Button icon={CheckCircle2} className={cn(!canSubmit && "opacity-50 cursor-not-allowed pointer-events-none")}
+              onClick={() => canSubmit && setSaved(true)}>Lưu thay đổi</Button>
+          </>}>
         {saved ? (
           <div className="text-center py-6">
             <div className="size-14 rounded-full bg-[#00C9A7]/18 grid place-items-center mx-auto">
@@ -473,7 +419,7 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
           <div className="space-y-4">
             {[
               { label: "Mật khẩu hiện tại", v: cur, set: setCur, show: showCur, toggle: () => setShowCur(!showCur), key: "cur" },
-              { label: "Mật khẩu mới",       v: nw,  set: setNw,  show: showNw,  toggle: () => setShowNw(!showNw),   key: "nw"  },
+              { label: "Mật khẩu mới", v: nw, set: setNw, show: showNw, toggle: () => setShowNw(!showNw), key: "nw" },
               { label: "Xác nhận mật khẩu mới", v: cf, set: setCf, show: showCf, toggle: () => setShowCf(!showCf), key: "cf" },
             ].map((f) => {
               const fieldMismatch = f.key === "cf" && mismatch;
@@ -484,7 +430,7 @@ function Header({ role, breadcrumb, onLogout }: { role: Role; breadcrumb: string
                     <input type={f.show ? "text" : "password"} value={f.v} onChange={(e) => f.set(e.target.value)} placeholder="••••••••"
                       className={cn("w-full h-10 rounded-lg bg-input-background border pl-9 pr-9 text-[13.5px] focus:outline-none transition",
                         fieldMismatch ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-2 focus:ring-[#FF5C5C]/15"
-                                      : "border-border focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15")} />
+                          : "border-border focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15")} />
                     <button type="button" onClick={f.toggle} title={f.show ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                       className="absolute right-2 top-1/2 -translate-y-1/2 size-6 grid place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
                       {f.show ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
@@ -543,16 +489,32 @@ function ThemeToggle({ theme, onToggle, floating }: { theme: "light" | "dark"; o
   );
 }
 
-function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role) => void; theme: "light" | "dark"; onToggleTheme: () => void }) {
+function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?: any) => void; theme: "light" | "dark"; onToggleTheme: () => void }) {
   const [email, setEmail] = useState("owner@gymos.vn");
   const [password, setPassword] = useState("owner@123");
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const submit = () => {
-    const acc = ACCOUNTS.find((a) => a.email.toLowerCase() === email.trim().toLowerCase() && a.password === password);
-    if (!acc) { setError("Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại."); return; }
-    setError(null);
-    onEnter(acc.role);
+  const submit = async () => {
+    try {
+      setError(null);
+      const res = await fetch("http://localhost:5000/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.message || "Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.");
+        return;
+      }
+      const rawRole = data.data.user.role;
+      const normalizedRole = rawRole === "manager" ? "staff" : rawRole === "pt" ? "trainer" : rawRole;
+      localStorage.setItem("gymos_token", data.data.token);
+      localStorage.setItem("gymos_user", JSON.stringify(data.data.user));
+      onEnter(normalizedRole, data.data.user);
+    } catch (err) {
+      setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+    }
   };
   const quickFill = (a: typeof ACCOUNTS[number]) => { setEmail(a.email); setPassword(a.password); setError(null); };
   return (
@@ -627,32 +589,32 @@ function HomeWidgets({ role }: { role: Role }) {
   const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
   const widgets: Record<Role, { icon: any; title: string; desc: string; view: string; tone: string }[]> = {
     owner: [
-      { icon: Users,        title: "Quản lý nhân sự",   desc: "Danh sách, chấm công, đánh giá nhân sự",  view: "staff",      tone: "from-[#6C63FF]/20 to-transparent" },
-      { icon: LayoutGrid,   title: "Quản lý gói tập",   desc: "Thiết kế và quản lý gói dịch vụ",         view: "packages",   tone: "from-[#00C9A7]/20 to-transparent" },
-      { icon: Building2,    title: "Quản lý phòng tập", desc: "Các khu vực và thiết bị trong phòng",     view: "rooms",      tone: "from-[#FFB547]/20 to-transparent" },
-      { icon: Dumbbell,     title: "Quản lý thiết bị",  desc: "Theo dõi loại, lịch sử bảo trì",          view: "equipment",  tone: "from-[#FF5C5C]/20 to-transparent" },
-      { icon: MessageSquare,title: "Phản hồi hội viên", desc: "Xử lý phản hồi và yêu cầu hỗ trợ",        view: "feedback",   tone: "from-sky-500/20 to-transparent" },
-      { icon: BarChart3,    title: "Báo cáo thống kê",  desc: "Doanh thu, hội viên, nhân sự",            view: "reports",    tone: "from-violet-500/20 to-transparent" },
+      { icon: Users, title: "Quản lý nhân sự", desc: "Danh sách, chấm công, đánh giá nhân sự", view: "staff", tone: "from-[#6C63FF]/20 to-transparent" },
+      { icon: LayoutGrid, title: "Quản lý gói tập", desc: "Thiết kế và quản lý gói dịch vụ", view: "packages", tone: "from-[#00C9A7]/20 to-transparent" },
+      { icon: Building2, title: "Quản lý phòng tập", desc: "Các khu vực và thiết bị trong phòng", view: "rooms", tone: "from-[#FFB547]/20 to-transparent" },
+      { icon: Dumbbell, title: "Quản lý thiết bị", desc: "Theo dõi loại, lịch sử bảo trì", view: "equipment", tone: "from-[#FF5C5C]/20 to-transparent" },
+      { icon: MessageSquare, title: "Phản hồi hội viên", desc: "Xử lý phản hồi và yêu cầu hỗ trợ", view: "feedback", tone: "from-sky-500/20 to-transparent" },
+      { icon: BarChart3, title: "Báo cáo thống kê", desc: "Doanh thu, hội viên, nhân sự", view: "reports", tone: "from-violet-500/20 to-transparent" },
     ],
     staff: [
-      { icon: Users,        title: "Danh sách hội viên",desc: "Tra cứu, sửa, gia hạn hội viên",          view: "members",     tone: "from-[#6C63FF]/20 to-transparent" },
-      { icon: UserPlus,     title: "Thêm hội viên",     desc: "Tạo hội viên mới + thanh toán",           view: "members.new", tone: "from-[#00C9A7]/20 to-transparent" },
-      { icon: MessageSquare,title: "Phản hồi hội viên", desc: "Tiếp nhận và phản hồi yêu cầu",           view: "feedback",    tone: "from-[#FFB547]/20 to-transparent" },
-      { icon: Wrench,       title: "Bảo trì thiết bị",  desc: "Gửi và theo dõi yêu cầu bảo trì",         view: "maintenance", tone: "from-[#FF5C5C]/20 to-transparent" },
+      { icon: Users, title: "Danh sách hội viên", desc: "Tra cứu, sửa, gia hạn hội viên", view: "members", tone: "from-[#6C63FF]/20 to-transparent" },
+      { icon: UserPlus, title: "Thêm hội viên", desc: "Tạo hội viên mới + thanh toán", view: "members.new", tone: "from-[#00C9A7]/20 to-transparent" },
+      { icon: MessageSquare, title: "Phản hồi hội viên", desc: "Tiếp nhận và phản hồi yêu cầu", view: "feedback", tone: "from-[#FFB547]/20 to-transparent" },
+      { icon: Wrench, title: "Bảo trì thiết bị", desc: "Gửi và theo dõi yêu cầu bảo trì", view: "maintenance", tone: "from-[#FF5C5C]/20 to-transparent" },
     ],
     trainer: [
-      { icon: Users,       title: "Học viên của tôi", desc: "Xem và quản lý danh sách học viên", view: "students", tone: "from-[#FFB547]/20 to-transparent" },
-      { icon: CreditCard,  title: "Gia hạn gói tập",  desc: "Gia hạn gói tập cho học viên",      view: "renew",    tone: "from-[#6C63FF]/20 to-transparent" },
-      { icon: KeyRound,    title: "Đổi mật khẩu",     desc: "Cập nhật mật khẩu tài khoản",       view: "changepw", tone: "from-[#00C9A7]/20 to-transparent" },
+      { icon: Users, title: "Học viên của tôi", desc: "Xem và quản lý danh sách học viên", view: "students", tone: "from-[#FFB547]/20 to-transparent" },
+      { icon: CreditCard, title: "Gia hạn gói tập", desc: "Gia hạn gói tập cho học viên", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
+      { icon: KeyRound, title: "Đổi mật khẩu", desc: "Cập nhật mật khẩu tài khoản", view: "changepw", tone: "from-[#00C9A7]/20 to-transparent" },
     ],
     member: [
-      { icon: CreditCard,   title: "Gia hạn gói tập",   desc: "Đăng ký hoặc gia hạn gói hiện tại",       view: "renew",      tone: "from-[#6C63FF]/20 to-transparent" },
-      { icon: CalIcon,      title: "Lịch sử tập luyện", desc: "Xem lại các buổi tập đã check in",         view: "history",    tone: "from-[#00C9A7]/20 to-transparent" },
-      { icon: MessageSquare,title: "Gửi phản hồi",      desc: "Đóng góp ý kiến cho phòng tập",            view: "mfeedback",  tone: "from-[#FFB547]/20 to-transparent" },
+      { icon: CreditCard, title: "Gia hạn gói tập", desc: "Đăng ký hoặc gia hạn gói hiện tại", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
+      { icon: CalIcon, title: "Lịch sử tập luyện", desc: "Xem lại các buổi tập đã check in", view: "history", tone: "from-[#00C9A7]/20 to-transparent" },
+      { icon: MessageSquare, title: "Gửi phản hồi", desc: "Đóng góp ý kiến cho phòng tập", view: "mfeedback", tone: "from-[#FFB547]/20 to-transparent" },
     ],
   };
 
-  const me = ROLE_META[role];
+  const me = ROLE_META[role] || ROLE_META["member"];
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-3xl border border-border bg-muted/30 p-8">
@@ -737,6 +699,7 @@ const Req = () => <span className="text-[#FF5C5C] ml-0.5">*</span>;
 function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?: (data: any) => void; onCancel?: () => void }) {
   const isEdit = !!data;
   const [formData, setFormData] = useState({
+    code: "",
     name: data?.name ?? "",
     dateOfBirth: data?.dateOfBirth ?? "",
     gender: data?.gender ?? "Nam",
@@ -749,14 +712,18 @@ function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?
   });
 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
-  
-  const needsAccount = /Nhân viên|Huấn luyện/.test(formData.role);
+
+  const needsAccount = true;
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit?.(formData); }} className="grid grid-cols-2 gap-4">
-      {isEdit && (
+      {isEdit ? (
         <Field label="Mã nhân sự">
           <Input value={data!.code} readOnly className="bg-muted opacity-70" />
+        </Field>
+      ) : (
+        <Field label="Mã nhân sự" hint="Để trống để hệ thống tự tạo mã">
+          <Input placeholder="VD: NS1001" value={formData.code} onChange={(e: any) => handleChange("code", e.target.value)} />
         </Field>
       )}
       <Field label={<>Họ tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={formData.name} onChange={(e: any) => handleChange("name", e.target.value)} required /></Field>
@@ -796,7 +763,7 @@ function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?
           </div>
         </Field>
       )}
-      
+
       {/* Footer actions built into form */}
       <div className="col-span-2 flex items-center justify-end gap-2 pt-4 mt-2 border-t border-border">
         <Button variant="ghost" type="button" onClick={onCancel}>Hủy</Button>
@@ -807,22 +774,28 @@ function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?
 }
 
 /* ── Staff list ── */
-function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: StaffRecord[]; refresh: () => void; onSelect: (id: string) => void; onEdit?: (code: string) => void }) {
+function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: StaffRecord[]; refresh: () => void; onSelect: (id: string) => void; onEdit?: (code: string) => void }) {
   const [modal, setModal] = useState<"new" | "del" | null>(null);
   const [delTarget, setDelTarget] = useState<StaffRecord | null>(null);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"Tất cả" | "Nhân viên quản lý" | "Huấn luyện viên">("Tất cả");
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
-  const filtered = staffs.filter((s) => {
+  const activeStaffs = staffs.filter((s) => s.status !== "Đã vô hiệu hóa");
+
+  const filtered = activeStaffs.filter((s) => {
     const q = query.trim().toLowerCase();
     const matchQ = !q || s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.phone.replace(/\s/g, "").includes(q.replace(/\s/g, ""));
     const matchR = roleFilter === "Tất cả" || s.role === roleFilter;
     return matchQ && matchR;
   });
 
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="space-y-5">
-      <SectionTitle title="Danh sách nhân sự" sub={`Hiển thị ${filtered.length} / ${staffs.length} nhân sự`} actions={
+      <SectionTitle title="Danh sách nhân sự" sub={`Hiển thị ${filtered.length} / ${activeStaffs.length} nhân sự`} actions={
         <>
           <Button icon={Plus} onClick={() => setModal("new")}>Thêm nhân sự</Button>
         </>
@@ -833,7 +806,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
             placeholder="Tìm theo tên, mã nhân sự, email, SĐT…"
             className="w-full h-10 rounded-lg bg-input-background border border-border pl-9 pr-9 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition"
           />
@@ -845,7 +818,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
         </div>
         <div className="flex items-center gap-2">
           {(["Tất cả", "Nhân viên quản lý", "Huấn luyện viên"] as const).map((c) => (
-            <button key={c} onClick={() => setRoleFilter(c)} className={cn(
+            <button key={c} onClick={() => { setRoleFilter(c); setPage(1); }} className={cn(
               "h-9 px-3 rounded-lg text-[12.5px] border transition",
               roleFilter === c
                 ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-[#4F46E5] dark:text-[#A8A2FF]"
@@ -863,13 +836,13 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
             </div>
             <h3 className="font-display mt-4">Không tìm thấy kết quả</h3>
             <p className="text-[13px] text-muted-foreground mt-1">Thử thay đổi từ khóa hoặc bộ lọc role.</p>
-            <Button variant="outline" className="mt-4" onClick={() => { setQuery(""); setRoleFilter("Tất cả"); }}>Xóa bộ lọc</Button>
+            <Button variant="outline" className="mt-4" onClick={() => { setQuery(""); setRoleFilter("Tất cả"); setPage(1); }}>Xóa bộ lọc</Button>
           </div>
         ) : (
           <>
             <DataTable
               head={["Mã NS", "Họ tên", "Role", "Email", "SĐT", "Ngày vào", "Trạng thái", ""]}
-              rows={filtered.map((s) => [
+              rows={paginated.map((s) => [
                 <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{s.code}</span>,
                 <button onClick={() => onSelect(s.code)} className="flex items-center gap-2.5 text-left hover:text-[#4F46E5] dark:text-[#A8A2FF]">
                   <div className="size-7 rounded-full bg-gradient-to-br from-[#6C63FF] to-[#3F39C7] grid place-items-center text-[10.5px] text-white font-semibold">
@@ -889,14 +862,14 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
                 </div>,
               ])}
             />
-            <Pagination />
+            <Pagination total={filtered.length} page={page} pageSize={pageSize} onPageChange={setPage} />
           </>
         )}
       </Card>
 
       <Modal open={modal === "new"} onClose={() => setModal(null)} title="Thêm nhân sự mới" wide>
-        <StaffForm 
-          onCancel={() => setModal(null)} 
+        <StaffForm
+          onCancel={() => setModal(null)}
           onSubmit={(data) => {
             fetch("http://localhost:5000/api/v1/staffs", {
               method: "POST",
@@ -906,7 +879,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => {} }: { staffs: S
               refresh();
               setModal(null);
             });
-          }} 
+          }}
         />
       </Modal>
 
@@ -954,22 +927,46 @@ function DataTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }
   );
 }
 
-function Pagination() {
+function Pagination({ total = 32, page = 1, pageSize = 6, onPageChange }: { total?: number; page?: number; pageSize?: number; onPageChange?: (p: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pages.push(i);
+  }
+
   return (
     <div className="flex items-center justify-between px-5 py-4 text-[12.5px] text-muted-foreground">
-      <div>Hiển thị 1–6 trên 32 kết quả</div>
+      <div>Hiển thị {start}–{end} trên {total} kết quả</div>
       <div className="flex items-center gap-1">
-        {["‹", "1", "2", "3", "4", "›"].map((p, i) => (
-          <button key={i} className={cn("size-8 grid place-items-center rounded-md text-[12.5px]",
-            i === 1 ? "bg-[#6C63FF] text-white" : "hover:bg-accent border border-border")}>{p}</button>
+        <button
+          onClick={() => onPageChange?.(page - 1)}
+          disabled={page === 1}
+          className="size-8 grid place-items-center rounded-md text-[12.5px] hover:bg-accent border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+        >‹</button>
+        {pages.map((p) => (
+          <button
+            key={p}
+            onClick={() => onPageChange?.(p)}
+            className={cn("size-8 grid place-items-center rounded-md text-[12.5px]",
+              p === page ? "bg-[#6C63FF] text-white border-transparent" : "hover:bg-accent border border-border")}
+          >{p}</button>
         ))}
+        <button
+          onClick={() => onPageChange?.(page + 1)}
+          disabled={page === totalPages}
+          className="size-8 grid place-items-center rounded-md text-[12.5px] hover:bg-accent border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+        >›</button>
       </div>
     </div>
   );
 }
 
 /* ── Staff Detail ── */
-function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: string; staffs: StaffRecord[]; refresh: () => void; onBack: () => void; onEdit?: (code: string) => void }) {
+function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: string; staffs: StaffRecord[]; refresh: () => void; onBack: () => void; onEdit?: (code: string) => void }) {
   const s = staffs.find((x) => x.code === id);
   if (!s) return <div className="text-center p-10 text-muted-foreground">Không tìm thấy nhân viên.</div>;
   const [delOpen, setDelOpen] = useState(false);
@@ -978,11 +975,54 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: s
   const [calYear, setCalYear] = useState(today.getFullYear());
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const firstDayOffset = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
-  const monthNames = ["01","02","03","04","05","06","07","08","09","10","11","12"];
-  const days = Array.from({ length: daysInMonth }, (_, i) => {
-    const v = (i * 7) % 11;
-    return v < 6 ? "ok" : v < 9 ? "late" : i % 5 === 0 ? "absent" : "ok";
-  });
+  const monthNames = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+  const [days, setDays] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch(`http://localhost:5000/api/v1/staffs/${id}/attendance?month=${calMonth + 1}&year=${calYear}`)
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          const logs = res.data;
+          const newDays = Array(daysInMonth).fill("");
+
+          const now = new Date();
+          const isCurrentMonth = now.getMonth() === calMonth && now.getFullYear() === calYear;
+          const isPastMonth = calYear < now.getFullYear() || (calYear === now.getFullYear() && calMonth < now.getMonth());
+          const maxDayToCheck = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
+
+          for (let i = 0; i < maxDayToCheck; i++) {
+            newDays[i] = "absent";
+          }
+
+          logs.forEach((log: any) => {
+            const date = new Date(log.workDate);
+            const dayIndex = date.getDate() - 1;
+            const dayOfWeek = date.getDay();
+
+            let isLate = false;
+            if (log.checkInTime) {
+              const [hours, minutes] = log.checkInTime.split(':').map(Number);
+              const timeInMinutes = hours * 60 + minutes;
+
+              let limitMinutes = 8 * 60; // 08:00 for Sat, Sun
+              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                limitMinutes = 6 * 60 + 30; // 06:30 for Mon-Fri
+              }
+
+              if (timeInMinutes > limitMinutes) {
+                isLate = true;
+              }
+            }
+
+            newDays[dayIndex] = isLate ? "late" : "ok";
+          });
+
+          setDays(newDays);
+        }
+      });
+  }, [id, calMonth, calYear, daysInMonth]);
+
   const okCount = days.filter((d) => d === "ok").length;
   const lateCount = days.filter((d) => d === "late").length;
   const absentCount = days.filter((d) => d === "absent").length;
@@ -1009,11 +1049,11 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: s
 
           <dl className="mt-6 space-y-3 text-[13px]">
             {[
-              ["Email", s.email, Mail],
-              ["Số điện thoại", s.phone, Phone],
-              ["Ngày sinh", "12/04/1995", CalIcon],
-              ["Địa chỉ", "Số 12, Trần Đại Nghĩa, Hai Bà Trưng, Hà Nội", Building2],
-              ["Ngày vào làm", s.join, ShieldCheck],
+              ["Email", s.email || "Chưa cập nhật", Mail],
+              ["Số điện thoại", s.phone || "Chưa cập nhật", Phone],
+              ["Ngày sinh", s.dateOfBirth ? s.dateOfBirth.split("-").reverse().join("/") : "Chưa cập nhật", CalIcon],
+              ["Địa chỉ", s.address || "Chưa cập nhật", Building2],
+              ["Ngày vào làm", s.join || "Chưa cập nhật", ShieldCheck],
             ].map(([k, v, I]: any) => (
               <div key={k} className="flex items-start gap-3 py-2 border-b border-border/60 last:border-0">
                 <I className="size-4 text-muted-foreground mt-0.5" />
@@ -1049,8 +1089,8 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => {} }: { id: s
           <div className="grid grid-cols-3 gap-3 mb-4">
             {[
               { k: "Tổng ngày đi làm", v: okCount, tone: "emerald" },
-              { k: "Đi chưa đủ giờ",    v: lateCount, tone: "amber" },
-              { k: "Vắng",              v: absentCount, tone: "red" },
+              { k: "Đi chưa đủ giờ", v: lateCount, tone: "amber" },
+              { k: "Vắng", v: absentCount, tone: "red" },
             ].map((m: any) => (
               <div key={m.k} className="rounded-xl border border-border p-4 bg-muted/40">
                 <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{m.k}</div>
@@ -1108,31 +1148,71 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
   const [days, setDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<StaffRecord | null>(null);
-  const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>(() => {
-    try {
-      const saved = localStorage.getItem("gym_recent_activities");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return [];
-  });
+  const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>([]);
+
+  const fetchRecent = () => {
+    fetch("http://localhost:5000/api/v1/staff-work-logs/today", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          const logs: { code: string; name: string; time: string; kind: "in" | "out" }[] = [];
+          res.data.forEach((log: any) => {
+            if (log.checkOutTime) {
+              logs.push({ code: log.Staff.staffCode, name: log.Staff.staffName, time: log.checkOutTime.substring(0, 5), kind: "out" });
+            }
+            if (log.checkInTime) {
+              logs.push({ code: log.Staff.staffCode, name: log.Staff.staffName, time: log.checkInTime.substring(0, 5), kind: "in" });
+            }
+          });
+          // Sort descending
+          logs.sort((a, b) => b.time.localeCompare(a.time));
+          setRecent(logs);
+        }
+      });
+  };
 
   useEffect(() => {
-    localStorage.setItem("gym_recent_activities", JSON.stringify(recent));
-  }, [recent]);
+    fetchRecent();
+  }, []);
+
   const suggestions = query.trim().length === 0
     ? []
     : staffs.filter((s) =>
-        s.code.toLowerCase().includes(query.toLowerCase()) ||
+      (s.status === "Đang làm" || s.status === "Nghỉ phép") &&
+      (s.code.toLowerCase().includes(query.toLowerCase()) ||
         s.name.toLowerCase().includes(query.toLowerCase()) ||
-        s.email.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 6);
-  const doCheck = (s: StaffRecord) => {
+        s.email.toLowerCase().includes(query.toLowerCase()))
+    ).slice(0, 6);
+
+  const doCheck = async (s: StaffRecord) => {
     const last = recent.find((r) => r.code === s.code);
-    const kind: "in" | "out" = last?.kind === "in" ? "out" : "in";
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    setRecent([{ code: s.code, name: s.name, time, kind }, ...recent.filter((r) => r.code !== s.code)].slice(0, 5));
-    setPicked(null); setQuery("");
+    const isCheckingOut = last?.kind === "in";
+    const url = isCheckingOut
+      ? "http://localhost:5000/api/v1/staff-work-logs/check-out"
+      : "http://localhost:5000/api/v1/staff-work-logs/check-in";
+    const method = isCheckingOut ? "PUT" : "POST";
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+        },
+        body: JSON.stringify({ code: s.code })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchRecent();
+        setPicked(null); setQuery("");
+      } else {
+        alert(data.message || "Có lỗi xảy ra");
+      }
+    } catch (e) {
+      alert("Lỗi kết nối máy chủ");
+    }
   };
   return (
     <div className="space-y-5">
@@ -1201,8 +1281,8 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
               <div className="mt-4 space-y-2">
                 {[
                   { d: "T2 → T6", in: "06:30", out: "21:00" },
-                  { d: "Thứ 7",   in: "08:00", out: "20:00" },
-                  { d: "Chủ Nhật",in: "08:00", out: "12:00" },
+                  { d: "Thứ 7", in: "08:00", out: "20:00" },
+                  { d: "Chủ Nhật", in: "08:00", out: "12:00" },
                 ].map((r) => (
                   <div key={r.d} className="flex items-center justify-between rounded-lg bg-muted/40 border border-border/70 px-3 py-2.5">
                     <span className="text-[13px]">{r.d}</span>
@@ -1249,7 +1329,7 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
                   className={cn(
                     "h-10 px-4 rounded-lg border text-[13px] transition",
                     days[i] ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-white"
-                            : "border-border text-muted-foreground hover:border-[#6C63FF]/30"
+                      : "border-border text-muted-foreground hover:border-[#6C63FF]/30"
                   )}>{d}</button>
               ))}
             </div>
@@ -1272,13 +1352,14 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
     ? /buổi/i.test(data.type) ? "session" : "duration"
     : "session";
   const [pkgType, setPkgType] = useState<"session" | "duration">(inferType);
+  const [code, setCode] = useState((data as any)?.code ?? "");
   const [name, setName] = useState(data?.name ?? "");
   const numMatch = data?.type.match(/\d+/)?.[0] ?? "";
   const [num, setNum] = useState(numMatch);
-  
+
   const initialUnit = data ? (data.type.includes("tháng") ? "month" : data.type.includes("tuần") ? "week" : data.type.includes("ngày") ? "day" : "month") : "month";
   const [unit, setUnit] = useState(initialUnit);
-  
+
   const [price, setPrice] = useState(data ? data.price.toString() : "");
   const [vip, setVip] = useState(data?.vip ?? false);
   const [trainer, setTrainer] = useState(data?.trainer ?? false);
@@ -1289,13 +1370,14 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
     if (!name || !num || !price) return;
     const finalType = pkgType === "session" ? `${num} buổi` : `${num} ${unit === "month" ? "tháng" : unit === "week" ? "tuần" : "ngày"}`;
     onSubmit(e, {
+      code,
       name,
       type: finalType,
       vip,
       trainer,
       price: parseInt(price.replace(/\D/g, "") || "0"),
       status
-    });
+    } as any);
   };
 
   return (
@@ -1323,6 +1405,9 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
         </div>
       </Field>
       <div className="grid grid-cols-2 gap-4">
+        <Field label={<>Mã gói<Req /></>}>
+          <Input placeholder="VD: GP-001" value={code} onChange={(e: any) => setCode(e.target.value)} required />
+        </Field>
         <Field label={<>Tên gói tập<Req /></>}>
           <Input placeholder={pkgType === "session" ? "VD: Gym Pro 24 buổi" : "VD: Gym Pro 6 tháng"} value={name} onChange={(e: any) => setName(e.target.value)} required />
         </Field>
@@ -1369,9 +1454,10 @@ function Packages() {
           setList(res.data.map((d: any) => {
             let t = "";
             if (d.packageType === "session") t = `${d.numberOfWorkout || 0} buổi`;
-            else t = `${d.duration || 0} tháng`;
+            else t = `${d.duration || 0} ${d.durationUnit || "tháng"}`;
             return {
               id: d.packageId,
+              code: d.packageCode || "",
               name: d.packageName,
               type: t,
               vip: d.vipIncluded,
@@ -1397,13 +1483,15 @@ function Packages() {
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filtered = list.filter((p) =>
-    (statusFilter === "Tất cả" || p.status === statusFilter) &&
-    (typeFilter === "Tất cả" || (typeFilter === "session" ? /buổi/i.test(p.type) : !/buổi/i.test(p.type))) &&
-    (!filterVip || p.vip) &&
-    (!filterTrainer || p.trainer) &&
-    (p.name.toLowerCase().includes(query.toLowerCase()) || p.id.toLowerCase().includes(query.toLowerCase()))
-  );
+  const getPackageCode = (p: any) => p.code || `PKG-${p.id.split('-')[0].toUpperCase()}`;
+  const filtered = list.filter((p) => {
+    const displayCode = getPackageCode(p);
+    return (statusFilter === "Tất cả" || p.status === statusFilter) &&
+      (typeFilter === "Tất cả" || (typeFilter === "session" ? /buổi/i.test(p.type) : !/buổi/i.test(p.type))) &&
+      (!filterVip || p.vip) &&
+      (!filterTrainer || p.trainer) &&
+      (p.name.toLowerCase().includes(query.toLowerCase()) || displayCode.toLowerCase().includes(query.toLowerCase()));
+  });
   const viewing = viewId ? list.find((p) => p.id === viewId) : null;
   const editing = editId ? list.find((p) => p.id === editId) : null;
   const deleting = deleteId ? list.find((p) => p.id === deleteId) : null;
@@ -1411,11 +1499,18 @@ function Packages() {
   const handleAdd = (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
+    let durationUnit = "tháng";
+    if (!isSession) {
+      if (data.type.includes("tuần")) durationUnit = "tuần";
+      else if (data.type.includes("ngày")) durationUnit = "ngày";
+    }
     const payload = {
+      packageCode: (data as any).code || "",
       packageName: data.name,
       packageType: isSession ? "session" : "duration",
       numberOfWorkout: isSession ? num : null,
       duration: !isSession ? num : null,
+      durationUnit: !isSession ? durationUnit : null,
       vipIncluded: data.vip,
       trainerIncluded: data.trainer,
       price: data.price,
@@ -1435,11 +1530,18 @@ function Packages() {
     if (!editId) return;
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
+    let durationUnit = "tháng";
+    if (!isSession) {
+      if (data.type.includes("tuần")) durationUnit = "tuần";
+      else if (data.type.includes("ngày")) durationUnit = "ngày";
+    }
     const payload = {
+      packageCode: (data as any).code || "",
       packageName: data.name,
       packageType: isSession ? "session" : "duration",
       numberOfWorkout: isSession ? num : null,
       duration: !isSession ? num : null,
+      durationUnit: !isSession ? durationUnit : null,
       vipIncluded: data.vip,
       trainerIncluded: data.trainer,
       price: data.price,
@@ -1506,7 +1608,7 @@ function Packages() {
               {filtered.map((p) => (
                 <tr key={p.id} className="bg-card hover:bg-muted/30 transition">
                   <td className="px-4 py-3">
-                    <div className="font-mono text-[11px] text-muted-foreground">{p.id}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>{getPackageCode(p)}</div>
                     <div className="font-medium">{p.name}</div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{p.type}</td>
@@ -1541,7 +1643,7 @@ function Packages() {
             <div className="absolute inset-x-0 top-0 h-0.5 bg-border" />
             <div className="flex items-start justify-between">
               <div>
-                <div className="font-mono text-[11px] text-muted-foreground">{p.id}</div>
+                <div className="font-mono text-[11px] text-muted-foreground" title={p.id}>{getPackageCode(p)}</div>
                 <h3 className="font-display text-[17px] mt-0.5">{p.name}</h3>
                 <div className="text-[12.5px] text-muted-foreground mt-0.5">{p.type}</div>
               </div>
@@ -1586,7 +1688,7 @@ function Packages() {
           <div className="space-y-4">
             <div className="flex items-start justify-between p-4 rounded-xl bg-muted/40 border border-border/70">
               <div>
-                <div className="font-mono text-[11px] text-muted-foreground">{viewing.id}</div>
+                <div className="font-mono text-[11px] text-muted-foreground" title={viewing.id}>{getPackageCode(viewing)}</div>
                 <h3 className="font-display text-[19px] mt-0.5">{viewing.name}</h3>
                 <div className="text-[12.5px] text-muted-foreground mt-0.5">{viewing.type}</div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
@@ -1602,7 +1704,7 @@ function Packages() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                ["Mã gói", viewing.id],
+                ["Mã gói", `PKG-${viewing.id.split('-')[0].toUpperCase()}`],
                 ["Loại gói", /buổi/i.test(viewing.type) ? "Theo số buổi" : "Theo thời gian"],
                 ["Thời lượng / Số buổi", viewing.type],
                 ["Trạng thái", viewing.status],
@@ -1627,7 +1729,7 @@ function Packages() {
         {deleting && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa gói <span className="font-medium">{deleting.name}</span> ({deleting.id})?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa gói <span className="font-medium">{deleting.name}</span> ({getPackageCode(deleting)})?</p>
             <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái gói tập sang "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hội viên đang sử dụng gói sẽ không bị ảnh hưởng cho đến khi gia hạn.</p>
           </div>
         )}
@@ -1641,32 +1743,65 @@ type RoomRecord = (typeof ROOMS)[number];
 const ROOM_TYPES = ["Gym", "Cardio", "Yoga", "Fitness", "Other"] as const;
 const ROOM_STATUSES = ["Hoạt động", "Bảo trì", "Tạm đóng"] as const;
 
-function RoomForm({ data }: { data?: RoomRecord }) {
+function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e: React.FormEvent, data: Omit<RoomRecord, "id"> & { code: string }) => void, formId?: string }) {
+  const [code, setCode] = useState(data?.code ?? "");
+  const [name, setName] = useState(data?.name ?? "");
+  const [type, setType] = useState(data?.type ?? "Gym");
+  const [status, setStatus] = useState(data?.status ?? "Hoạt động");
+
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={data?.id} /></Field>
-      <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={data?.name} /></Field>
-      <Field label={<>Loại phòng<Req /></>}>
-        <select defaultValue={data?.type ?? "Gym"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-      </Field>
-      <Field label={<>Trạng thái<Req /></>}>
-        <select defaultValue={data?.status ?? "Hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </Field>
-      <div className="col-span-2">
-        <Field label="Ghi chú">
-          <textarea placeholder="Mô tả khu vực, lưu ý vận hành…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
+    <form id={formId} onSubmit={(e) => { e.preventDefault(); onSubmit(e, { code, name, type, status } as any); }}>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={code} onChange={(e: any) => setCode(e.target.value)} required /></Field>
+        <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={name} onChange={(e: any) => setName(e.target.value)} required /></Field>
+        <Field label={<>Loại phòng<Req /></>}>
+          <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+            {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         </Field>
+        <Field label={<>Trạng thái<Req /></>}>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+            {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </Field>
+        <div className="col-span-2">
+          <Field label="Ghi chú">
+            <textarea placeholder="Mô tả khu vực, lưu ý vận hành…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
+          </Field>
+        </div>
       </div>
-    </div>
+    </form>
   );
 }
 
 function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
-  const [list, setList] = useState<RoomRecord[]>(ROOMS);
+  const [list, setList] = useState<any[]>([]);
+  const [equipments, setEquipments] = useState<any[]>([]);
+
+  const fetchRooms = () => {
+    Promise.all([
+      fetch("http://localhost:5000/api/v1/rooms").then(res => res.json()),
+      fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).catch(() => [])
+    ]).then(([roomsRes, equipmentsRes]) => {
+      if (Array.isArray(roomsRes)) {
+        setList(roomsRes.map((r: any) => ({
+          id: r.roomId,
+          code: r.roomCode || `RM-${r.roomId.split('-')[0].toUpperCase()}`,
+          name: r.roomName,
+          type: r.roomType || "Gym",
+          status: r.operatingStatus === "active" ? "Hoạt động" : (r.operatingStatus === "maintenance" ? "Bảo trì" : "Tạm đóng"),
+        })));
+      }
+      if (Array.isArray(equipmentsRes)) {
+        setEquipments(equipmentsRes);
+      }
+    });
+  };
+
+  useEffect(() => {
+    fetchRooms();
+  }, []);
+
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
@@ -1677,11 +1812,36 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const filtered = list.filter((r) =>
     (typeFilter === "Tất cả" || r.type === typeFilter) &&
     (statusFilter === "Tất cả" || r.status === statusFilter) &&
-    (r.name.toLowerCase().includes(query.toLowerCase()) || r.id.toLowerCase().includes(query.toLowerCase()))
+    (r.name.toLowerCase().includes(query.toLowerCase()) || r.code.toLowerCase().includes(query.toLowerCase()))
   );
   const editing = editId ? list.find((r) => r.id === editId) : null;
   const deleting = deleteId ? list.find((r) => r.id === deleteId) : null;
-  const totalDevices = list.reduce((s, r) => s + r.count, 0);
+  const totalDevices = equipments.length;
+
+  const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : (s === "Bảo trì" ? "maintenance" : "inactive");
+
+  const handleAdd = (e: React.FormEvent, data: any) => {
+    fetch("http://localhost:5000/api/v1/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+    }).then(() => { fetchRooms(); setOpen(false); });
+  };
+
+  const handleEdit = (e: React.FormEvent, data: any) => {
+    fetch(`http://localhost:5000/api/v1/rooms/${editId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+    }).then(() => { fetchRooms(); setEditId(null); });
+  };
+
+  const handleDelete = () => {
+    if (!deleteId) return;
+    fetch(`http://localhost:5000/api/v1/rooms/${deleteId}`, {
+      method: "DELETE"
+    }).then(() => { fetchRooms(); setDeleteId(null); });
+  };
 
   return (
     <div className="space-y-5">
@@ -1701,37 +1861,37 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((r) => {
-          const deviceCount = EQUIPMENT_ITEMS.filter((e) => e.room === r.name).length;
+          const deviceCount = equipments.filter((e: any) => e.roomId === r.id || e.Room?.roomId === r.id).length;
           return (
-          <Card key={r.id} className="group hover:border-[#6C63FF]/40 transition">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="size-11 rounded-xl bg-muted border border-border grid place-items-center">
-                  <Building2 className="size-5 text-[#4F46E5] dark:text-[#A8A2FF]" />
+            <Card key={r.id} className="group hover:border-[#6C63FF]/40 transition">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="size-11 rounded-xl bg-muted border border-border grid place-items-center">
+                    <Building2 className="size-5 text-[#4F46E5] dark:text-[#A8A2FF]" />
+                  </div>
+                  <div>
+                    <div className="font-mono text-[11px] text-muted-foreground" title={r.id}>{r.code}</div>
+                    <h3 className="font-display text-[16px]">{r.name}</h3>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-mono text-[11px] text-muted-foreground">{r.id}</div>
-                  <h3 className="font-display text-[16px]">{r.name}</h3>
+                <Badge tone={r.type === "Gym" ? "violet" : r.type === "Cardio" ? "red" : r.type === "Yoga" ? "emerald" : r.type === "Fitness" ? "amber" : "sky"}>{r.type}</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-5">
+                <div className="rounded-lg bg-muted/40 border border-border/60 p-3">
+                  <div className="text-[10.5px] uppercase text-muted-foreground tracking-wider">Thiết bị</div>
+                  <div className="font-display font-bold text-[20px] mt-0.5">{deviceCount}</div>
+                </div>
+                <div className="rounded-lg bg-muted/40 border border-border/60 p-3 flex flex-col justify-between">
+                  <div className="text-[10.5px] uppercase text-muted-foreground tracking-wider">Trạng thái</div>
+                  <StatusPill value={r.status} />
                 </div>
               </div>
-              <Badge tone={r.type === "Gym" ? "violet" : r.type === "Cardio" ? "red" : r.type === "Yoga" ? "emerald" : r.type === "Fitness" ? "amber" : "sky"}>{r.type}</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-5">
-              <div className="rounded-lg bg-muted/40 border border-border/60 p-3">
-                <div className="text-[10.5px] uppercase text-muted-foreground tracking-wider">Thiết bị</div>
-                <div className="font-display font-bold text-[20px] mt-0.5">{deviceCount}</div>
+              <div className="flex items-center justify-end gap-1 mt-4 pt-4 border-t border-border/70">
+                <IconBtn icon={Eye} onClick={() => onSelect?.(r.id)} />
+                <IconBtn icon={Pencil} onClick={() => setEditId(r.id)} />
+                <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(r.id)} />
               </div>
-              <div className="rounded-lg bg-muted/40 border border-border/60 p-3 flex flex-col justify-between">
-                <div className="text-[10.5px] uppercase text-muted-foreground tracking-wider">Trạng thái</div>
-                <StatusPill value={r.status} />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-1 mt-4 pt-4 border-t border-border/70">
-              <IconBtn icon={Eye} onClick={() => onSelect?.(r.id)} />
-              <IconBtn icon={Pencil} onClick={() => setEditId(r.id)} />
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(r.id)} />
-            </div>
-          </Card>
+            </Card>
           );
         })}
         {filtered.length === 0 && (
@@ -1740,31 +1900,32 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm phòng tập mới" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button onClick={() => setOpen(false)}>Lưu phòng tập</Button></>}>
-        <RoomForm />
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-room-form">Lưu phòng tập</Button></>}>
+        <RoomForm formId="add-room-form" onSubmit={handleAdd} />
       </Modal>
 
       <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa phòng — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <RoomForm data={editing} />}
+        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-room-form" icon={CheckCircle2}>Lưu thay đổi</Button></>}>
+        {editing && <RoomForm formId="edit-room-form" data={editing} onSubmit={handleEdit} />}
       </Modal>
 
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phòng tập"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((r) => r.id !== deleteId)); setDeleteId(null); }}>Xóa phòng</Button>
+          <Button icon={Trash2} onClick={handleDelete}>Xóa phòng</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{deleting.name}</span> ({deleting.id})?</p>
-            <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái phòng tập và {EQUIPMENT_ITEMS.filter((e) => e.room === deleting.name).length} thiết bị thuộc phòng này sang trạng thái "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hãy đảm bảo các thiết bị cần giữ lại đã được chuyển sang khu vực khác trước khi xóa.</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{deleting.name}</span> ({deleting.code})?</p>
+            <p className="text-[12.5px] text-muted-foreground">Hành động này sẽ chuyển trạng thái phòng tập và các thiết bị thuộc phòng này sang trạng thái "Đã vô hiệu hóa" và không thể hoàn tác từ giao diện. Hãy đảm bảo các thiết bị cần giữ lại đã được chuyển sang khu vực khác trước khi xóa.</p>
           </div>
         )}
       </Modal>
     </div>
   );
 }
+
 
 function RoomDeviceForm({ data }: { data?: { code?: string; typeId?: string; pos?: string; status?: string } }) {
   return (
@@ -1788,18 +1949,113 @@ function RoomDeviceForm({ data }: { data?: { code?: string; typeId?: string; pos
 type RoomDevice = { code: string; typeId: string; pos: string; status: string };
 
 function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
-  const room = ROOMS.find((r) => r.id === id) ?? ROOMS[0];
-  const initial: RoomDevice[] = EQUIPMENT_ITEMS
-    .filter((e) => e.room === room.name)
-    .map((e, i) => ({ code: e.code, typeId: e.typeId, pos: `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`, status: e.status }));
-  const [devices, setDevices] = useState<RoomDevice[]>(initial);
+  const [room, setRoom] = useState<any>(null);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = () => {
+    Promise.all([
+      fetch("http://localhost:5000/api/v1/rooms").then(r => r.json()),
+      fetch("http://localhost:5000/api/v1/equipments").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:5000/api/v1/equipment-types").then(r => r.json()).catch(() => []),
+    ]).then(([roomsRes, equipmentsRes, typesRes]) => {
+      const found = Array.isArray(roomsRes) ? roomsRes.find((r: any) => r.roomId === id) : null;
+      if (found) {
+        setRoom({
+          id: found.roomId,
+          code: found.roomCode || `RM-${found.roomId.split('-')[0].toUpperCase()}`,
+          name: found.roomName,
+          type: found.roomType || "Gym",
+          status: found.operatingStatus === "active" ? "Hoạt động" : found.operatingStatus === "maintenance" ? "Bảo trì" : "Tạm đóng",
+          rawStatus: found.operatingStatus,
+        });
+      }
+      if (Array.isArray(equipmentsRes)) {
+        const roomDevices = equipmentsRes.filter((e: any) => e.roomId === id || e.Room?.roomId === id);
+        setDevices(roomDevices.map((e: any, i: number) => ({
+          equipmentId: e.equipmentId,
+          code: e.equipmentCode || `TB-${e.equipmentId?.split('-')[0]?.toUpperCase()}`,
+          typeName: e.EquipmentType?.equipmentName || "—",
+          typeId: e.equipmentTypeId,
+          pos: e.position || `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`,
+          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("vi-VN") : "—",
+          status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
+            : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
+            : e.usageStatus || "Hoạt động",
+          rawStatus: e.usageStatus,
+        })));
+      }
+      if (Array.isArray(typesRes)) setEquipmentTypes(typesRes);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => { fetchData(); }, [id]);
+
   const [editRoom, setEditRoom] = useState(false);
   const [delRoom, setDelRoom] = useState(false);
   const [addDev, setAddDev] = useState(false);
-  const [editDev, setEditDev] = useState<RoomDevice | null>(null);
-  const [delDev, setDelDev] = useState<RoomDevice | null>(null);
+  const [editDev, setEditDev] = useState<any | null>(null);
+  const [delDev, setDelDev] = useState<any | null>(null);
 
-  const typeName = (tid: string) => EQUIPMENT_TYPES.find((t) => t.id === tid)?.name ?? tid;
+  // Add device form state
+  const [newDev, setNewDev] = useState({ typeId: "", code: "", pos: "", status: "Hoạt động" });
+
+  const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : s === "Bảo trì" ? "maintenance" : "inactive";
+
+  const handleEditRoom = (e: React.FormEvent, data: any) => {
+    e.preventDefault();
+    fetch(`http://localhost:5000/api/v1/rooms/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+    }).then(() => { fetchData(); setEditRoom(false); });
+  };
+
+  const handleDeleteRoom = () => {
+    fetch(`http://localhost:5000/api/v1/rooms/${id}`, { method: "DELETE" })
+      .then(() => { setDelRoom(false); onBack(); });
+  };
+
+  const handleAddDevice = () => {
+    if (!newDev.typeId || !newDev.code) return;
+    fetch("http://localhost:5000/api/v1/equipments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        equipmentCode: newDev.code,
+        equipmentTypeId: newDev.typeId,
+        roomId: id,
+        position: newDev.pos,
+        usageStatus: newDev.status,
+        isActive: true,
+      })
+    }).then(() => { fetchData(); setAddDev(false); setNewDev({ typeId: "", code: "", pos: "", status: "Hoạt động" }); });
+  };
+
+  const handleEditDevice = () => {
+    if (!editDev) return;
+    fetch(`http://localhost:5000/api/v1/equipments/${editDev.equipmentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usageStatus: editDev.status, position: editDev.pos })
+    }).then(() => { fetchData(); setEditDev(null); });
+  };
+
+  const handleDeleteDevice = () => {
+    if (!delDev) return;
+    fetch(`http://localhost:5000/api/v1/equipments/${delDev.equipmentId}`, { method: "DELETE" })
+      .then(() => { fetchData(); setDelDev(null); });
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20 text-muted-foreground">
+      <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+      Đang tải thông tin phòng…
+    </div>
+  );
+  if (!room) return <div className="text-center py-20 text-muted-foreground">Không tìm thấy phòng tập.</div>;
 
   return (
     <div className="space-y-5">
@@ -1807,6 +2063,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <ChevronRight className="size-3.5 rotate-180" /> Quay lại danh sách phòng tập
       </button>
 
+      {/* Room header card */}
       <Card>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
@@ -1814,7 +2071,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <Building2 className="size-6 text-[#4F46E5] dark:text-[#A8A2FF]" />
             </div>
             <div>
-              <div className="font-mono text-[11px] text-muted-foreground">{room.id}</div>
+              <div className="font-mono text-[11px] text-muted-foreground">{room.code}</div>
               <h2 className="font-display text-[20px] mt-0.5">{room.name}</h2>
               <div className="flex items-center gap-1.5 mt-2">
                 <Badge tone={room.type === "Gym" ? "violet" : room.type === "Cardio" ? "red" : room.type === "Yoga" ? "emerald" : room.type === "Fitness" ? "amber" : "sky"}>{room.type}</Badge>
@@ -1830,7 +2087,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
           {[
-            ["Mã phòng", room.id],
+            ["Mã phòng", room.code],
             ["Loại phòng", room.type],
             ["Số thiết bị", `${devices.length} máy`],
             ["Trạng thái", room.status],
@@ -1843,6 +2100,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
       </Card>
 
+      {/* Devices in room */}
       <Card>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -1853,14 +2111,15 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
 
         <DataTable
-          head={["Mã TB", "Tên loại", "Vị trí", "Trạng thái", "Hành động"]}
+          head={["Mã TB", "Tên loại", "Vị trí", "Ngày mua", "Trạng thái", "Hành động"]}
           rows={devices.map((d) => [
-            <span key="c" className="font-mono text-[12px]">{d.code}</span>,
-            typeName(d.typeId),
-            d.pos,
+            <span key="c" className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{d.code}</span>,
+            d.typeName,
+            <span key="p" className="text-muted-foreground">{d.pos}</span>,
+            <span key="dt" className="text-muted-foreground">{d.purchaseDate}</span>,
             <StatusPill key="s" value={d.status} />,
             <div key="a" className="flex items-center gap-1 justify-end">
-              <IconBtn icon={Pencil} onClick={() => setEditDev(d)} />
+              <IconBtn icon={Pencil} onClick={() => setEditDev({ ...d })} />
               <IconBtn icon={Trash2} tone="danger" onClick={() => setDelDev(d)} />
             </div>,
           ])}
@@ -1870,45 +2129,71 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         )}
       </Card>
 
+      {/* ── Edit Room Modal ── */}
       <Modal open={editRoom} onClose={() => setEditRoom(false)} title={`Chỉnh sửa phòng — ${room.name}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditRoom(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditRoom(false)}>Lưu thay đổi</Button></>}>
-        <RoomForm data={room} />
+        footer={<><Button variant="ghost" onClick={() => setEditRoom(false)}>Hủy</Button><Button type="submit" form="room-detail-edit-form" icon={CheckCircle2}>Lưu thay đổi</Button></>}>
+        <RoomForm formId="room-detail-edit-form" data={room} onSubmit={handleEditRoom} />
       </Modal>
 
+      {/* ── Delete Room Modal ── */}
       <Modal open={delRoom} onClose={() => setDelRoom(false)} title="Xóa phòng tập"
-        footer={<>
-          <Button variant="ghost" onClick={() => setDelRoom(false)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setDelRoom(false); onBack(); }}>Xóa phòng</Button>
-        </>}>
+        footer={<><Button variant="ghost" onClick={() => setDelRoom(false)}>Hủy</Button><Button icon={Trash2} onClick={handleDeleteRoom}>Xóa phòng</Button></>}>
         <div className="space-y-3">
           <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-          <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{room.name}</span> ({room.id})?</p>
-          <p className="text-[12.5px] text-muted-foreground">{devices.length} thiết bị thuộc phòng này cần được chuyển sang khu vực khác trước khi xóa.</p>
+          <p className="text-[14px]">Bạn có chắc chắn muốn xóa phòng <span className="font-medium">{room.name}</span> ({room.code})?</p>
+          <p className="text-[12.5px] text-muted-foreground">{devices.length} thiết bị thuộc phòng này sẽ bị vô hiệu hóa. Hành động không thể hoàn tác từ giao diện.</p>
         </div>
       </Modal>
 
+      {/* ── Add Device Modal ── */}
       <Modal open={addDev} onClose={() => setAddDev(false)} title="Thêm thiết bị vào phòng" wide
-        footer={<><Button variant="ghost" onClick={() => setAddDev(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => {
-          setDevices([...devices, { code: `TB-${600 + devices.length + 1}`, typeId: EQUIPMENT_TYPES[0].id, pos: `Hàng ${devices.length + 1} — Slot 1`, status: "Hoạt động" }]);
-          setAddDev(false);
-        }}>Thêm thiết bị</Button></>}>
-        <RoomDeviceForm />
+        footer={<><Button variant="ghost" onClick={() => setAddDev(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={handleAddDevice}>Thêm thiết bị</Button></>}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label={<>Loại thiết bị<Req /></>}>
+            <select value={newDev.typeId} onChange={(e) => setNewDev({ ...newDev, typeId: e.target.value })}
+              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              <option value="">-- Chọn loại thiết bị --</option>
+              {equipmentTypes.map((t: any) => <option key={t.equipmentTypeId} value={t.equipmentTypeId}>{t.equipmentName}</option>)}
+            </select>
+          </Field>
+          <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={newDev.code} onChange={(e: any) => setNewDev({ ...newDev, code: e.target.value })} /></Field>
+          <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={newDev.pos} onChange={(e: any) => setNewDev({ ...newDev, pos: e.target.value })} /></Field>
+          <Field label={<>Tình trạng<Req /></>}>
+            <select value={newDev.status} onChange={(e) => setNewDev({ ...newDev, status: e.target.value })}
+              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+        </div>
       </Modal>
 
+      {/* ── Edit Device Modal ── */}
       <Modal open={!!editDev} onClose={() => setEditDev(null)} title={`Chỉnh sửa thiết bị — ${editDev?.code ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditDev(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditDev(null)}>Lưu thay đổi</Button></>}>
-        {editDev && <RoomDeviceForm data={editDev} />}
+        footer={<><Button variant="ghost" onClick={() => setEditDev(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={handleEditDevice}>Lưu thay đổi</Button></>}>
+        {editDev && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label={<>Mã thiết bị</>}><Input value={editDev.code} readOnly /></Field>
+            <Field label={<>Tên loại thiết bị</>}><Input value={editDev.typeName} readOnly /></Field>
+            <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={editDev.pos} onChange={(e: any) => setEditDev({ ...editDev, pos: e.target.value })} /></Field>
+            <Field label={<>Tình trạng<Req /></>}>
+              <select value={editDev.status} onChange={(e) => setEditDev({ ...editDev, status: e.target.value })}
+                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+                {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label={<>Ngày mua</>}><Input value={editDev.purchaseDate} readOnly /></Field>
+          </div>
+        )}
       </Modal>
 
+      {/* ── Delete Device Modal ── */}
       <Modal open={!!delDev} onClose={() => setDelDev(null)} title="Xóa thiết bị khỏi phòng"
-        footer={<>
-          <Button variant="ghost" onClick={() => setDelDev(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setDevices(devices.filter((d) => d.code !== delDev!.code)); setDelDev(null); }}>Xóa thiết bị</Button>
-        </>}>
+        footer={<><Button variant="ghost" onClick={() => setDelDev(null)}>Hủy</Button><Button icon={Trash2} onClick={handleDeleteDevice}>Xóa thiết bị</Button></>}>
         {delDev && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa thiết bị <span className="font-mono">{delDev.code}</span> khỏi phòng <span className="font-medium">{room.name}</span>?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa thiết bị <span className="font-mono">{delDev.code}</span> ({delDev.typeName}) khỏi phòng <span className="font-medium">{room.name}</span>?</p>
+            <p className="text-[12.5px] text-muted-foreground">Thiết bị sẽ bị vô hiệu hóa và không còn xuất hiện trong danh sách. Hành động không thể hoàn tác từ giao diện.</p>
           </div>
         )}
       </Modal>
@@ -1953,7 +2238,7 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
           {rooms.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
         </select>
       </Field>
-      <Field label={<>Ngày mua<Req /></>}><Input placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
+      <Field label={<>Ngày mua<Req /></>}><Input type="date" placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
       <Field label={<>Trạng thái<Req /></>}>
         <select value={data?.status || "Hoạt động"} onChange={(e) => onChange({ ...data, status: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Hoạt động">Hoạt động</option>
@@ -1977,7 +2262,7 @@ function Equipment() {
       fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()),
       fetch("http://localhost:5000/api/v1/rooms").then(res => res.json())
     ]).then(([typesRes, itemsRes, roomsRes]) => {
-      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, code: t.typeCode || t.typeId.split('-')[0].toUpperCase(), name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
+      if (Array.isArray(typesRes)) setTypes(typesRes.map((t: any) => ({ id: t.typeId, code: t.typeCode || "", name: t.equipmentName, category: t.category, brand: t.brand, warranty: t.warrantyDuration, desc: t.description })));
       if (Array.isArray(itemsRes)) setItems(itemsRes.map((i: any) => ({ id: i.equipmentId, code: i.equipmentCode, typeId: i.typeId, room: i.Room?.roomName, purchased: i.importDate, status: i.usageStatus })));
       if (Array.isArray(roomsRes) && roomsRes.length > 0) setRooms(roomsRes.map((r: any) => ({ id: r.roomId, name: r.roomName })));
     }).catch(console.error);
@@ -2129,7 +2414,7 @@ function Equipment() {
           fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
+            body: JSON.stringify({ typeCode: typeForm.code, equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
           }).then(() => {
             fetchEquipmentsData();
             setEditTypeId(null);
@@ -2139,7 +2424,7 @@ function Equipment() {
       </Modal>
       <Modal open={!!deletingType} onClose={() => setDeleteTypeId(null)} title="Xóa loại thiết bị"
         footer={<><Button variant="ghost" onClick={() => setDeleteTypeId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { 
+          <Button icon={Trash2} onClick={() => {
             fetch(`http://localhost:5000/api/v1/equipment-types/${deleteTypeId}`, { method: "DELETE" }).then(() => {
               fetchEquipmentsData();
               setDeleteTypeId(null);
@@ -2148,7 +2433,7 @@ function Equipment() {
         {deletingType && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Bạn có chắc chắn muốn xóa loại <span className="font-medium">{deletingType.name}</span> ({deletingType.id})?</p>
+            <p className="text-[14px]">Bạn có chắc chắn muốn xóa loại <span className="font-medium">{deletingType.name}</span> ({deletingType.code || deletingType.id})?</p>
             <p className="text-[12.5px] text-muted-foreground">{items.filter((i) => i.typeId === deletingType.id).length} thiết bị thuộc loại này cũng sẽ bị xóa khỏi hệ thống.</p>
           </div>
         )}
@@ -2163,7 +2448,7 @@ function Equipment() {
               <div className="flex items-center gap-3">
                 <div className="size-14 rounded-xl bg-card border border-border grid place-items-center"><Dumbbell className="size-6 text-[#4F46E5] dark:text-[#A8A2FF]" /></div>
                 <div>
-                  <div className="font-mono text-[11px] text-muted-foreground">{viewingType.id}</div>
+                  <div className="font-mono text-[11px] text-muted-foreground">{viewingType.code || viewingType.id}</div>
                   <h3 className="font-display text-[19px] mt-0.5">{viewingType.name}</h3>
                   <div className="flex items-center gap-1.5 mt-2">
                     <Badge tone="violet">{viewingType.category}</Badge>
@@ -2181,21 +2466,21 @@ function Equipment() {
             <div className="rounded-xl border border-border/70 bg-card overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
                 <h4 className="font-display">Danh sách thiết bị</h4>
-                <Button icon={Plus} onClick={() => { setItemForm({ room: ROOMS[0].name, status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
+                <Button icon={Plus} onClick={() => { setItemForm({ room: rooms[0]?.name ?? "", status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
               </div>
               {items.filter((i) => i.typeId === viewingType.id).length === 0
                 ? <p className="text-[13px] text-muted-foreground text-center py-6">Chưa có thiết bị nào.</p>
                 : <DataTable head={["Mã TB", "Phòng", "Ngày mua", "Trạng thái", ""]}
-                    rows={items.filter((i) => i.typeId === viewingType.id).map((i) => [
-                      <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{i.code}</span>,
-                      <Badge tone="sky">{i.room}</Badge>,
-                      i.purchased,
-                      <StatusPill value={i.status} />,
-                      <div className="flex items-center justify-end gap-0.5">
-                        <IconBtn icon={Pencil} onClick={() => { setItemForm(i); setEditItemCode(i.code); }} />
-                        <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteItemCode(i.code)} />
-                      </div>,
-                    ])} />
+                  rows={items.filter((i) => i.typeId === viewingType.id).map((i) => [
+                    <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{i.code}</span>,
+                    <Badge tone="sky">{i.room}</Badge>,
+                    i.purchased,
+                    <StatusPill value={i.status} />,
+                    <div className="flex items-center justify-end gap-0.5">
+                      <IconBtn icon={Pencil} onClick={() => { setItemForm(i); setEditItemCode(i.code); }} />
+                      <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteItemCode(i.code)} />
+                    </div>,
+                  ])} />
               }
             </div>
           </div>
@@ -2232,7 +2517,7 @@ function Equipment() {
       </Modal>
       <Modal open={!!deletingItem} onClose={() => setDeleteItemCode(null)} title="Xóa thiết bị"
         footer={<><Button variant="ghost" onClick={() => setDeleteItemCode(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { 
+          <Button icon={Trash2} onClick={() => {
             const target = items.find(i => i.code === deleteItemCode);
             fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, { method: "DELETE" }).then(() => {
               fetchEquipmentsData();
@@ -2300,10 +2585,10 @@ function EquipmentMaintenance() {
       <SectionTitle title="Xử lý bảo trì" sub="Theo dõi và cập nhật trạng thái yêu cầu bảo trì thiết bị" />
       <div className="grid grid-cols-4 gap-3">
         {[
-          { k: "Chờ xử lý",    v: maintList.filter((m) => m.status === "Chờ xử lý").length,  tone: "amber" },
-          { k: "Đang xử lý",   v: maintList.filter((m) => m.status === "Đang xử lý").length, tone: "sky" },
-          { k: "Đã xử lý",     v: maintList.filter((m) => m.status === "Đã xử lý").length,   tone: "emerald" },
-          { k: "Tổng yêu cầu", v: maintList.length,                                           tone: "violet" },
+          { k: "Chờ xử lý", v: maintList.filter((m) => m.status === "Chờ xử lý").length, tone: "amber" },
+          { k: "Đang xử lý", v: maintList.filter((m) => m.status === "Đang xử lý").length, tone: "sky" },
+          { k: "Đã xử lý", v: maintList.filter((m) => m.status === "Đã xử lý").length, tone: "emerald" },
+          { k: "Tổng yêu cầu", v: maintList.length, tone: "violet" },
         ].map((s: any) => (
           <Card key={s.k}>
             <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{s.k}</div>
@@ -2376,7 +2661,7 @@ function EquipmentMaintenance() {
 
       <Modal open={!!deletingMaint} onClose={() => setDeleteMaint(null)} title="Xóa yêu cầu bảo trì"
         footer={<><Button variant="ghost" onClick={() => setDeleteMaint(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { 
+          <Button icon={Trash2} onClick={() => {
             const target = maintList.find(m => m.code === deleteMaint);
             fetch(`http://localhost:5000/api/v1/equipment-reports/${target?.id}`, { method: "DELETE" }).then(() => {
               fetchReports();
@@ -2432,7 +2717,7 @@ function MaintenanceOwner() {
         {[
           { k: "Chờ xử lý", v: list.filter((m) => m.status === "Chờ xử lý").length, tone: "amber" },
           { k: "Đang xử lý", v: list.filter((m) => m.status === "Đang xử lý").length, tone: "sky" },
-          { k: "Đã xử lý",   v: list.filter((m) => m.status === "Đã xử lý").length, tone: "emerald" },
+          { k: "Đã xử lý", v: list.filter((m) => m.status === "Đã xử lý").length, tone: "emerald" },
           { k: "Tổng yêu cầu", v: list.length, tone: "violet" },
         ].map((s: any) => (
           <Card key={s.k}>
@@ -2485,12 +2770,12 @@ function MaintenanceOwner() {
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <Field label={<>Chọn thiết bị<Req /></>}>
-              <select value={addForm.equipmentId || items[0]?.id} onChange={e => setAddForm({...addForm, equipmentId: e.target.value})} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              <select value={addForm.equipmentId || items[0]?.id} onChange={e => setAddForm({ ...addForm, equipmentId: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 {items.map((i) => <option key={i.id} value={i.id}>{i.code} — {i.room}</option>)}
               </select>
             </Field>
           </div>
-          <Field label={<>Ngày báo<Req /></>}><Input type="date" value={addForm.date || ""} onChange={(e: any) => setAddForm({...addForm, date: e.target.value})} /></Field>
+          <Field label={<>Ngày báo<Req /></>}><Input type="date" value={addForm.date || ""} onChange={(e: any) => setAddForm({ ...addForm, date: e.target.value })} /></Field>
           <div className="flex flex-col justify-end">
             <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground px-3 py-2.5 rounded-lg bg-muted/40 border border-border/60">
               <span>Người báo:</span>
@@ -2500,7 +2785,7 @@ function MaintenanceOwner() {
           </div>
           <div className="col-span-2">
             <Field label={<>Mô tả lỗi<Req /></>}>
-              <textarea value={addForm.desc || ""} onChange={e => setAddForm({...addForm, desc: e.target.value})} rows={4} placeholder="Mô tả hiện tượng, mức độ hư hỏng…" className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 resize-none" />
+              <textarea value={addForm.desc || ""} onChange={e => setAddForm({ ...addForm, desc: e.target.value })} rows={4} placeholder="Mô tả hiện tượng, mức độ hư hỏng…" className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 resize-none" />
             </Field>
           </div>
         </div>
@@ -2677,10 +2962,10 @@ function ReportsOverview() {
         actions={<><Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
-          { k: "Doanh thu tháng",  v: "246 tr", d: "+18.4%", icon: Wallet,     tone: "violet" },
-          { k: "Hội viên mới",     v: "52",     d: "+12 HV",  icon: UserPlus,   tone: "emerald" },
-          { k: "Tổng hội viên",    v: "1,248",  d: "+4.1%",   icon: Users,      tone: "amber" },
-          { k: "Nhân sự",          v: "32",     d: "Ổn định", icon: ShieldCheck,tone: "sky" },
+          { k: "Doanh thu tháng", v: "246 tr", d: "+18.4%", icon: Wallet, tone: "violet" },
+          { k: "Hội viên mới", v: "52", d: "+12 HV", icon: UserPlus, tone: "emerald" },
+          { k: "Tổng hội viên", v: "1,248", d: "+4.1%", icon: Users, tone: "amber" },
+          { k: "Nhân sự", v: "32", d: "Ổn định", icon: ShieldCheck, tone: "sky" },
         ].map((s: any) => (
           <Card key={s.k}>
             <div className="flex items-start justify-between">
@@ -2752,20 +3037,20 @@ function ReportsOverview() {
 function RevenueReport() {
   const txns = [
     { who: "Phạm Khánh An", pkg: "Elite VIP 6T", amt: 9800000, pm: "Thẻ NH", d: "23/05/2026" },
-    { who: "Hoàng Minh Tú", pkg: "Gym Pro 3T",    amt: 2400000, pm: "QR",     d: "22/05/2026" },
-    { who: "Bùi Quỳnh Anh", pkg: "Personal 24B",  amt: 5600000, pm: "Tiền mặt", d: "22/05/2026" },
-    { who: "Ngô Hữu Đức",   pkg: "Gym Starter",   amt: 1200000, pm: "QR",     d: "21/05/2026" },
+    { who: "Hoàng Minh Tú", pkg: "Gym Pro 3T", amt: 2400000, pm: "QR", d: "22/05/2026" },
+    { who: "Bùi Quỳnh Anh", pkg: "Personal 24B", amt: 5600000, pm: "Tiền mặt", d: "22/05/2026" },
+    { who: "Ngô Hữu Đức", pkg: "Gym Starter", amt: 1200000, pm: "QR", d: "21/05/2026" },
   ];
   const [tab, setTab] = useState<"day" | "month" | "quarter" | "year">("month");
   const [day, setDay] = useState("2026-05-23");
   const [quarter, setQuarter] = useState<"Q1" | "Q2" | "Q3" | "Q4">("Q2");
   const [year, setYear] = useState("2026");
 
-  const dayData = ["06h","08h","10h","12h","14h","16h","18h","20h","22h"].map((h, i) => ({ d: h, v: Math.round(2 + Math.sin(i / 1.3) * 3 + i / 1.5) }));
+  const dayData = ["06h", "08h", "10h", "12h", "14h", "16h", "18h", "20h", "22h"].map((h, i) => ({ d: h, v: Math.round(2 + Math.sin(i / 1.3) * 3 + i / 1.5) }));
   const monthData = Array.from({ length: 14 }, (_, i) => ({ d: `${i + 10}/05`, v: 6 + Math.round(Math.sin(i / 1.4) * 4 + i / 2) }));
-  const QUARTER_MONTHS: Record<string, string[]> = { Q1: ["T1","T2","T3"], Q2: ["T4","T5","T6"], Q3: ["T7","T8","T9"], Q4: ["T10","T11","T12"] };
+  const QUARTER_MONTHS: Record<string, string[]> = { Q1: ["T1", "T2", "T3"], Q2: ["T4", "T5", "T6"], Q3: ["T7", "T8", "T9"], Q4: ["T10", "T11", "T12"] };
   const quarterData = QUARTER_MONTHS[quarter].map((m, i) => ({ d: m, v: 160 + i * 28 + (quarter === "Q2" ? 20 : 0) }));
-  const yearData = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11","T12"].map((m, i) => ({ d: m, v: 120 + Math.round(Math.sin(i / 1.6) * 50 + i * 8) }));
+  const yearData = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"].map((m, i) => ({ d: m, v: 120 + Math.round(Math.sin(i / 1.6) * 50 + i * 8) }));
   const dataset = tab === "day" ? dayData : tab === "month" ? monthData : tab === "quarter" ? quarterData : yearData;
   const total = dataset.reduce((s, d) => s + d.v, 0);
   const totalLabel = tab === "day" || tab === "month" ? `${total} triệu` : `${(total).toLocaleString("vi-VN")} triệu`;
@@ -2959,7 +3244,30 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
 }
 
 function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: (id: string) => void; onAdd: () => void; readonly?: boolean; disablePackage?: boolean }) {
-  const [list, setList] = useState<MemberRecord[]>(MEMBERS);
+  const [list, setList] = useState<any[]>([]);
+
+  const fetchMembers = () => {
+    fetch("http://localhost:5000/api/v1/members", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          setList(res.data.members.map((m: any) => ({
+            code: m.memberId.substring(0, 8),
+            name: m.memberName,
+            phone: m.phoneNumber || "Chưa có",
+            pkg: "Gym Pro",
+            remain: "N/A",
+            status: "Đang hoạt động"
+          })));
+        }
+      });
+  };
+
+  useEffect(() => {
+    fetchMembers();
+  }, []);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [editId, setEditId] = useState<string | null>(null);
@@ -3038,10 +3346,43 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
-  const sellable = PACKAGES.filter((p) => p.status === "Đang kinh doanh");
-  const [pkgId, setPkgId] = useState(sellable[0].id);
-  const pkg = sellable.find((p) => p.id === pkgId)!;
-  if (pay) return <Payment kind={pay} onBack={() => setPay(null)} />;
+
+  const [sellable, setSellable] = useState<any[]>([]);
+  const [pkgId, setPkgId] = useState("");
+
+  const [formData, setFormData] = useState({
+    memberName: "",
+    dateOfBirth: "",
+    gender: "male",
+    job: "",
+    phoneNumber: "",
+    email: "",
+    password: "",
+    address: ""
+  });
+  const updateForm = (k: string, v: any) => setFormData(prev => ({ ...prev, [k]: v }));
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/packages")
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.status === "active").map((d: any) => ({
+            id: d.packageId,
+            name: d.packageName,
+            type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
+            price: Number(d.price),
+            vip: d.vipIncluded,
+            trainer: d.trainerIncluded
+          }));
+          setSellable(list);
+          if (list.length > 0) setPkgId(list[0].id);
+        }
+      });
+  }, []);
+
+  const pkg = sellable.find((p) => p.id === pkgId);
+  if (pay && pkg) return <Payment kind={pay} formData={formData} pkgId={pkgId} pkg={pkg} onBack={() => setPay(null)} onComplete={onBack} />;
   return (
     <div className="space-y-6">
       {onBack && (
@@ -3069,17 +3410,22 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       {step === 0 && (
         <Card>
           <div className="grid grid-cols-2 gap-4">
-            <Field label={<>Họ và tên<Req /></>}><Input placeholder="Nguyễn Văn A" /></Field>
-            <Field label={<>Ngày sinh<Req /></>}><Input type="date" /></Field>
+            <Field label={<>Họ và tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={formData.memberName} onChange={(e: any) => updateForm("memberName", e.target.value)} /></Field>
+            <Field label={<>Ngày sinh<Req /></>}><Input type="date" value={formData.dateOfBirth} onChange={(e: any) => updateForm("dateOfBirth", e.target.value)} /></Field>
             <Field label={<>Giới tính<Req /></>}>
-              <div className="flex gap-2">{["Nam", "Nữ", "Khác"].map((g, i) => (
-                <button key={g} className={cn("h-10 flex-1 rounded-lg border text-[13px]", i === 0 ? "border-[#6C63FF] bg-[#6C63FF]/10" : "border-border text-muted-foreground")}>{g}</button>
+              <div className="flex gap-2">{[
+                { l: "Nam", v: "male" },
+                { l: "Nữ", v: "female" },
+                { l: "Khác", v: "other" }
+              ].map((g) => (
+                <button key={g.v} onClick={() => updateForm("gender", g.v)} className={cn("h-10 flex-1 rounded-lg border text-[13px]", formData.gender === g.v ? "border-[#6C63FF] bg-[#6C63FF]/10 text-[#6C63FF] dark:text-[#A8A2FF]" : "border-border text-muted-foreground")}>{g.l}</button>
               ))}</div>
             </Field>
-            <Field label={<>Nghề nghiệp<Req /></>}><Input placeholder="VD: Kỹ sư phần mềm" /></Field>
-            <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" /></Field>
-            <Field label={<>Email<Req /></>}><Input icon={Mail} placeholder="email@example.com" /></Field>
-            <div className="col-span-2"><Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận, thành phố" /></Field></div>
+            <Field label={<>Nghề nghiệp</>}><Input placeholder="VD: Kỹ sư phần mềm" value={formData.job} onChange={(e: any) => updateForm("job", e.target.value)} /></Field>
+            <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phoneNumber} onChange={(e: any) => updateForm("phoneNumber", e.target.value)} /></Field>
+            <Field label={<>Email<Req /></>}><Input icon={Mail} placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} /></Field>
+            <Field label={<>Mật khẩu đăng nhập<Req /></>}><Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} /></Field>
+            <div className="col-span-2"><Field label={<>Địa chỉ</>}><Input placeholder="Số nhà, đường, quận, thành phố" value={formData.address} onChange={(e: any) => updateForm("address", e.target.value)} /></Field></div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
             <Button variant="ghost">Hủy</Button>
@@ -3105,19 +3451,21 @@ function NewMember({ onBack }: { onBack?: () => void }) {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
               </div>
             </Field>
-            <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between gap-4">
-              <div>
-                <div className="font-display font-semibold text-[16px]">{pkg.name}</div>
-                <div className="text-[12px] text-muted-foreground">{pkg.type}</div>
-                <div className="flex items-center gap-1.5 mt-2">
-                  {pkg.vip && <Badge tone="amber">★ VIP</Badge>}
-                  {pkg.trainer && <Badge tone="violet">Yêu cầu HLV</Badge>}
+            {pkg && (
+              <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-display font-semibold text-[16px]">{pkg.name}</div>
+                  <div className="text-[12px] text-muted-foreground">{pkg.type}</div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    {pkg.vip && <Badge tone="amber">★ VIP</Badge>}
+                    {pkg.trainer && <Badge tone="violet">Yêu cầu HLV</Badge>}
+                  </div>
                 </div>
+                <div className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</div>
               </div>
-              <div className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</div>
-            </div>
+            )}
             <div className="mt-5 grid grid-cols-2 gap-4">
-              {pkg.trainer && (
+              {pkg?.trainer && (
                 <Field label="Huấn luyện viên" hint="Bắt buộc khi gói có Trainer">
                   <div className="relative">
                     <select className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
@@ -3131,7 +3479,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { k: "card", l: "Thẻ NH", i: CreditCard },
-                    { k: "qr",   l: "QR Code", i: QrCode },
+                    { k: "qr", l: "QR Code", i: QrCode },
                     { k: "cash", l: "Tiền mặt", i: Wallet },
                   ].map((p) => {
                     const active = method === p.k;
@@ -3161,8 +3509,10 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   );
 }
 
-function Payment({ kind, onBack }: { kind: "card" | "qr" | "cash"; onBack: () => void }) {
+function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "card" | "qr" | "cash"; formData: any; pkgId: string; pkg: any; onBack: () => void; onComplete?: () => void }) {
   const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const TOTAL = 300;
   const [remain, setRemain] = useState(TOTAL);
   const [qrKey, setQrKey] = useState(0);
@@ -3246,11 +3596,11 @@ function Payment({ kind, onBack }: { kind: "card" | "qr" | "cash"; onBack: () =>
           )}
           {kind === "cash" && (
             <div className="space-y-4">
-              <Field label="Số tiền cần thu"><Input value="2.400.000 ₫" /></Field>
-              <Field label="Khách đưa"><Input value="3.000.000 ₫" /></Field>
+              <Field label="Số tiền cần thu"><Input value={`${pkg.price.toLocaleString("vi-VN")} ₫`} readOnly /></Field>
+              <Field label="Khách đưa"><Input placeholder="VD: 3.000.000 ₫" /></Field>
               <div className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 p-4 flex items-center justify-between">
                 <span className="text-[13px] text-[#00866F] dark:text-[#5FE6CB]">Tiền thối khách</span>
-                <span className="font-display font-bold text-[22px] text-[#00866F] dark:text-[#5FE6CB]">600.000 ₫</span>
+                <span className="font-display font-bold text-[22px] text-[#00866F] dark:text-[#5FE6CB]">0 ₫</span>
               </div>
             </div>
           )}
@@ -3258,28 +3608,99 @@ function Payment({ kind, onBack }: { kind: "card" | "qr" | "cash"; onBack: () =>
         <Card className="lg:col-span-2">
           <h3 className="font-display">Tóm tắt đơn hàng</h3>
           <div className="mt-4 space-y-3 text-[13px]">
-            {[["Gói tập", "Gym Pro 3 tháng"], ["Hội viên", "Nguyễn Văn A"], ["Huấn luyện viên", "Lê Đức Mạnh"], ["Ngày bắt đầu", "24/05/2026"]].map(([k, v]) => (
+            {[
+              ["Gói tập", pkg.name],
+              ["Hội viên", formData.memberName],
+              ["Ngày bắt đầu", new Date().toLocaleDateString("vi-VN")]
+            ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
               </div>
             ))}
           </div>
           <div className="mt-5 pt-4 border-t border-border">
-            <div className="flex justify-between text-[12.5px] text-muted-foreground"><span>Tạm tính</span><span>2.400.000 ₫</span></div>
+            <div className="flex justify-between text-[12.5px] text-muted-foreground"><span>Tạm tính</span><span>{pkg.price.toLocaleString("vi-VN")} ₫</span></div>
             <div className="flex justify-between text-[12.5px] text-muted-foreground mt-1"><span>VAT</span><span>0 ₫</span></div>
-            <div className="flex justify-between mt-3"><span className="font-display">Tổng thanh toán</span><span className="font-display font-bold text-[22px]">2.400.000 ₫</span></div>
+            <div className="flex justify-between mt-3"><span className="font-display">Tổng thanh toán</span><span className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</span></div>
           </div>
-          {kind !== "qr" && (
-            <Button className="w-full justify-center mt-5 h-11" icon={CheckCircle2} onClick={() => setDone(true)}>Xác nhận thanh toán</Button>
-          )}
-          {kind === "qr" && !expired && (
-            <div className="mt-5 text-[11.5px] text-muted-foreground text-center">Giao dịch sẽ được xác nhận tự động sau khi nhận được thanh toán.</div>
-          )}
+
+          {error && <div className="mt-4 p-3 rounded-lg bg-[#FF5C5C]/15 border border-[#FF5C5C]/30 text-[12.5px] text-[#B91C1C] dark:text-[#FFA0A0]">{error}</div>}
+
+          <Button
+            className="w-full justify-center mt-5 h-11"
+            icon={CheckCircle2}
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true);
+              setError(null);
+              try {
+                // 1. Create Member
+                const mRes = await fetch("http://localhost:5000/api/v1/members", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+                  },
+                  body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password || "gymos123456",
+                    memberName: formData.memberName,
+                    phoneNumber: formData.phoneNumber,
+                    dateOfBirth: formData.dateOfBirth || undefined,
+                    gender: formData.gender
+                  })
+                });
+                const mData = await mRes.json();
+                if (!mData.success) throw new Error(mData.message || "Lỗi tạo hội viên");
+
+                const memberId = mData.data.member.memberId;
+
+                // 2. Create Subscription
+                const sRes = await fetch("http://localhost:5000/api/v1/subscriptions", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+                  },
+                  body: JSON.stringify({
+                    memberId,
+                    packageId: pkgId
+                  })
+                });
+                const sData = await sRes.json();
+                if (!sData.success) throw new Error(sData.message || "Lỗi tạo subscription");
+
+                const subId = sData.data.subscription.subscriptionId;
+
+                // 3. Process Payment
+                const methodMap: Record<string, string> = { card: "card", qr: "transfer", cash: "cash" };
+                const pRes = await fetch(`http://localhost:5000/api/v1/subscriptions/${subId}/pay`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+                  },
+                  body: JSON.stringify({
+                    paymentMethod: methodMap[kind] || "cash"
+                  })
+                });
+                const pData = await pRes.json();
+                if (!pData.success) throw new Error(pData.message || "Lỗi thanh toán");
+
+                setDone(true);
+              } catch (err: any) {
+                setError(err.message);
+              } finally {
+                setLoading(false);
+              }
+            }}>
+            {loading ? "Đang xử lý..." : "Xác nhận & Hoàn tất"}
+          </Button>
         </Card>
       </div>
 
-      <Modal open={done} onClose={() => setDone(false)} title="Thanh toán thành công"
-        footer={<Button icon={ArrowRight} onClick={() => { setDone(false); onBack(); }}>Hoàn tất</Button>}>
+      <Modal open={done} onClose={() => setDone(false)} title="Đăng ký & Thanh toán thành công"
+        footer={<Button icon={ArrowRight} onClick={() => { setDone(false); onComplete?.(); }}>Quay về danh sách</Button>}>
         <div className="space-y-3">
           <div className="size-12 rounded-full bg-[#00C9A7]/15 grid place-items-center"><CheckCircle2 className="size-6 text-[#00C9A7]" /></div>
           <p className="text-[14px]">Đã ghi nhận thanh toán {kind === "card" ? "qua thẻ ngân hàng" : kind === "qr" ? "qua mã QR" : "tiền mặt"} thành công.</p>
@@ -3512,11 +3933,11 @@ function MemberHistory() {
 function MemberPayments() {
   const [methodFilter, setMethodFilter] = useState<string>("Tất cả");
   const payments = [
-    { code: "PAY-20251112", d: "12/11/2025", desc: "Đăng ký Elite VIP 6 tháng",   method: "Thẻ NH",    amount: 8990000, status: "Thành công" },
-    { code: "PAY-20250812", d: "12/08/2025", desc: "Gia hạn Premium 3 tháng",      method: "QR Code",   amount: 4490000, status: "Thành công" },
-    { code: "PAY-20250512", d: "12/05/2025", desc: "Đăng ký Premium 3 tháng",      method: "Tiền mặt",  amount: 4490000, status: "Thành công" },
-    { code: "PAY-20241112", d: "12/11/2024", desc: "Đăng ký Basic 1 tháng",        method: "Tiền mặt",  amount: 890000,  status: "Thành công" },
-    { code: "PAY-20240810", d: "10/08/2024", desc: "Đăng ký Basic 1 tháng",        method: "QR Code",   amount: 890000,  status: "Thành công" },
+    { code: "PAY-20251112", d: "12/11/2025", desc: "Đăng ký Elite VIP 6 tháng", method: "Thẻ NH", amount: 8990000, status: "Thành công" },
+    { code: "PAY-20250812", d: "12/08/2025", desc: "Gia hạn Premium 3 tháng", method: "QR Code", amount: 4490000, status: "Thành công" },
+    { code: "PAY-20250512", d: "12/05/2025", desc: "Đăng ký Premium 3 tháng", method: "Tiền mặt", amount: 4490000, status: "Thành công" },
+    { code: "PAY-20241112", d: "12/11/2024", desc: "Đăng ký Basic 1 tháng", method: "Tiền mặt", amount: 890000, status: "Thành công" },
+    { code: "PAY-20240810", d: "10/08/2024", desc: "Đăng ký Basic 1 tháng", method: "QR Code", amount: 890000, status: "Thành công" },
   ];
   const filtered = payments.filter((p) => methodFilter === "Tất cả" || p.method === methodFilter);
   const total = payments.reduce((s, p) => s + p.amount, 0);
@@ -3541,9 +3962,9 @@ function MemberPayments() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Tổng chi tiêu",     value: total.toLocaleString("vi-VN") + " ₫", tone: "violet" },
-          { label: "Số giao dịch",      value: payments.length + " giao dịch",        tone: "sky" },
-          { label: "Lần thanh toán gần nhất", value: payments[0].d,                   tone: "emerald" },
+          { label: "Tổng chi tiêu", value: total.toLocaleString("vi-VN") + " ₫", tone: "violet" },
+          { label: "Số giao dịch", value: payments.length + " giao dịch", tone: "sky" },
+          { label: "Lần thanh toán gần nhất", value: payments[0].d, tone: "emerald" },
         ].map((s) => (
           <Card key={s.label}>
             <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{s.label}</div>
@@ -3832,7 +4253,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { k: "card", l: "Thẻ NH", i: CreditCard },
-                    { k: "qr",   l: "QR Code", i: QrCode },
+                    { k: "qr", l: "QR Code", i: QrCode },
                     { k: "cash", l: "Tiền mặt", i: Wallet },
                   ].map((p) => {
                     const active = method === p.k;
@@ -3840,7 +4261,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
                       <button key={p.k} type="button" onClick={() => setMethod(p.k as any)}
                         className={cn("h-11 rounded-lg border flex items-center justify-center gap-1.5 text-[13px] transition",
                           active ? "border-[#6C63FF] bg-[#6C63FF]/10 text-foreground font-medium ring-1 ring-[#6C63FF]/40"
-                                 : "border-border text-muted-foreground hover:border-[#6C63FF]/40 hover:text-foreground")}>
+                            : "border-border text-muted-foreground hover:border-[#6C63FF]/40 hover:text-foreground")}>
                         <p.i className="size-4" /> {p.l}
                       </button>
                     );
@@ -3940,11 +4361,23 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [authed, setAuthed] = useState(() => localStorage.getItem("gymos_authed") === "true");
-  const [role, setRole] = useState<Role>(() => (localStorage.getItem("gymos_role") as Role) || "owner");
+  const [role, setRole] = useState<Role>(() => {
+    let rawRole = localStorage.getItem("gymos_role");
+    if (!rawRole || rawRole === "undefined" || rawRole === "null") rawRole = "member";
+    return (rawRole as any) === "manager" ? "staff" : (rawRole as any) === "pt" ? "trainer" : (rawRole as Role);
+  });
+  const [user, setUser] = useState<any>(() => {
+    try {
+      const stored = localStorage.getItem("gymos_user");
+      return stored && stored !== "undefined" ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const [editStaff, setEditStaff] = useState<string | null>(null);
-  
+
   // Real backend staff data
   const [staffData, setStaffData] = useState<any[]>([]);
   const fetchStaffs = () => {
@@ -3991,88 +4424,113 @@ export default function App() {
     return ["GymOS"];
   }, [location.pathname]);
 
-  if (!authed) return <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}><Login onEnter={(r) => { setRole(r); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} /></div>;
+  const handleLogout = () => {
+    setAuthed(false);
+    setUser(null);
+    localStorage.removeItem("gymos_authed");
+    localStorage.removeItem("gymos_role");
+    localStorage.removeItem("gymos_user");
+    localStorage.removeItem("gymos_token");
+    navigate("/");
+  };
 
   return (
-    <div className={cn(theme === "dark" && "dark", "min-h-screen flex bg-background text-foreground")}>
-      <Sidebar role={role} theme={theme} onToggleTheme={toggleTheme} onLogout={() => { setAuthed(false); navigate("/"); }} />
+    <Routes>
+      <Route path="/login" element={
+        !authed ? (
+          <div className={cn(theme === "dark" && "dark", "bg-background text-foreground")}>
+            <Login onEnter={(r, u) => { setRole(r); setUser(u); setAuthed(true); navigate("/"); }} theme={theme} onToggleTheme={toggleTheme} />
+          </div>
+        ) : (
+          <Navigate to="/" replace />
+        )
+      } />
+      <Route path="/*" element={
+        authed ? (
+          <div className={cn(theme === "dark" && "dark", "min-h-screen flex bg-background text-foreground")}>
+            <Sidebar role={role} user={user} theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} />
 
-      <div className="flex-1 min-w-0 flex flex-col">
-        <Header role={role} breadcrumb={breadcrumb} onLogout={() => { setAuthed(false); navigate("/"); }} />
-        <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
-          <Routes>
-            <Route path="/" element={<HomeWidgets role={role} />} />
-            
-            {/* Owner routes */}
-            {role === "owner" && <>
-              <Route path="/staff" element={<StaffList staffs={staffData} refresh={fetchStaffs} onSelect={(id) => navigate("/staff/" + id)} onEdit={(code) => setEditStaff(code)} />} />
-              <Route path="/staff/:id" element={<StaffDetailWrapper staffs={staffData} refresh={fetchStaffs} onEdit={(code) => setEditStaff(code)} />} />
-              <Route path="/attendance" element={<Attendance staffs={staffData} />} />
-              <Route path="/packages" element={<Packages />} />
-              <Route path="/rooms" element={<Rooms onSelect={(id) => navigate("/rooms/" + id)} />} />
-              <Route path="/rooms/:id" element={<RoomDetailWrapper />} />
-              <Route path="/equipment" element={<Equipment />} />
-              <Route path="/equipment/maintenance" element={<EquipmentMaintenance />} />
-              <Route path="/feedback" element={<Feedback />} />
-              <Route path="/reports/*" element={<ReportsWrapper />} />
-            </>}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <Header role={role} user={user} breadcrumb={breadcrumb} onLogout={handleLogout} />
+              <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
+                <Routes>
+                  <Route path="/" element={<HomeWidgets role={role} />} />
 
-            {/* Staff routes */}
-            {role === "staff" && <>
-              <Route path="/members" element={<MembersList onSelect={(id) => navigate("/members/" + id)} onAdd={() => navigate("/members/new")} disablePackage />} />
-              <Route path="/members/new" element={<NewMember onBack={() => navigate("/members")} />} />
-              <Route path="/members/:id" element={<MemberDetailWrapper disablePackage />} />
-              <Route path="/renew" element={<RenewWrapper role={role} />} />
-              <Route path="/maintenance" element={<MaintenanceOwner />} />
-              <Route path="/feedback" element={<Feedback />} />
-            </>}
+                  {/* Owner routes */}
+                  {role === "owner" && <>
+                    <Route path="/staff" element={<StaffList staffs={staffData} refresh={fetchStaffs} onSelect={(id) => navigate("/staff/" + id)} onEdit={(code) => setEditStaff(code)} />} />
+                    <Route path="/staff/:id" element={<StaffDetailWrapper staffs={staffData} refresh={fetchStaffs} onEdit={(code) => setEditStaff(code)} />} />
+                    <Route path="/attendance" element={<Attendance staffs={staffData} />} />
+                    <Route path="/packages" element={<Packages />} />
+                    <Route path="/rooms" element={<Rooms onSelect={(id) => navigate("/rooms/" + id)} />} />
+                    <Route path="/rooms/:id" element={<RoomDetailWrapper />} />
+                    <Route path="/equipment" element={<Equipment />} />
+                    <Route path="/equipment/maintenance" element={<EquipmentMaintenance />} />
+                    <Route path="/feedback" element={<Feedback />} />
+                    <Route path="/reports/*" element={<ReportsWrapper />} />
+                  </>}
 
-            {/* Trainer routes */}
-            {role === "trainer" && <>
-              <Route path="/students" element={<PtStudents onSelect={(id) => navigate("/students/" + id)} />} />
-              <Route path="/students/:id" element={<MemberDetailWrapper disablePackage readonly />} />
-              <Route path="/renew" element={<RenewWrapper role={role} />} />
-            </>}
+                  {/* Staff routes */}
+                  {role === "staff" && <>
+                    <Route path="/members" element={<MembersList onSelect={(id) => navigate("/members/" + id)} onAdd={() => navigate("/members/new")} disablePackage />} />
+                    <Route path="/members/new" element={<NewMember onBack={() => navigate("/members")} />} />
+                    <Route path="/members/:id" element={<MemberDetailWrapper disablePackage />} />
+                    <Route path="/renew" element={<RenewWrapper role={role} />} />
+                    <Route path="/maintenance" element={<MaintenanceOwner />} />
+                    <Route path="/feedback" element={<Feedback />} />
+                  </>}
 
-            {/* Member routes */}
-            {role === "member" && <>
-              <Route path="/renew" element={<RenewWrapper role={role} />} />
-              <Route path="/history" element={<MemberHistory />} />
-              <Route path="/mpayments" element={<MemberPayments />} />
-              <Route path="/mfeedback" element={<MemberFeedback />} />
-            </>}
+                  {/* Trainer routes */}
+                  {role === "trainer" && <>
+                    <Route path="/students" element={<PtStudents onSelect={(id) => navigate("/students/" + id)} />} />
+                    <Route path="/students/:id" element={<MemberDetailWrapper disablePackage readonly />} />
+                    <Route path="/renew" element={<RenewWrapper role={role} />} />
+                  </>}
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-        <footer className="px-7 py-4 text-[11px] text-muted-foreground border-t border-border/60 flex justify-between">
-          <span>© 2026 GymOS — ITSS Project</span>
-          <span className="font-mono">v2.4.0 · build {new Date().getFullYear()}05</span>
-        </footer>
-      </div>
+                  {/* Member routes */}
+                  {role === "member" && <>
+                    <Route path="/renew" element={<RenewWrapper role={role} />} />
+                    <Route path="/history" element={<MemberHistory />} />
+                    <Route path="/mpayments" element={<MemberPayments />} />
+                    <Route path="/mfeedback" element={<MemberFeedback />} />
+                  </>}
 
-      <Modal
-        open={!!editingStaff}
-        onClose={() => setEditStaff(null)}
-        title={`Sửa thông tin nhân sự — ${editingStaff?.name ?? ""}`}
-        wide>
-        {editingStaff && (
-          <StaffForm 
-            data={editingStaff} 
-            onCancel={() => setEditStaff(null)}
-            onSubmit={(data) => {
-              fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-              }).then(res => res.json()).then(() => {
-                fetchStaffs();
-                setEditStaff(null);
-              });
-            }}
-          />
-        )}
-      </Modal>
-    </div>
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </main>
+              <footer className="px-7 py-4 text-[11px] text-muted-foreground border-t border-border/60 flex justify-between">
+                <span>© 2026 GymOS — ITSS Project</span>
+                <span className="font-mono">v2.4.0 · build {new Date().getFullYear()}05</span>
+              </footer>
+            </div>
+
+            <Modal
+              open={!!editingStaff}
+              onClose={() => setEditStaff(null)}
+              title={`Sửa thông tin nhân sự — ${editingStaff?.name ?? ""}`}
+              wide>
+              {editingStaff && (
+                <StaffForm
+                  data={editingStaff}
+                  onCancel={() => setEditStaff(null)}
+                  onSubmit={(data) => {
+                    fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(data),
+                    }).then(res => res.json()).then(() => {
+                      fetchStaffs();
+                      setEditStaff(null);
+                    });
+                  }}
+                />
+              )}
+            </Modal>
+          </div>
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+    </Routes>
   );
 }

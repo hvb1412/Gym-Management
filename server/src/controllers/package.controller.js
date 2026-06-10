@@ -4,6 +4,7 @@ import { SubscriptionPackage } from "../models/index.js";
 
 export const getAllPackages = catchAsync(async (req, res, next) => {
     const packages = await SubscriptionPackage.findAll({
+        where: { isActive: true },
         order: [['createdAt', 'DESC']]
     });
 
@@ -45,7 +46,10 @@ export const deletePackage = catchAsync(async (req, res, next) => {
         return next(new AppError("Không tìm thấy gói tập với ID này", 404));
     }
 
-    await pkg.destroy();
+    await pkg.update({
+        isActive: false,
+        status: "Đã vô hiệu hóa"
+    });
 
     res.status(200).json({
         success: true,

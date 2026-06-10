@@ -15,7 +15,12 @@ const startServer = async () => {
 
         // Bước 2: Đồng bộ hóa Schema (Models -> Tables)
         // alter: true giúp Sequelize tự động điều chỉnh cột nếu Model thay đổi mà không làm mất dữ liệu.
-        await sequelize.sync({ alter: true });
+        try {
+            await sequelize.sync({ alter: true });
+        } catch (e) {
+            console.warn('[Database] Lỗi khi alter bảng, đang thử sync bình thường:', e.message);
+            await sequelize.sync();
+        }
         console.log('[Database] Đã đồng bộ toàn bộ Model thành bảng thành công!');
 
         // Bước 3: Chỉ khi DB đã sẵn sàng, mới bắt đầu mở port đón Request từ Frontend

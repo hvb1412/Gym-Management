@@ -3,6 +3,7 @@ import { EquipmentReport, Equipment, Room, EquipmentType } from '../models/index
 export const getEquipmentReports = async (req, res) => {
   try {
     const reports = await EquipmentReport.findAll({
+      where: { isActive: true },
       include: [
         {
           model: Equipment,
@@ -47,13 +48,13 @@ export const updateEquipmentReport = async (req, res) => {
 export const deleteEquipmentReport = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await EquipmentReport.destroy({ where: { reportId: id } });
-    if (deleted) {
-      res.status(204).send();
-    } else {
-      res.status(404).json({ message: "Không tìm thấy báo cáo" });
+    const report = await EquipmentReport.findOne({ where: { reportId: id, isActive: true } });
+    if (!report) {
+      return res.status(404).json({ message: "Không tìm thấy báo cáo" });
     }
+    await report.update({ isActive: false });
+    res.status(200).json({ message: "Đã vô hiệu hóa báo cáo bảo trì thành công" });
   } catch (error) {
-    res.status(500).json({ message: "Lỗi xóa báo cáo", error: error.message });
+    res.status(500).json({ message: "Lỗi vô hiệu hóa báo cáo", error: error.message });
   }
 };
