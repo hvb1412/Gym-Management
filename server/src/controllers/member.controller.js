@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
-import { sequelize, Account, Member } from '../models/index.js';
+import { sequelize, Account, Member, SubscriptionPlan, SubscriptionPackage } from '../models/index.js';
 import AppError from '../utils/AppError.js';
 import catchAsync from '../utils/catchAsync.js';
 import { successResponse } from '../utils/response.js';
@@ -81,7 +81,6 @@ export const getMembers = catchAsync(async (req, res, next) => {
   const { search } = req.query;
 
   const where = {};
-
   if (search) {
     where[Op.or] = [
       { phoneNumber: { [Op.iLike]: `%${search}%` } },
@@ -96,11 +95,30 @@ export const getMembers = catchAsync(async (req, res, next) => {
         model: Account,
         attributes: ['accountId', 'email'],
       },
+      {
+        model: SubscriptionPlan,
+        required: false,
+        include: [
+          {
+            model: SubscriptionPackage,
+            attributes: ['packageName', 'packageType', 'duration', 'durationUnit', 'numberOfWorkout'],
+          },
+        ],
+      },
     ],
     order: [['createdAt', 'DESC']],
   });
 
+  const result = members.map((m) => {
+    const plain = m.toJSON();
+    const activePlan = (plain.SubscriptionPlans || [])
+      .filter((p) => p.status === 'active')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+    plain.activePlan = activePlan;
+    return plain;
+  });
+
   return successResponse(res, 200, 'Lấy danh sách hội viên thành công!', {
-    members,
+    members: result,
   });
 });

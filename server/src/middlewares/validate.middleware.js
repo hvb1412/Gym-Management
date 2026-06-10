@@ -11,13 +11,14 @@ const validate = (schema) => (req, res, next) => {
 
     const { value, error } = schema.validate(objectToValidate, { abortEarly: false });
 
-    if(error) {
+    if (error) {
         const errorMessage = error.details.map((detail) => detail.message).join(', ');
 
         return next(new AppError(`Dữ liệu không hợp lệ: ${errorMessage}`, 400));
     }
 
-    Object.assign(req, value);
+    if (value.body) req.body = value.body;
+    if (value.params) Object.assign(req.params, value.params);
     return next();
 };
 
