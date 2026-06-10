@@ -4,11 +4,13 @@ import { verifyToken, restrictTo } from '../middlewares/auth.middleware.js';
 import {
   createSubscriptionSchema,
   paySubscriptionSchema,
+  renewSubscriptionSchema,
 } from '../validations/subscription.validation.js';
 import {
   getMySubscriptions,
   createSubscription,
   processSubscriptionPayment,
+  renewSubscription,
 } from '../controllers/subscription.controller.js';
 
 const router = express.Router();
@@ -32,6 +34,15 @@ router.post(
   restrictTo('manager', 'owner'),
   validate(paySubscriptionSchema),
   processSubscriptionPayment,
+);
+
+// Renew subscription (member only)
+router.post(
+  '/renew',
+  verifyToken,
+  restrictTo('member'),
+  validate(renewSubscriptionSchema),
+  renewSubscription,
 );
 
 export default router;
