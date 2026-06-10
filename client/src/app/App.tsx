@@ -3769,95 +3769,201 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
 
 function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: (id: string) => void; onAdd: () => void; readonly?: boolean; disablePackage?: boolean }) {
   const [list, setList] = useState<any[]>([]);
-
-  const fetchMembers = () => {
-    fetch("http://localhost:5000/api/v1/members", {
-      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
-    })
-      .then(res => res.json())
-      .then(res => {
-        if (res.success) {
-          setList(res.data.members.map((m: any) => ({
-            code: m.memberId.substring(0, 8),
-            name: m.memberName,
-            phone: m.phoneNumber || "Chưa có",
-            pkg: "Gym Pro",
-            remain: "N/A",
-            status: "Đang hoạt động"
-          })));
-        }
-      });
-  };
-
-  useEffect(() => {
-    fetchMembers();
-  }, []);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const PAGE_SIZE = 6;
+
+  const token = localStorage.getItem("gymos_token");
+  const headers: any = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const computeStatus = (plan: any): string => {
+    if (!plan) return "Chưa có gói";
+    const expire = new Date(plan.expireDate);
+    const diffDays = Math.ceil((expire.getTime() - Date.now()) / 86400000);
+    if (diffDays < 0) return "Đã hết hạn";
+    if (diffDays <= 14) return "Sắp hết hạn";
+    return "Đang hoạt động";
+  };
+
+  const formatRemain = (plan: any): string => {
+    if (!plan) return "—";
+    if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
+    if (plan.expireDate) return new Date(plan.expireDate).toLocaleDateString("vi-VN");
+    return "—";
+  };
+
+  const fetchMembers = () => {
+    const params = query.trim() ? `?search=${encodeURIComponent(query.trim())}` : "";
+    fetch(`http://localhost:5000/api/v1/members${params}`, { headers })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          setList(res.data.members.map((m: any) => ({
+            id: m.memberId,
+            code: m.memberId.substring(0, 8).toUpperCase(),
+            name: m.memberName,
+            phone: m.phoneNumber || "Chưa có",
+            pkg: m.activePlan?.SubscriptionPackage?.packageName ?? "Chưa có gói",
+            remain: formatRemain(m.activePlan),
+            status: computeStatus(m.activePlan),
+            raw: m,
+          })));
+          setPage(1);
+        }
+      });
+  };
+
+  useEffect(() => { fetchMembers(); }, []);
 
   const filtered = list.filter((m) =>
     (statusFilter === "Tất cả" || m.status === statusFilter) &&
-    (m.name.toLowerCase().includes(query.toLowerCase()) || m.code.toLowerCase().includes(query.toLowerCase()) || m.phone.includes(query))
+    (m.name.toLowerCase().includes(query.toLowerCase()) ||
+      m.code.toLowerCase().includes(query.toLowerCase()) ||
+      m.phone.includes(query))
   );
-  const editing = editId ? list.find((m) => m.code === editId) : null;
-  const deleting = deleteId ? list.find((m) => m.code === deleteId) : null;
-  const newThisWeek = list.filter((m) => m.status === "Đang hoạt động").length;
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const editingMember = editId ? list.find((m) => m.id === editId) : null;
+  const deletingMember = deleteId ? list.find((m) => m.id === deleteId) : null;
+  const activeCount = list.filter((m) => m.status === "Đang hoạt động").length;
+
+  const openEdit = (m: any) => {
+    setEditId(m.id);
+    setEditForm({
+      memberName: m.raw.memberName,
+      phoneNumber: m.raw.phoneNumber || "",
+      dateOfBirth: m.raw.dateOfBirth || "",
+      gender: m.raw.gender || "",
+      occupation: m.raw.occupation || "",
+    });
+  };
+
+  const handleEditSave = () => {
+    if (!editId) return;
+    setSaving(true);
+    fetch(`http://localhost:5000/api/v1/members/${editId}`, {
+      method: "PUT", headers,
+      body: JSON.stringify(editForm),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        setSaving(false);
+        if (res.success) { setEditId(null); fetchMembers(); }
+      })
+      .catch(() => setSaving(false));
+  };
+
+  const handleDelete = () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    fetch(`http://localhost:5000/api/v1/members/${deleteId}`, { method: "DELETE", headers })
+      .then((r) => r.json())
+      .then((res) => {
+        setDeleting(false);
+        if (res.success) { setDeleteId(null); fetchMembers(); }
+      })
+      .catch(() => setDeleting(false));
+  };
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Danh sách hội viên" sub={`${list.length} hội viên hiển thị — ${newThisWeek} đang hoạt động`}
+      <SectionTitle title="Danh sách hội viên" sub={`${list.length} hội viên hiển thị — ${activeCount} đang hoạt động`}
         actions={<Button icon={UserPlus} onClick={onAdd}>Thêm hội viên</Button>} />
       <div className="flex flex-wrap items-center gap-3">
-        <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+        <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query}
+          onChange={(e: any) => setQuery(e.target.value)} />
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Tất cả">Tất cả trạng thái</option>
           {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          <option value="Chưa có gói">Chưa có gói</option>
         </select>
       </div>
       <Card padded={false}>
         <DataTable
           head={["Mã HV", "Họ tên", "SĐT", "Gói tập", "Hạn / Số buổi còn lại", "Trạng thái", ""]}
-          rows={filtered.map((m) => [
+          rows={paginated.map((m) => [
             <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{m.code}</span>,
-            <button onClick={() => onSelect(m.code)} className="flex items-center gap-2.5 text-left hover:text-[#4F46E5] dark:text-[#A8A2FF]">
+            <button onClick={() => onSelect(m.id)} className="flex items-center gap-2.5 text-left hover:text-[#4F46E5] dark:text-[#A8A2FF]">
               <div className="size-7 rounded-full bg-gradient-to-br from-sky-400 to-cyan-600 grid place-items-center text-[10.5px] text-white font-semibold">
-                {m.name.split(" ").slice(-2).map(n => n[0]).join("")}
+                {m.name.split(" ").slice(-2).map((n: string) => n[0]).join("")}
               </div>
               <span className="font-medium">{m.name}</span>
             </button>,
             <span className="font-mono text-[12.5px]">{m.phone}</span>,
-            <Badge tone="violet">{m.pkg}</Badge>,
+            m.pkg === "Chưa có gói"
+              ? <span className="text-muted-foreground text-[12px]">Chưa có gói</span>
+              : <Badge tone="violet">{m.pkg}</Badge>,
             <span className="text-muted-foreground">{m.remain}</span>,
             <StatusPill value={m.status} />,
             <div className="flex items-center justify-end gap-0.5">
-              <IconBtn icon={Eye} onClick={() => onSelect(m.code)} />
-              <IconBtn icon={Pencil} onClick={() => setEditId(m.code)} />
-              {!readonly && <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(m.code)} />}
+              <IconBtn icon={Eye} onClick={() => onSelect(m.id)} />
+              <IconBtn icon={Pencil} onClick={() => openEdit(m)} />
+              {!readonly && <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(m.id)} />}
             </div>,
           ])}
         />
         {filtered.length === 0 && (
           <div className="text-center text-muted-foreground py-10 text-[13px]">Không có hội viên nào khớp với bộ lọc</div>
         )}
-        <Pagination />
+        <Pagination total={filtered.length} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
       </Card>
 
-      <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa hội viên — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <MemberForm data={editing} disablePackage={disablePackage} />}
+      {/* Modal sửa hội viên */}
+      <Modal open={!!editingMember} onClose={() => setEditId(null)} title={`Chỉnh sửa hội viên — ${editingMember?.name ?? ""}`} wide
+        footer={<>
+          <Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button>
+          <Button icon={CheckCircle2} className={cn(saving && "opacity-50 pointer-events-none")} onClick={handleEditSave}>
+            {saving ? "Đang lưu…" : "Lưu thay đổi"}
+          </Button>
+        </>}>
+        {editingMember && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label={<>Họ và tên<Req /></>}>
+              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+            </Field>
+            <Field label={<>Số điện thoại<Req /></>}>
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+            </Field>
+            <Field label="Ngày sinh">
+              <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
+            </Field>
+            <Field label="Giới tính">
+              <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+                <option value="">Chưa chọn</option>
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+                <option value="other">Khác</option>
+              </select>
+            </Field>
+            <div className="col-span-2">
+              <Field label="Nghề nghiệp">
+                <Input placeholder="VD: Kỹ sư phần mềm" value={editForm.occupation} onChange={(e: any) => setEditForm((f: any) => ({ ...f, occupation: e.target.value }))} />
+              </Field>
+            </div>
+          </div>
+        )}
       </Modal>
 
-      <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa hội viên"
+      {/* Modal xóa hội viên */}
+      <Modal open={!!deletingMember} onClose={() => setDeleteId(null)} title="Xóa hội viên"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((m) => m.code !== deleteId)); setDeleteId(null); }}>Xóa hội viên</Button>
+          <Button variant="danger" icon={Trash2} className={cn(deleting && "opacity-50 pointer-events-none")} onClick={handleDelete}>
+            {deleting ? "Đang xóa…" : "Xóa hội viên"}
+          </Button>
         </>}>
-        {deleting && (
+        {deletingMember && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa hội viên <span className="font-medium">{deleting.name}</span> ({deleting.code})?</p>
+            <p className="text-[14px]">Xóa hội viên <span className="font-medium">{deletingMember.name}</span> ({deletingMember.code})?</p>
             <p className="text-[12.5px] text-muted-foreground">Toàn bộ lịch sử tập luyện, thanh toán và phản hồi của hội viên này sẽ bị xóa khỏi hệ thống.</p>
           </div>
         )}
@@ -4255,74 +4361,136 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete, mode = "new" 
 }
 
 function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage }: { id?: string | null; onBack: () => void; onDeleted?: () => void; onRenew?: () => void; readonly?: boolean; disablePackage?: boolean }) {
-  const baseMember = (id ? MEMBERS.find((m) => m.code === id) : undefined) ?? MEMBERS[0];
-  const [member, setMember] = useState<MemberRecord>(baseMember);
-  const [checked, setChecked] = useState(false);
+  const [member, setMember] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [tab, setTab] = useState<0 | 1 | 2>(0);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
   const [delDayIdx, setDelDayIdx] = useState<number | null>(null);
-  const [days, setDays] = useState([
-    { d: "23/05/2026", in: "06:42", out: "08:11", dur: "1g 29p", note: "PT: Lê Đức Mạnh — Push day" },
-    { d: "21/05/2026", in: "07:05", out: "08:34", dur: "1g 29p", note: "PT: Lê Đức Mạnh — Pull day" },
-    { d: "19/05/2026", in: "18:22", out: "19:51", dur: "1g 29p", note: "Cardio tự do" },
-    { d: "17/05/2026", in: "06:50", out: "08:20", dur: "1g 30p", note: "PT: Lê Đức Mạnh — Leg day" },
-  ]);
-  const [tab, setTab] = useState<0 | 1 | 2>(0);
-  const [payments] = useState([
-    { code: "PAY-20251112", d: "12/11/2025", desc: "Đăng ký Elite VIP 6 tháng", method: "Thẻ NH", amount: 8990000, status: "Thành công" },
-    { code: "PAY-20250812", d: "12/08/2025", desc: "Gia hạn Premium 3 tháng", method: "QR Code", amount: 4490000, status: "Thành công" },
-    { code: "PAY-20250512", d: "12/05/2025", desc: "Đăng ký Premium 3 tháng", method: "Tiền mặt", amount: 4490000, status: "Thành công" },
-  ]);
-  const [feedbacks] = useState([
-    { d: "22/05/2026", c: "Phòng tắm thiếu khăn vào giờ cao điểm…", s: "Chờ xử lý", r: null as string | null },
-    { d: "12/05/2026", c: "Đề xuất thêm lớp Yoga buổi tối thứ 4 và thứ 6.", s: "Đã phản hồi", r: "Cảm ơn bạn đã đóng góp. Trung tâm sẽ mở lớp Yoga thứ 6 từ tuần sau." },
-  ]);
+  const [saving, setSaving] = useState(false);
+  const [deletingMember, setDeletingMember] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+
+  const token = localStorage.getItem("gymos_token");
+  const headers: any = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const fetchMember = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}`, { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setMember(res.data.member);
+          setEditForm({
+            memberName: res.data.member.memberName,
+            phoneNumber: res.data.member.phoneNumber || "",
+            dateOfBirth: res.data.member.dateOfBirth || "",
+            gender: res.data.member.gender || "",
+            occupation: res.data.member.occupation || "",
+          });
+        }
+      });
+  };
+
+  const fetchLogs = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}/workout-logs`, { headers })
+      .then(r => r.json())
+      .then(res => { if (res.success) setLogs(res.data.logs); });
+  };
+
+  const fetchPayments = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}/payments`, { headers })
+      .then(r => r.json())
+      .then(res => { if (res.success) setPayments(res.data.plans); });
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    fetchMember();
+    fetchLogs();
+    fetchPayments();
+  }, [id]);
+
+  const handleSave = () => {
+    setSaving(true);
+    fetch(`http://localhost:5000/api/v1/members/${id}`, {
+      method: "PUT", headers,
+      body: JSON.stringify(editForm),
+    })
+      .then(r => r.json())
+      .then(res => {
+        setSaving(false);
+        if (res.success) { setEdit(false); fetchMember(); }
+      })
+      .catch(() => setSaving(false));
+  };
+
+  const handleDelete = () => {
+    setDeletingMember(true);
+    fetch(`http://localhost:5000/api/v1/members/${id}`, { method: "DELETE", headers })
+      .then(r => r.json())
+      .then(res => {
+        setDeletingMember(false);
+        if (res.success) { setDel(false); onDeleted?.(); onBack(); }
+      })
+      .catch(() => setDeletingMember(false));
+  };
+
+  if (!member) return <div className="text-muted-foreground text-[13px] py-10 text-center">Đang tải...</div>;
+
+  const plan = member.activePlan;
+  const pkg = plan?.SubscriptionPackage;
+  const expireDate = plan?.expireDate ? new Date(plan.expireDate) : null;
+  const diffDays = expireDate ? Math.ceil((expireDate.getTime() - Date.now()) / 86400000) : null;
 
   return (
     <div className="space-y-5">
       <button onClick={onBack} className="text-[12.5px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ChevronRight className="size-3.5 rotate-180" /> Quay lại danh sách hội viên
+        <ChevronLeft className="size-3.5" /> Quay lại danh sách hội viên
       </button>
+
       <Card>
         <div className="flex flex-col md:flex-row gap-6 items-start">
           <div className="flex items-center gap-4 flex-1">
             <div className="size-20 rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-600 grid place-items-center text-white font-display text-[24px] font-bold">
-              {member.name.split(" ").slice(-2).map((n) => n[0]).join("")}
+              {member.memberName.split(" ").slice(-2).map((n: string) => n[0]).join("")}
             </div>
             <div>
-              <div className="font-mono text-[12px] text-muted-foreground">{member.code}</div>
-              <h2 className="font-display text-[22px] mt-0.5">{member.name}</h2>
+              <div className="font-mono text-[12px] text-muted-foreground">{member.memberId.substring(0, 8).toUpperCase()}</div>
+              <h2 className="font-display text-[22px] mt-0.5">{member.memberName}</h2>
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phone}</span>
-                <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.name.split(" ").slice(-1)[0].toLowerCase()}@gmail.com</span>
-                <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />02/07/1996</span>
+                <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
+                <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("vi-VN")}</span>}
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>
+            {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
-            {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button variant={checked ? "danger" : "secondary"} icon={CheckCircle2} onClick={() => setChecked(!checked)}>
-              {checked ? "Check out hôm nay" : "Check in hôm nay"}
-            </Button>
+            {onRenew && !disablePackage && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
           </div>
         </div>
+
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
-            <div className="flex items-center gap-2"><Badge tone="amber">★ VIP</Badge><Badge tone="violet">Trainer</Badge></div>
-            <div className="font-display font-semibold text-[16px] mt-2">{member.pkg}</div>
-            <div className="text-[12px] text-muted-foreground">Bắt đầu 12/11/2025</div>
+            <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
+            <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("vi-VN")}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
-            <div className="font-display font-bold text-[20px] mt-1">12/11/2026</div>
-            <div className="text-[12px] text-[#00866F] dark:text-[#5FE6CB]">Còn 172 ngày</div>
+            {expireDate ? <>
+              <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+              <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
+                {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
+              </div>
+            </> : <div className="font-display font-bold text-[20px] mt-1 text-muted-foreground">—</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Số buổi đã tập</div>
-            <div className="font-display font-bold text-[20px] mt-1">{days.length} / —</div>
-            <div className="text-[12px] text-muted-foreground">Trung bình 4 buổi / tuần</div>
+            <div className="font-display font-bold text-[20px] mt-1">{logs.length}</div>
+            <div className="text-[12px] text-muted-foreground">Tổng buổi ghi nhận</div>
           </div>
         </div>
       </Card>
@@ -4337,81 +4505,106 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         </div>
 
         {tab === 0 && (
-          <DataTable
-            head={["Ngày", "Giờ vào", "Giờ ra", "Tổng thời gian", "Ghi chú", ""]}
-            rows={days.map((d, idx) => [
-              d.d, d.in, d.out, d.dur,
-              <span className="text-muted-foreground">{d.note}</span>,
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDelDayIdx(idx)} />,
-            ])}
-          />
+          <>
+            <DataTable
+              head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
+              rows={logs.map((d, idx) => [
+                new Date(d.workoutDate).toLocaleDateString("vi-VN"),
+                d.startTime?.slice(0, 5) || "—",
+                d.duration ? `${d.duration} phút` : "—",
+                <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
+                !readonly && <IconBtn icon={Trash2} tone="danger" onClick={() => setDelDayIdx(idx)} />,
+              ])}
+            />
+            {logs.length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Chưa có buổi tập nào được ghi nhận</div>}
+          </>
         )}
 
         {tab === 1 && (
           <>
             <DataTable
-              head={["Mã giao dịch", "Ngày", "Nội dung", "Phương thức", "Số tiền", "Trạng thái"]}
-              rows={payments.map((p) => [
-                <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{p.code}</span>,
-                p.d,
-                <span>{p.desc}</span>,
-                <Badge tone={p.method === "Thẻ NH" ? "violet" : p.method === "QR Code" ? "sky" : "amber"}>{p.method}</Badge>,
-                <span className="font-display font-semibold">{p.amount.toLocaleString("vi-VN")} ₫</span>,
-                <StatusPill value={p.status} />,
+              head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
+              rows={payments.filter(p => p.Bill).map((p) => [
+                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("vi-VN") : "—",
+                <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
+                <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
+                  {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
+                </Badge>,
+                <span className="font-display font-semibold">{Number(p.Bill?.amount || 0).toLocaleString("vi-VN")} ₫</span>,
+                <StatusPill value="Thành công" />,
               ])}
             />
-            {payments.length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Chưa có giao dịch nào</div>}
+            {payments.filter(p => p.Bill).length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Chưa có giao dịch nào</div>}
           </>
         )}
 
         {tab === 2 && (
-          <div className="p-5 space-y-3">
-            {feedbacks.map((f, i) => (
-              <div key={i} className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <span>{member.name} · {f.d}</span><StatusPill value={f.s} />
-                </div>
-                <p className="mt-2 text-[14px]">{f.c}</p>
-                {f.r && (
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
-                    <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ quản lý</div>
-                    <p className="text-[13px] mt-1">{f.r}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-            {feedbacks.length === 0 && <div className="text-center text-muted-foreground py-6 text-[13px]">Hội viên chưa có phản hồi nào</div>}
+          <div className="p-5">
+            <div className="text-center text-muted-foreground py-6 text-[13px]">Xem phản hồi tại mục Phản hồi hội viên</div>
           </div>
         )}
       </Card>
 
-      <Modal open={edit} onClose={() => setEdit(false)} title={`Chỉnh sửa hội viên — ${member.name}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEdit(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEdit(false)}>Lưu thay đổi</Button></>}>
-        <MemberForm data={member} disablePackage={disablePackage} />
+      {/* Modal sửa */}
+      <Modal open={edit} onClose={() => setEdit(false)} title={`Chỉnh sửa — ${member.memberName}`} wide
+        footer={<>
+          <Button variant="ghost" onClick={() => setEdit(false)}>Hủy</Button>
+          <Button icon={CheckCircle2} className={cn(saving && "opacity-50 pointer-events-none")} onClick={handleSave}>
+            {saving ? "Đang lưu…" : "Lưu thay đổi"}
+          </Button>
+        </>}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label={<>Họ và tên<Req /></>}>
+            <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+          </Field>
+          <Field label={<>Số điện thoại<Req /></>}>
+            <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+          </Field>
+          <Field label="Ngày sinh">
+            <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
+          </Field>
+          <Field label="Giới tính">
+            <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              <option value="">Chưa chọn</option>
+              <option value="male">Nam</option>
+              <option value="female">Nữ</option>
+              <option value="other">Khác</option>
+            </select>
+          </Field>
+          <div className="col-span-2">
+            <Field label="Nghề nghiệp">
+              <Input placeholder="VD: Kỹ sư phần mềm" value={editForm.occupation} onChange={(e: any) => setEditForm((f: any) => ({ ...f, occupation: e.target.value }))} />
+            </Field>
+          </div>
+        </div>
       </Modal>
 
+      {/* Modal xóa */}
       <Modal open={del} onClose={() => setDel(false)} title="Xóa hội viên"
         footer={<>
           <Button variant="ghost" onClick={() => setDel(false)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setDel(false); onDeleted?.(); onBack(); }}>Xóa hội viên</Button>
+          <Button variant="danger" icon={Trash2} className={cn(deletingMember && "opacity-50 pointer-events-none")} onClick={handleDelete}>
+            {deletingMember ? "Đang xóa…" : "Xóa hội viên"}
+          </Button>
         </>}>
         <div className="space-y-3">
           <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-          <p className="text-[14px]">Xóa hội viên <span className="font-medium">{member.name}</span> ({member.code})?</p>
+          <p className="text-[14px]">Xóa hội viên <span className="font-medium">{member.memberName}</span>?</p>
           <p className="text-[12.5px] text-muted-foreground">Toàn bộ lịch sử tập luyện, thanh toán và phản hồi sẽ bị xóa khỏi hệ thống.</p>
         </div>
       </Modal>
 
-      <Modal open={delDayIdx !== null} onClose={() => setDelDayIdx(null)} title="Xóa ngày tập luyện"
+      {/* Modal xóa buổi tập */}
+      <Modal open={delDayIdx !== null} onClose={() => setDelDayIdx(null)} title="Xóa buổi tập"
         footer={<>
           <Button variant="ghost" onClick={() => setDelDayIdx(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setDays(days.filter((_, i) => i !== delDayIdx)); setDelDayIdx(null); }}>Xóa ngày</Button>
+          <Button variant="danger" icon={Trash2} onClick={() => { setLogs(logs.filter((_, i) => i !== delDayIdx)); setDelDayIdx(null); }}>Xóa</Button>
         </>}>
-        {delDayIdx !== null && days[delDayIdx] && (
+        {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{days[delDayIdx].d}</span> ({days[delDayIdx].in} – {days[delDayIdx].out})?</p>
-            <p className="text-[12.5px] text-muted-foreground">Hành động này không thể hoàn tác.</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("vi-VN")}</span>?</p>
           </div>
         )}
       </Modal>
