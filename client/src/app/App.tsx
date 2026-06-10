@@ -3770,12 +3770,21 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
 const getExpireDate = (plan: any) => {
   if (!plan) return null;
   const pkg = plan.SubscriptionPackage;
-  if (plan.startDate && pkg?.duration && pkg?.durationUnit) {
+  if (plan.startDate) {
     const start = new Date(plan.startDate);
-    if (pkg.durationUnit === "days") start.setDate(start.getDate() + pkg.duration);
-    if (pkg.durationUnit === "months") start.setMonth(start.getMonth() + pkg.duration);
-    if (pkg.durationUnit === "years") start.setFullYear(start.getFullYear() + pkg.duration);
-    return start;
+    if (pkg?.packageType === "session" && pkg?.numberOfWorkout) {
+      // Gói session: startDate + numberOfWorkout ngày
+      start.setDate(start.getDate() + pkg.numberOfWorkout);
+      return start;
+    }
+    if (pkg?.duration) {
+      const unit = (pkg.durationUnit || "").toLowerCase();
+      if (unit === "ngày" || unit === "day" || unit === "days") start.setDate(start.getDate() + pkg.duration);
+      else if (unit === "tuần" || unit === "week" || unit === "weeks") start.setDate(start.getDate() + pkg.duration * 7);
+      else if (unit === "năm" || unit === "year" || unit === "years") start.setFullYear(start.getFullYear() + pkg.duration);
+      else start.setMonth(start.getMonth() + pkg.duration);
+      return start;
+    }
   }
   return plan.expireDate ? new Date(plan.expireDate) : null;
 };
@@ -4456,9 +4465,9 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
   const plan = member.activePlan;
   const pkg = plan?.SubscriptionPackage;
-  
+
   const expireDate = getExpireDate(plan);
-  
+
   const diffDays = expireDate ? Math.ceil((expireDate.getTime() - Date.now()) / 86400000) : null;
 
   return (
@@ -4486,7 +4495,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           <div className="flex flex-wrap gap-2">
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
-            {onRenew && !disablePackage && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
+            {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
             <Button variant={checked ? "danger" : "secondary"} icon={CheckCircle2} onClick={() => setChecked(!checked)}>
               {checked ? "Check out hôm nay" : "Check in hôm nay"}
             </Button>
@@ -4500,13 +4509,23 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("vi-VN")}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
-            <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
-            {expireDate ? <>
-              <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
-              <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
-                {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
-              </div>
-            </> : <div className="font-display font-bold text-[20px] mt-1 text-muted-foreground">—</div>}
+            {pkg?.packageType === "session" ? <>
+              <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
+              {expireDate ? <>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
+                  {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
+                </div>
+              </> : <div className="font-display font-bold text-[20px] mt-1 text-muted-foreground">—</div>}
+            </> : <>
+              <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
+              {expireDate ? <>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
+                  {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
+                </div>
+              </> : <div className="font-display font-bold text-[20px] mt-1 text-muted-foreground">—</div>}
+            </>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Số buổi đã tập</div>
@@ -5410,4 +5429,4 @@ export default function App() {
       } />
     </Routes>
   );
-}  
+}
