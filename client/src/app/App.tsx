@@ -2832,7 +2832,9 @@ function MaintenanceOwner() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa yêu cầu bảo trì"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((m) => m.code !== deleteId)); setDeleteId(null); }}>Xóa yêu cầu</Button>
+          <Button icon={Trash2} onClick={() => { 
+            fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting.id}`, { method: "DELETE" }).then(() => { fetchReports(); setDeleteId(null); });
+          }}>Xóa yêu cầu</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
@@ -2847,95 +2849,360 @@ function MaintenanceOwner() {
 }
 
 /* ── Feedback ── */
-function Feedback() {
-  type FeedbackRecord = (typeof FEEDBACK)[number];
-  const [list, setList] = useState<FeedbackRecord[]>(FEEDBACK);
-  const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
-  const [typeFilter, setTypeFilter] = useState<"Tất cả" | "Thiết bị" | "Nhân viên">("Tất cả");
-  const [reply, setReply] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+type FeedbackItem = {
+  feedbackId: string;
+  feedbackType: string;
+  feedbackContent: string;
+  answerContent: string | null;
+  feedbackDate: string;
+  answerDate: string | null;
+  Member?: { memberName: string; phoneNumber: string; Account?: { email: string } };
+  Answerer?: { staffName: string } | null;
+};
 
-  const filtered = list.filter((f) =>
-    (statusFilter === "Tất cả" || f.status === statusFilter) &&
-    (typeFilter === "Tất cả" || f.type === typeFilter)
-  );
-  const replying = reply ? list.find((f) => f.id === reply) : null;
-  const deleting = deleteId ? list.find((f) => f.id === deleteId) : null;
-  const pending = list.filter((f) => f.status === "Chờ xử lý").length;
+function Feedback() {
+  const [list, setList] = useState<FeedbackItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
+  const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 8;
+
+  // Reply modal state
+  const [replyId, setReplyId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+
+  // View detail modal
+  const [viewId, setViewId] = useState<string | null>(null);
+
+  // Delete modal
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const token = localStorage.getItem("gymos_token");
+
+  const fetchFeedbacks = () => {
+    setLoading(true);
+    fetch("http://localhost:5000/api/v1/feedbacks", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) setList(res.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchFeedbacks(); }, []);
+
+  const getStatus = (f: FeedbackItem) => f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
+
+  const filtered = list.filter(f => {
+    const status = getStatus(f);
+    const matchStatus = statusFilter === "Tất cả" || status === statusFilter;
+    const matchType = typeFilter === "Tất cả" || (f.feedbackType || "Khác") === typeFilter;
+    const q = query.toLowerCase();
+    const matchQuery = !q ||
+      (f.Member?.memberName || "").toLowerCase().includes(q) ||
+      (f.feedbackContent || "").toLowerCase().includes(q) ||
+      f.feedbackId.toLowerCase().includes(q);
+    return matchStatus && matchType && matchQuery;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const pending = list.filter(f => !f.answerContent).length;
+  const answered = list.length - pending;
+
+  const replyingItem = replyId ? list.find(f => f.feedbackId === replyId) : null;
+  const viewingItem = viewId ? list.find(f => f.feedbackId === viewId) : null;
+  const deletingItem = deleteId ? list.find(f => f.feedbackId === deleteId) : null;
+
+  const doReply = async () => {
+    if (!replyId || !replyText.trim()) return;
+    setReplySending(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${replyId}/answer`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ answerContent: replyText.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchFeedbacks();
+        setReplyId(null);
+        setReplyText("");
+      } else {
+        alert(data.message || "Lỗi khi gửi phản hồi");
+      }
+    } catch {
+      alert("Lỗi kết nối máy chủ");
+    } finally {
+      setReplySending(false);
+    }
+  };
+
+  const doDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${deleteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchFeedbacks();
+        setDeleteId(null);
+      } else {
+        alert(data.message || "Lỗi khi xóa");
+      }
+    } catch {
+      alert("Lỗi kết nối máy chủ");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
+  const shortId = (id: string) => id.substring(0, 8).toUpperCase();
+
+  const typeCounts: Record<string, number> = {};
+  list.forEach(f => {
+    const t = f.feedbackType || "Khác";
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  });
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Phản hồi hội viên" sub={`${list.length} phản hồi — ${pending} đang chờ xử lý`} />
+      <SectionTitle
+        title="Phản hồi hội viên"
+        sub={`${list.length} phản hồi — ${pending} đang chờ xử lý — ${answered} đã phản hồi`}
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Tổng phản hồi", v: list.length, tone: "violet", icon: MessageSquare },
+          { label: "Chờ xử lý", v: pending, tone: "amber", icon: AlertTriangle },
+          { label: "Đã phản hồi", v: answered, tone: "emerald", icon: CheckCircle2 },
+          { label: "Loại phổ biến", v: Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || "—", tone: "sky", icon: Filter },
+        ].map((s: any) => (
+          <Card key={s.label}>
+            <div className="flex items-start justify-between">
+              <div className={cn("size-9 rounded-xl grid place-items-center",
+                s.tone === "violet" && "bg-[#6C63FF]/15 text-[#4F46E5] dark:text-[#A8A2FF]",
+                s.tone === "amber" && "bg-[#FFB547]/15 text-[#A66A00] dark:text-[#FFD89B]",
+                s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
+                s.tone === "sky" && "bg-sky-400/15 text-sky-700 dark:text-sky-300"
+              )}>
+                <s.icon className="size-4 stroke-[1.75]" />
+              </div>
+            </div>
+            <div className="text-[11px] uppercase text-muted-foreground tracking-wider mt-3">{s.label}</div>
+            <div className="font-display font-bold text-[22px] mt-0.5">{s.v}</div>
+          </Card>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setPage(1); }}
+            placeholder="Tìm theo tên HV, nội dung…"
+            className="w-full h-10 rounded-lg bg-input-background border border-border pl-9 pr-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition"
+          />
+        </div>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Tất cả">Tất cả trạng thái</option>
           <option value="Chờ xử lý">Chờ xử lý</option>
           <option value="Đã phản hồi">Đã phản hồi</option>
         </select>
         <div className="flex items-center gap-2">
-          {(["Tất cả", "Thiết bị", "Nhân viên"] as const).map((c) => (
-            <button key={c} onClick={() => setTypeFilter(c)} className={cn(
+          {(["Tất cả", ...Object.keys(typeCounts)]).filter((v, i, a) => a.indexOf(v) === i).map((c) => (
+            <button key={c} onClick={() => { setTypeFilter(c); setPage(1); }} className={cn(
               "h-9 px-3 rounded-lg text-[12.5px] border transition",
               typeFilter === c
-                ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-[#4F46E5] dark:text-[#A8A2FF]"
+                ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-[#A8A2FF]"
                 : "border-border text-muted-foreground hover:text-foreground hover:border-[#6C63FF]/30"
             )}>{c}</button>
           ))}
         </div>
       </div>
+
       <Card padded={false}>
-        <DataTable
-          head={["Mã PH", "Hội viên", "Loại", "Nội dung", "Ngày tạo", "Trạng thái", ""]}
-          rows={filtered.map((f) => [
-            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{f.id}</span>,
-            <span className="font-medium">{f.member}</span>,
-            <Badge tone={f.type === "Thiết bị" ? "amber" : "sky"}>{f.type}</Badge>,
-            <span className="text-muted-foreground line-clamp-1 max-w-md">{f.content}</span>,
-            f.date,
-            <StatusPill value={f.status} />,
-            <div className="flex items-center justify-end gap-0.5">
-              {f.status !== "Đã phản hồi" && <IconBtn icon={MessageSquare} onClick={() => setReply(f.id)} />}
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.id)} />
-            </div>,
-          ])}
-        />
-        {filtered.length === 0 && (
-          <div className="text-center text-muted-foreground py-10 text-[13px]">Không có phản hồi nào khớp với bộ lọc</div>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+            Đang tải dữ liệu…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-16 text-center">
+            <div className="size-12 rounded-2xl bg-muted/60 border border-border grid place-items-center mx-auto">
+              <MessageSquare className="size-5 text-muted-foreground" />
+            </div>
+            <h3 className="font-display mt-4">Không có phản hồi nào</h3>
+            <p className="text-[13px] text-muted-foreground mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+            {(query || statusFilter !== "Tất cả" || typeFilter !== "Tất cả") && (
+              <Button variant="outline" className="mt-4" onClick={() => { setQuery(""); setStatusFilter("Tất cả"); setTypeFilter("Tất cả"); setPage(1); }}>Xóa bộ lọc</Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <DataTable
+              head={["Mã PH", "Hội viên", "Loại", "Nội dung", "Ngày tạo", "Trạng thái", ""]}
+              rows={paginated.map((f) => {
+                const status = getStatus(f);
+                return [
+                  <button onClick={() => setViewId(f.feedbackId)} className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF] hover:underline">{shortId(f.feedbackId)}</button>,
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-full bg-gradient-to-br from-sky-400 to-cyan-600 grid place-items-center text-[9px] text-white font-semibold">
+                      {(f.Member?.memberName || "?").split(" ").slice(-2).map(n => n[0]).join("")}
+                    </div>
+                    <span className="font-medium">{f.Member?.memberName || "Ẩn danh"}</span>
+                  </div>,
+                  <Badge tone={f.feedbackType === "Thiết bị" ? "amber" : f.feedbackType === "Dịch vụ" ? "violet" : "sky"}>{f.feedbackType || "Khác"}</Badge>,
+                  <span className="text-muted-foreground line-clamp-1 max-w-xs">{f.feedbackContent}</span>,
+                  fmtDate(f.feedbackDate),
+                  <StatusPill value={status} />,
+                  <div className="flex items-center justify-end gap-0.5">
+                    <IconBtn icon={Eye} onClick={() => setViewId(f.feedbackId)} />
+                    {status !== "Đã phản hồi" && (
+                      <IconBtn icon={MessageSquare} onClick={() => { setReplyId(f.feedbackId); setReplyText(""); }} />
+                    )}
+                    <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.feedbackId)} />
+                  </div>,
+                ];
+              })}
+            />
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border/60">
+                <span className="text-[12.5px] text-muted-foreground">
+                  Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length} phản hồi
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                    className="h-8 px-3 rounded-lg border border-border text-[12.5px] disabled:opacity-40 hover:bg-muted/60 transition">
+                    ‹ Trước
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                    if (p < 1 || p > totalPages) return null;
+                    return (
+                      <button key={p} onClick={() => setPage(p)}
+                        className={cn("h-8 w-8 rounded-lg border text-[12.5px] transition",
+                          p === page ? "bg-[#6C63FF] border-[#6C63FF] text-white" : "border-border hover:bg-muted/60"
+                        )}>{p}</button>
+                    );
+                  })}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    className="h-8 px-3 rounded-lg border border-border text-[12.5px] disabled:opacity-40 hover:bg-muted/60 transition">
+                    Sau ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
-      <Modal open={!!replying} onClose={() => setReply(null)} title="Xử lý phản hồi" wide
+      <Modal open={!!viewingItem} onClose={() => setViewId(null)} title="Chi tiết phản hồi" wide
         footer={<>
-          <Button variant="ghost" onClick={() => setReply(null)}>Hủy</Button>
-          <Button icon={ArrowRight} onClick={() => {
-            setList(list.map((f) => f.id === reply ? { ...f, status: "Đã phản hồi" } : f));
-            setReply(null);
-          }}>Gửi phản hồi</Button>
+          {!viewingItem?.answerContent && (
+            <Button icon={MessageSquare} onClick={() => { setViewId(null); setReplyId(viewingItem!.feedbackId); setReplyText(""); }}>Trả lời</Button>
+          )}
+          <Button variant="ghost" onClick={() => setViewId(null)}>Đóng</Button>
         </>}>
-        {replying && (
+        {viewingItem && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-muted/60 border border-border/70 p-4">
-              <div className="flex items-center gap-2 text-[12px] text-muted-foreground"><span className="font-mono text-[#4F46E5] dark:text-[#A8A2FF]">{replying.id}</span> · {replying.member} · {replying.date}</div>
-              <p className="mt-2 text-[13.5px] leading-relaxed">{replying.content}</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px]">
+              {[
+                ["Mã phản hồi", <span className="font-mono text-[#4F46E5] dark:text-[#A8A2FF]">{shortId(viewingItem.feedbackId)}</span>],
+                ["Hội viên", <span className="font-medium">{viewingItem.Member?.memberName || "Ẩn danh"}</span>],
+                ["Loại phản hồi", <Badge tone="amber">{viewingItem.feedbackType || "Khác"}</Badge>],
+                ["Ngày gửi", fmtDate(viewingItem.feedbackDate)],
+                ["Trạng thái", <StatusPill value={getStatus(viewingItem)} />],
+                ...(viewingItem.Answerer ? [["Người trả lời", viewingItem.Answerer.staffName]] : []),
+                ...(viewingItem.answerDate ? [["Ngày trả lời", fmtDate(viewingItem.answerDate)]] : []),
+              ].map(([k, v]: any) => (
+                <div key={k} className="flex flex-col gap-0.5">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</span>
+                  <span className="font-medium">{v}</span>
+                </div>
+              ))}
             </div>
-            <Field label="Nội dung trả lời">
-              <textarea rows={4} placeholder="Cảm ơn bạn đã phản hồi…"
-                className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 resize-none" />
-            </Field>
+            <div>
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Nội dung phản hồi</span>
+              <p className="mt-1 text-[13.5px] bg-muted/40 rounded-lg p-3 border border-border/60 leading-relaxed">{viewingItem.feedbackContent}</p>
+            </div>
+            {viewingItem.answerContent && (
+              <div className="ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-3 pr-3">
+                <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB] font-medium">Trả lời từ quản lý{viewingItem.Answerer ? ` — ${viewingItem.Answerer.staffName}` : ""}</div>
+                <p className="text-[13.5px] mt-1 leading-relaxed">{viewingItem.answerContent}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
 
-      <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
+      <Modal open={!!replyId && !viewId} onClose={() => { setReplyId(null); setReplyText(""); }} title="Trả lời phản hồi" wide
+        footer={<>
+          <Button variant="ghost" onClick={() => { setReplyId(null); setReplyText(""); }}>Hủy</Button>
+          <Button icon={CheckCircle2}
+            className={cn(!replyText.trim() || replySending ? "opacity-50 cursor-not-allowed pointer-events-none" : "")}
+            onClick={doReply}>
+            {replySending ? "Đang gửi…" : "Gửi phản hồi"}
+          </Button>
+        </>}>
+        {replyingItem && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-muted/60 border border-border/70 p-4">
+              <div className="flex items-center gap-2 flex-wrap text-[12px] text-muted-foreground">
+                <span className="font-mono text-[#4F46E5] dark:text-[#A8A2FF]">{shortId(replyingItem.feedbackId)}</span>
+                <span>·</span>
+                <span className="font-medium">{replyingItem.Member?.memberName || "Ẩn danh"}</span>
+                <span>·</span>
+                <span>{fmtDate(replyingItem.feedbackDate)}</span>
+                <Badge tone={replyingItem.feedbackType === "Thiết bị" ? "amber" : "sky"}>{replyingItem.feedbackType || "Khác"}</Badge>
+              </div>
+              <p className="mt-2 text-[13.5px] leading-relaxed">{replyingItem.feedbackContent}</p>
+            </div>
+            <Field label={<>Nội dung trả lời <span className="text-[#FF5C5C]">*</span></>}>
+              <textarea
+                rows={5}
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                placeholder="Cảm ơn bạn đã phản hồi. Chúng tôi đã ghi nhận ý kiến của bạn và sẽ…"
+                className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 resize-none transition"
+              />
+            </Field>
+            <div className="text-[11.5px] text-muted-foreground">{replyText.length} ký tự</div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!deletingItem} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((f) => f.id !== deleteId)); setDeleteId(null); }}>Xóa phản hồi</Button>
+          <Button variant="danger" icon={Trash2}
+            className={cn(deleting ? "opacity-50 cursor-not-allowed pointer-events-none" : "")}
+            onClick={doDelete}>
+            {deleting ? "Đang xóa…" : "Xóa phản hồi"}
+          </Button>
         </>}>
-        {deleting && (
-          <div className="space-y-3">
-            <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa phản hồi <span className="font-mono font-medium">{deleting.id}</span> của {deleting.member}?</p>
-            <p className="text-[12.5px] text-muted-foreground">Hành động này không thể hoàn tác.</p>
+        {deletingItem && (
+          <div className="flex items-start gap-3">
+            <div className="size-10 rounded-full bg-[#FF5C5C]/15 grid place-items-center text-[#B91C1C] dark:text-[#FFA0A0] shrink-0"><Trash2 className="size-5" /></div>
+            <div>
+              <p className="text-[14px]">Xóa phản hồi của <span className="font-semibold">{deletingItem.Member?.memberName || "hội viên"}</span>?</p>
+              <p className="text-[12.5px] text-muted-foreground mt-1 line-clamp-2">"{deletingItem.feedbackContent}"</p>
+              <p className="text-[12px] text-muted-foreground mt-2">Hành động này không thể hoàn tác.</p>
+            </div>
           </div>
         )}
       </Modal>
@@ -2956,16 +3223,46 @@ function Reports({ view }: { view: string }) {
 }
 
 function ReportsOverview() {
+  const [revenue, setRevenue] = useState(0);
+  const [revenueByMonth, setRevenueByMonth] = useState<{m:string;v:number}[]>([]);
+  const [newMembers, setNewMembers] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [membersByMonth, setMembersByMonth] = useState<{m:string;v:number}[]>([]);
+  const [staffCount, setStaffCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem("gymos_token");
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetch("http://localhost:5000/api/v1/feedbacks/report-stats", {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json()),
+      fetch("http://localhost:5000/api/v1/staffs").then(r => r.json()),
+    ]).then(([statsRes, staffRes]) => {
+      if (statsRes.success) {
+        setRevenue(statsRes.data.revenue.total || 0);
+        setRevenueByMonth(statsRes.data.revenue.byMonth || []);
+        setNewMembers(statsRes.data.members.newThisMonth || 0);
+        setTotalMembers(statsRes.data.members.total || 0);
+        setMembersByMonth(statsRes.data.members.byMonth || []);
+      }
+      if (staffRes.success) {
+        setStaffCount(staffRes.data.length || 0);
+      }
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
   return (
     <>
-      <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành tháng 05 / 2026"
-        actions={<><Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+      <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
+        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("vi-VN")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
-          { k: "Doanh thu tháng", v: "246 tr", d: "+18.4%", icon: Wallet, tone: "violet" },
-          { k: "Hội viên mới", v: "52", d: "+12 HV", icon: UserPlus, tone: "emerald" },
-          { k: "Tổng hội viên", v: "1,248", d: "+4.1%", icon: Users, tone: "amber" },
-          { k: "Nhân sự", v: "32", d: "Ổn định", icon: ShieldCheck, tone: "sky" },
+          { k: "Doanh thu", v: loading ? "…" : `${(revenue/1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
+          { k: "Hội viên mới", v: loading ? "…" : newMembers, icon: UserPlus, tone: "emerald" },
+          { k: "Tổng hội viên", v: loading ? "…" : totalMembers.toLocaleString("vi-VN"), icon: Users, tone: "amber" },
+          { k: "Nhân sự", v: loading ? "…" : staffCount, icon: ShieldCheck, tone: "sky" },
         ].map((s: any) => (
           <Card key={s.k}>
             <div className="flex items-start justify-between">
@@ -2973,10 +3270,10 @@ function ReportsOverview() {
                 s.tone === "violet" && "bg-[#6C63FF]/15 text-[#4F46E5] dark:text-[#A8A2FF]",
                 s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
                 s.tone === "amber" && "bg-[#FFB547]/15 text-[#A66A00] dark:text-[#FFD89B]",
-                s.tone === "sky" && "bg-sky-400/15 text-sky-700 dark:text-sky-300")}>
+                s.tone === "sky" && "bg-sky-400/15 text-sky-700 dark:text-sky-300"
+              )}>
                 <s.icon className="size-5 stroke-[1.75]" />
               </div>
-              <Badge tone={s.tone}>{s.d}</Badge>
             </div>
             <div className="text-[11px] uppercase text-muted-foreground tracking-wider mt-4">{s.k}</div>
             <div className="font-display font-bold text-[26px] mt-1">{s.v}</div>
@@ -2991,25 +3288,30 @@ function ReportsOverview() {
               <h3 className="font-display">Doanh thu 6 tháng gần nhất</h3>
               <p className="text-[12px] text-muted-foreground mt-0.5">Đơn vị: triệu VND</p>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-              <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#6C63FF]" />Doanh thu</span>
-            </div>
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-2 rounded-full bg-[#6C63FF]" />Doanh thu</span>
           </div>
           <div className="h-64">
-            <ResponsiveContainer>
-              <AreaChart data={REVENUE}>
-                <defs>
-                  <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6C63FF" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#6C63FF" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, 300]} ticks={[0, 60, 120, 180, 240, 300]} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Area type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} fill="url(#grad-revenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+                Đang tải…
+              </div>
+            ) : (
+              <ResponsiveContainer>
+                <AreaChart data={revenueByMonth}>
+                  <defs>
+                    <linearGradient id="grad-rev-ov" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6C63FF" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#6C63FF" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} />
+                  <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [`${v} triệu`, "DT"]} />
+                  <Area type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} fill="url(#grad-rev-ov)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
@@ -3019,14 +3321,20 @@ function ReportsOverview() {
             <p className="text-[12px] text-muted-foreground mt-0.5">Theo tháng</p>
           </div>
           <div className="h-64">
-            <ResponsiveContainer>
-              <BarChart data={NEW_MEMBERS}>
-                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, 60]} ticks={[0, 15, 30, 45, 60]} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Bar dataKey="v" fill="#00C9A7" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart data={membersByMonth}>
+                  <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} />
+                  <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
+                  <Bar dataKey="v" fill="#00C9A7" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
@@ -3035,144 +3343,228 @@ function ReportsOverview() {
 }
 
 function RevenueReport() {
-  const txns = [
-    { who: "Phạm Khánh An", pkg: "Elite VIP 6T", amt: 9800000, pm: "Thẻ NH", d: "23/05/2026" },
-    { who: "Hoàng Minh Tú", pkg: "Gym Pro 3T", amt: 2400000, pm: "QR", d: "22/05/2026" },
-    { who: "Bùi Quỳnh Anh", pkg: "Personal 24B", amt: 5600000, pm: "Tiền mặt", d: "22/05/2026" },
-    { who: "Ngô Hữu Đức", pkg: "Gym Starter", amt: 1200000, pm: "QR", d: "21/05/2026" },
-  ];
-  const [tab, setTab] = useState<"day" | "month" | "quarter" | "year">("month");
-  const [day, setDay] = useState("2026-05-23");
-  const [quarter, setQuarter] = useState<"Q1" | "Q2" | "Q3" | "Q4">("Q2");
-  const [year, setYear] = useState("2026");
+  const [txns, setTxns] = useState<any[]>([]);
+  const [revenueByMonth, setRevenueByMonth] = useState<{m:string;v:number}[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"month" | "year">("month");
+  const token = localStorage.getItem("gymos_token");
 
-  const dayData = ["06h", "08h", "10h", "12h", "14h", "16h", "18h", "20h", "22h"].map((h, i) => ({ d: h, v: Math.round(2 + Math.sin(i / 1.3) * 3 + i / 1.5) }));
-  const monthData = Array.from({ length: 14 }, (_, i) => ({ d: `${i + 10}/05`, v: 6 + Math.round(Math.sin(i / 1.4) * 4 + i / 2) }));
-  const QUARTER_MONTHS: Record<string, string[]> = { Q1: ["T1", "T2", "T3"], Q2: ["T4", "T5", "T6"], Q3: ["T7", "T8", "T9"], Q4: ["T10", "T11", "T12"] };
-  const quarterData = QUARTER_MONTHS[quarter].map((m, i) => ({ d: m, v: 160 + i * 28 + (quarter === "Q2" ? 20 : 0) }));
-  const yearData = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"].map((m, i) => ({ d: m, v: 120 + Math.round(Math.sin(i / 1.6) * 50 + i * 8) }));
-  const dataset = tab === "day" ? dayData : tab === "month" ? monthData : tab === "quarter" ? quarterData : yearData;
-  const total = dataset.reduce((s, d) => s + d.v, 0);
-  const totalLabel = tab === "day" || tab === "month" ? `${total} triệu` : `${(total).toLocaleString("vi-VN")} triệu`;
-  const maxV = Math.max(...dataset.map((d) => d.v));
-  const yMax = Math.ceil(maxV * 1.15 / 5) * 5 || 5;
-  const ticks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax].map((n) => Math.round(n));
+  const fetchRevenue = () => {
+    setLoading(true);
+    fetch(`http://localhost:5000/api/v1/feedbacks/report-stats`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setRevenueByMonth(res.data.revenue.byMonth || []);
+          setTotalRevenue(res.data.revenue.total || 0);
+          setTxns(res.data.revenue.transactions || []);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchRevenue(); }, []);
+
+  const maxV = revenueByMonth.length > 0 ? Math.max(...revenueByMonth.map(d => d.v)) : 0;
+  const yMax = Math.ceil(maxV * 1.2 / 5) * 5 || 10;
+  const ticks = [0, Math.round(yMax * 0.25), Math.round(yMax * 0.5), Math.round(yMax * 0.75), yMax];
 
   return (
     <>
-      <SectionTitle title="Thống kê doanh thu" sub="Phân tích doanh thu theo nhiều mốc thời gian" />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex p-1 rounded-xl border border-border bg-muted/40">
-          {([["day", "Ngày"], ["month", "Tháng"], ["quarter", "Quý"], ["year", "Năm"]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={cn(
-              "h-8 px-4 rounded-lg text-[12.5px] transition",
-              tab === k ? "bg-card text-foreground card-shadow" : "text-muted-foreground hover:text-foreground"
-            )}>{l}</button>
-          ))}
-        </div>
-        {tab === "day" && <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]" />}
-        {tab === "quarter" && (
-          <>
-            <select value={quarter} onChange={(e) => setQuarter(e.target.value as any)} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option value="Q1">Quý 1</option><option value="Q2">Quý 2</option><option value="Q3">Quý 3</option><option value="Q4">Quý 4</option>
-            </select>
-            <input value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-24 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]" />
-          </>
-        )}
-        {tab === "year" && <input value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-28 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]" />}
-        <div className="ml-auto"><Button icon={FileBarChart}>Xuất báo cáo</Button></div>
-      </div>
+      <SectionTitle
+        title="Thống kê doanh thu"
+        sub="Phân tích doanh thu theo thời gian thực từ hệ thống"
+        actions={<Button icon={FileBarChart}>Xuất báo cáo</Button>}
+      />
 
       <div className="grid grid-cols-3 gap-4">
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng doanh thu kỳ này</div><div className="font-display font-bold text-[28px] mt-1">{totalLabel}</div><Badge tone="violet">{tab === "day" ? day : tab === "quarter" ? `${quarter} / ${year}` : tab === "year" ? `Năm ${year}` : "Tháng 05/2026"}</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Đỉnh cao</div><div className="font-display font-bold text-[28px] mt-1">{maxV} tr</div><Badge tone="emerald">{dataset.find((d) => d.v === maxV)?.d}</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Trung bình</div><div className="font-display font-bold text-[28px] mt-1">{Math.round(total / dataset.length)} tr</div><Badge tone="sky">{dataset.length} mốc</Badge></Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng doanh thu</div>
+          <div className="font-display font-bold text-[28px] mt-1">
+            {loading ? "…" : `${(totalRevenue / 1_000_000).toFixed(1)} tr`}
+          </div>
+          <Badge tone="violet">6 tháng gần nhất</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Đỉnh cao</div>
+          <div className="font-display font-bold text-[28px] mt-1">{loading ? "…" : `${maxV} tr`}</div>
+          <Badge tone="emerald">{revenueByMonth.find(d => d.v === maxV)?.m || "—"}</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Trung bình/tháng</div>
+          <div className="font-display font-bold text-[28px] mt-1">
+            {loading || revenueByMonth.length === 0 ? "…" : `${Math.round(revenueByMonth.reduce((s,d)=>s+d.v,0)/revenueByMonth.length)} tr`}
+          </div>
+          <Badge tone="sky">{revenueByMonth.length} tháng</Badge>
+        </Card>
       </div>
 
       <Card>
-        <h3 className="font-display mb-4">Diễn biến doanh thu — {tab === "day" ? "theo giờ" : tab === "month" ? "hằng ngày" : tab === "quarter" ? "theo tháng trong quý" : "12 tháng"}</h3>
-        <div className="h-64">
-          <ResponsiveContainer>
-            {tab === "month" || tab === "day" ? (
-              <LineChart data={dataset}>
-                <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, yMax]} ticks={ticks} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Line type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} dot={{ fill: "#6C63FF", r: 3 }} />
-              </LineChart>
-            ) : (
-              <BarChart data={dataset}>
-                <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={44} domain={[0, yMax]} ticks={ticks} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Bar dataKey="v" fill="#6C63FF" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
+        <h3 className="font-display mb-4">Biểu đồ doanh thu — 6 tháng gần nhất (triệu VND)</h3>
+        {loading ? (
+          <div className="h-64 flex items-center justify-center text-muted-foreground">
+            <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+            Đang tải dữ liệu…
+          </div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer>
+              <AreaChart data={revenueByMonth}>
+                <defs>
+                  <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6C63FF" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="#6C63FF" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={40} domain={[0, yMax]} ticks={ticks} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [`${v} triệu`, "Doanh thu"]} />
+                <Area type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} fill="url(#grad-revenue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </Card>
+
       <Card padded={false}>
-        <DataTable
-          head={["Hội viên", "Gói tập", "Số tiền", "Phương thức", "Ngày", ""]}
-          rows={txns.map((t) => [
-            <span className="font-medium">{t.who}</span>,
-            <Badge tone="violet">{t.pkg}</Badge>,
-            <span className="font-mono">{t.amt.toLocaleString("vi-VN")} ₫</span>,
-            <Badge tone={t.pm === "Tiền mặt" ? "amber" : t.pm === "QR" ? "emerald" : "sky"}>{t.pm}</Badge>,
-            t.d,
-            <IconBtn icon={Receipt} />,
-          ])}
-        />
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <h3 className="font-display">Giao dịch gần nhất</h3>
+          <Badge tone="violet">{txns.length} giao dịch</Badge>
+        </div>
+        {loading ? (
+          <div className="py-10 text-center text-muted-foreground text-[13px]">Đang tải…</div>
+        ) : txns.length === 0 ? (
+          <div className="py-10 text-center text-muted-foreground text-[13px]">Chưa có giao dịch nào</div>
+        ) : (
+          <DataTable
+            head={["Hội viên", "Gói tập", "Số tiền", "Phương thức", "Ngày"]}
+            rows={txns.map((t) => [
+              <span className="font-medium">{t.member}</span>,
+              <Badge tone="violet">{t.pkg}</Badge>,
+              <span className="font-mono font-semibold">{t.amount.toLocaleString("vi-VN")} ₫</span>,
+              <Badge tone={t.method === "cash" ? "amber" : t.method === "transfer" ? "emerald" : "sky"}>{t.method}</Badge>,
+              t.date,
+            ])}
+          />
+        )}
       </Card>
     </>
   );
 }
 
+
+
 function MembersReport() {
+  const [membersByMonth, setMembersByMonth] = useState<{m:string;v:number}[]>([]);
+  const [pkgBreakdown, setPkgBreakdown] = useState<{name:string;value:number}[]>([]);
+  const [newMembers, setNewMembers] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem("gymos_token");
+  const PIE_COLORS = ["#6C63FF", "#00C9A7", "#FFB547", "#FF5C5C", "#64B5F6", "#A78BFA"];
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`http://localhost:5000/api/v1/feedbacks/report-stats`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setMembersByMonth(res.data.members.byMonth || []);
+          setPkgBreakdown(res.data.members.pkgBreakdown || []);
+          setNewMembers(res.data.members.newThisMonth || 0);
+          setTotalMembers(res.data.members.total || 0);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const maxMembers = membersByMonth.length > 0 ? Math.max(...membersByMonth.map(d => d.v)) : 10;
+  const yMax = Math.ceil(maxMembers * 1.2) || 10;
+
   return (
     <>
-      <SectionTitle title="Thống kê hội viên" sub="Cơ cấu hội viên theo gói tập"
-        actions={<Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button>} />
+      <SectionTitle
+        title="Thống kê hội viên"
+        sub="Cơ cấu và tăng trưởng hội viên theo thời gian"
+        actions={<Button icon={FileBarChart}>Xuất báo cáo</Button>}
+      />
       <div className="grid grid-cols-3 gap-4">
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Hội viên mới</div><div className="font-display font-bold text-[28px] mt-1">52</div><Badge tone="emerald">+12 so với tháng trước</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Lượt gia hạn</div><div className="font-display font-bold text-[28px] mt-1">87</div><Badge tone="violet">+5.4%</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng hội viên</div><div className="font-display font-bold text-[28px] mt-1">1,248</div><Badge tone="amber">Mục tiêu 1,300</Badge></Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Hội viên mới tháng này</div>
+          <div className="font-display font-bold text-[28px] mt-1">{loading ? "…" : newMembers}</div>
+          <Badge tone="emerald">6 tháng gần nhất</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng hội viên</div>
+          <div className="font-display font-bold text-[28px] mt-1">{loading ? "…" : totalMembers.toLocaleString("vi-VN")}</div>
+          <Badge tone="violet">Hệ thống</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tỷ lệ tăng trưởng</div>
+          <div className="font-display font-bold text-[28px] mt-1">
+            {loading || totalMembers === 0 ? "…" : `${((newMembers / totalMembers) * 100).toFixed(1)}%`}
+          </div>
+          <Badge tone="amber">Tháng hiện tại</Badge>
+        </Card>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <Card className="lg:col-span-3">
-          <h3 className="font-display mb-4">Hội viên theo tháng</h3>
-          <div className="h-64">
-            <ResponsiveContainer>
-              <BarChart data={NEW_MEMBERS}>
-                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, 60]} ticks={[0, 15, 30, 45, 60]} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Bar dataKey="v" fill="#6C63FF" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h3 className="font-display mb-4">Hội viên đăng ký mới — 6 tháng gần nhất</h3>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center text-muted-foreground">
+              <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+              Đang tải…
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer>
+                <BarChart data={membersByMonth}>
+                  <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, yMax]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                  <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [v, "Hội viên mới"]} />
+                  <Bar dataKey="v" fill="#6C63FF" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
         <Card className="lg:col-span-2">
-          <h3 className="font-display mb-2">Phân bổ theo gói</h3>
-          <div className="h-64">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie data={PKG_BREAKDOWN} dataKey="value" innerRadius={55} outerRadius={88} paddingAngle={3}>
-                  {PKG_BREAKDOWN.map((p) => <Cell key={p.name} fill={p.color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-1.5 mt-2">
-            {PKG_BREAKDOWN.map((p) => (
-              <div key={p.name} className="flex items-center justify-between text-[12.5px]">
-                <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: p.color }} />{p.name}</span>
-                <span className="font-mono text-muted-foreground">{p.value}%</span>
+          <h3 className="font-display mb-2">Phân bổ theo gói tập</h3>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center"><div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin" /></div>
+          ) : pkgBreakdown.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-muted-foreground text-[13px]">Chưa có dữ liệu</div>
+          ) : (
+            <>
+              <div className="h-48">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie data={pkgBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
+                      {pkgBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [`${v}%`, ""]} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="space-y-1.5 mt-2">
+                {pkgBreakdown.map((p, i) => (
+                  <div key={p.name} className="flex items-center justify-between text-[12.5px]">
+                    <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />{p.name}</span>
+                    <span className="font-mono text-muted-foreground">{p.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
       </div>
     </>
@@ -3180,32 +3572,164 @@ function MembersReport() {
 }
 
 function StaffReport() {
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [selMonth, setSelMonth] = useState(() => new Date().getMonth() + 1);
+  const [selYear, setSelYear] = useState(() => new Date().getFullYear());
+  const [loading, setLoading] = useState(false);
+  const [attendanceData, setAttendanceData] = useState<Record<string, { ok: number; late: number; absent: number }>>({});
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/staffs")
+      .then(r => r.json())
+      .then(res => { if (res.success) setStaffList(res.data); });
+  }, []);
+
+  useEffect(() => {
+    if (staffList.length === 0) return;
+    setLoading(true);
+    const fetchAll = staffList.slice(0, 8).map(s =>
+      fetch(`http://localhost:5000/api/v1/staffs/${s.code}/attendance?month=${selMonth}&year=${selYear}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            const now = new Date();
+            const isCurrentMonth = now.getMonth() + 1 === selMonth && now.getFullYear() === selYear;
+            const isPastMonth = selYear < now.getFullYear() || (selYear === now.getFullYear() && selMonth < now.getMonth() + 1);
+            const daysInMonth = new Date(selYear, selMonth, 0).getDate();
+            const maxDay = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
+            let ok = 0, late = 0;
+            res.data.forEach((log: any) => {
+              if (log.checkInTime) {
+                const [h, m] = log.checkInTime.split(':').map(Number);
+                const dow = new Date(log.workDate).getDay();
+                const limit = (dow >= 1 && dow <= 5) ? 6 * 60 + 30 : 8 * 60;
+                if (h * 60 + m > limit) late++; else ok++;
+              } else ok++;
+            });
+            return { code: s.code, ok, late, absent: Math.max(0, maxDay - res.data.length) };
+          }
+          return { code: s.code, ok: 0, late: 0, absent: 0 };
+        })
+    );
+    Promise.all(fetchAll).then(results => {
+      const map: Record<string, any> = {};
+      results.forEach(r => { map[r.code] = r; });
+      setAttendanceData(map);
+      setLoading(false);
+    });
+  }, [staffList, selMonth, selYear]);
+
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = [2024, 2025, 2026];
+  const activeStaff = staffList.filter(s => s.status === "Đang làm" || s.status === "Nghỉ phép");
+  const totalOk = Object.values(attendanceData).reduce((s, a) => s + a.ok, 0);
+  const totalLate = Object.values(attendanceData).reduce((s, a) => s + a.late, 0);
+  const totalAbsent = Object.values(attendanceData).reduce((s, a) => s + a.absent, 0);
+  const daysInMonth = new Date(selYear, selMonth, 0).getDate();
+  const chartData = staffList.slice(0, 6).map(s => {
+    const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
+    return { name: s.name.split(" ").pop(), ok: a.ok, late: a.late, absent: a.absent };
+  });
+
   return (
     <>
-      <SectionTitle title="Thống kê nhân sự" sub="Hiệu suất chấm công tháng 05/2026"
-        actions={<Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button>} />
+      <SectionTitle
+        title="Thống kê nhân sự"
+        sub={`Hiệu suất chấm công ${staffList.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              {months.map(m => <option key={m} value={m}>Tháng {m}</option>)}
+            </select>
+            <select value={selYear} onChange={e => setSelYear(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <Button icon={FileBarChart}>Xuất báo cáo</Button>
+          </div>
+        }
+      />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Tổng nhân sự", v: staffList.length, sub: `${activeStaff.length} đang làm việc`, color: "bg-[#6C63FF]/15 text-[#4F46E5]" },
+          { label: "Ngày đúng giờ", v: totalOk, sub: `${daysInMonth} ngày/tháng`, color: "bg-[#00C9A7]/15 text-[#00866F]" },
+          { label: "Đi chưa đủ giờ", v: totalLate, sub: "Cộng dồn", color: "bg-[#FFB547]/15 text-[#A66A00]" },
+          { label: "Tổng ngày vắng", v: totalAbsent, sub: "Cộng dồn", color: "bg-[#FF5C5C]/15 text-[#B91C1C]" },
+        ].map((s: any) => (
+          <Card key={s.label}>
+            <div className={cn("size-9 rounded-xl grid place-items-center mb-3", s.color)}>
+              <Users className="size-4 stroke-[1.75]" />
+            </div>
+            <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{s.label}</div>
+            <div className="font-display font-bold text-[26px] mt-1">
+              {loading ? <div className="size-5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : s.v}
+            </div>
+            <div className="text-[11.5px] text-muted-foreground mt-1">{s.sub}</div>
+          </Card>
+        ))}
+      </div>
+      {chartData.length > 0 && (
+        <Card>
+          <h3 className="font-display mb-4">Biểu đồ chấm công — {String(selMonth).padStart(2, "0")}/{selYear}</h3>
+          <div className="h-64">
+            <ResponsiveContainer>
+              <BarChart data={chartData}>
+                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
+                <Bar dataKey="ok" name="Đúng giờ" fill="#00C9A7" stackId="a" />
+                <Bar dataKey="late" name="Chưa đủ giờ" fill="#FFB547" stackId="a" />
+                <Bar dataKey="absent" name="Vắng" fill="#FF5C5C" stackId="a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center gap-5 mt-3 text-[11.5px] text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#00C9A7]" />Đúng giờ</span>
+            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#FFB547]" />Chưa đủ giờ</span>
+            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#FF5C5C]" />Vắng</span>
+          </div>
+        </Card>
+      )}
       <Card padded={false}>
-        <DataTable
-          head={["Nhân sự", "Số ngày đi làm", "Đi chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
-          rows={STAFF.slice(0, 6).map((s, i) => {
-            const perf = 95 - i * 4;
-            return [
-              <span className="font-medium">{s.name}</span>,
-              <span className="font-mono">{24 - i}</span>,
-              <span className="font-mono">{i}</span>,
-              <span className="font-mono">{i > 1 ? 1 : 0}</span>,
-              <div className="flex items-center gap-2 max-w-[160px]">
-                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full bg-gradient-to-r from-[#6C63FF] to-[#00C9A7]" style={{ width: `${perf}%` }} /></div>
-                <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
-              </div>,
-              <IconBtn icon={Eye} />,
-            ];
-          })}
-        />
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+            Đang tải dữ liệu chấm công…
+          </div>
+        ) : (
+          <DataTable
+            head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
+            rows={staffList.slice(0, 8).map((s) => {
+              const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
+              const total = a.ok + a.late + a.absent;
+              const perf = total > 0 ? Math.round(((a.ok + a.late * 0.5) / total) * 100) : 0;
+              return [
+                <div className="flex items-center gap-2.5">
+                  <div className="size-7 rounded-full bg-gradient-to-br from-[#6C63FF] to-[#3F39C7] grid place-items-center text-[10px] text-white font-semibold">
+                    {s.name.split(" ").slice(-2).map((n: string) => n[0]).join("")}
+                  </div>
+                  <span className="font-medium">{s.name}</span>
+                </div>,
+                <Badge tone={s.role?.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
+                <span className="font-mono text-[#00866F] dark:text-[#5FE6CB]">{a.ok}</span>,
+                <span className="font-mono text-[#A66A00] dark:text-[#FFD89B]">{a.late}</span>,
+                <span className="font-mono text-[#B91C1C] dark:text-[#FFA0A0]">{a.absent}</span>,
+                <div className="flex items-center gap-2 max-w-[160px]">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-[#6C63FF] to-[#00C9A7] transition-all" style={{ width: `${perf}%` }} />
+                  </div>
+                  <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
+                </div>,
+                <IconBtn icon={Eye} onClick={() => {}} />,
+              ];
+            })}
+          />
+        )}
       </Card>
     </>
   );
 }
+
 
 /* ── Members ── */
 type MemberRecord = (typeof MEMBERS)[number];

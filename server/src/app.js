@@ -3,7 +3,7 @@ import cors from "cors";
 import AppError from './utils/AppError.js';
 import routes from "./routes/index.route.js";
 import { successResponse } from './utils/response.js';
-import errorHandler from "./middlewares/error.middleware.js"; 
+import errorHandler from "./middlewares/error.middleware.js";
 
 // Khởi tạo app
 const app = express();
@@ -18,13 +18,13 @@ app.use("/api/v1", routes);
 
 // Ví dụ 1: Test API trả về Thành Công (Sử dụng helper)
 app.get('/api/test-success', (req, res) => {
-    successResponse(res, 200, 'Lấy dữ liệu thành công!', { gymName: 'Super Gym HUST' });
+  successResponse(res, 200, 'Lấy dữ liệu thành công!', { gymName: 'Super Gym HUST' });
 });
 
 // Ví dụ 2: Test API trả về Lỗi Nghiệp Vụ (Sử dụng AppError)
 app.get('/api/test-error', (req, res, next) => {
-    // Dùng 'next' để ném lỗi về cho Global Error Handler xử lý
-    next(new AppError('Gói tập đã hết hạn, không thể check-in!', 403));
+  // Dùng 'next' để ném lỗi về cho Global Error Handler xử lý
+  next(new AppError('Gói tập đã hết hạn, không thể check-in!', 403));
 });
 
 app.all("/*splat", (req, res, next) => {
