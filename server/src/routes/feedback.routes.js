@@ -5,7 +5,6 @@ import {
 } from "../middlewares/auth.middleware.js";
 
 import {
-    getAllFeedbacks,
     createFeedback,
     answerFeedback,
     getMemberFeedbacks,
@@ -38,11 +37,5 @@ router.put(
     answerFeedback
 );
 
-/* Delete a feedback */
-router.delete(
-    "/:id",
-    verifyToken,
-    deleteFeedback
-);
 
 export default router;

@@ -71,21 +71,29 @@ export const deleteFeedback = catchAsync(
 
 export const createFeedback = catchAsync(
     async (req, res, next) => {
+        const { feedbackType, feedbackContent } = req.body;
+        const accountId = req.user.accountId;
 
-        const { feedbackType, feedbackContent } =
-            req.body;
+        const member = await Member.findOne({
+            where: { accountId }
+        });
 
-    const feedback = await Feedback.create({
-        memberId: member.memberId,
-        feedbackType,
-        feedbackContent
-    });
+        if (!member) {
+            return next(new AppError("Member not found", 404));
+        }
 
-    res.status(201).json({
-        success: true,
-        data: feedback
-    });
-});
+        const feedback = await Feedback.create({
+            memberId: member.memberId,
+            feedbackType,
+            feedbackContent
+        });
+
+        res.status(201).json({
+            success: true,
+            data: feedback
+        });
+    }
+);
 
 /* PUT /feedbacks/:id/answer — staff/owner replies */
 export const answerFeedback = catchAsync(async (req, res, next) => {
@@ -117,23 +125,6 @@ export const answerFeedback = catchAsync(async (req, res, next) => {
     });
 });
 
-/* DELETE /feedbacks/:id */
-export const deleteFeedback = catchAsync(async (req, res, next) => {
-    const { id } = req.params;
-
-    const feedback = await Feedback.findByPk(id);
-
-    if (!feedback) {
-        return next(new AppError("Feedback not found", 404));
-    }
-
-    await feedback.destroy();
-
-    res.status(200).json({
-        success: true,
-        message: "Feedback deleted"
-    });
-});
 
 /* GET /feedbacks/stats — dashboard summary for owner */
 export const getFeedbackStats = catchAsync(async (req, res, next) => {
