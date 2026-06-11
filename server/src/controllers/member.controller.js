@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
-import { sequelize, Account, Member } from '../models/index.js';
+import { sequelize, Account, Member, SubscriptionPlan, SubscriptionPackage, Bill, WorkoutLog, Staff } from '../models/index.js';
 import AppError from '../utils/AppError.js';
 import catchAsync from '../utils/catchAsync.js';
 import { successResponse } from '../utils/response.js';
@@ -81,7 +81,6 @@ export const getMembers = catchAsync(async (req, res, next) => {
   const { search } = req.query;
 
   const where = {};
-
   if (search) {
     where[Op.or] = [
       { phoneNumber: { [Op.iLike]: `%${search}%` } },
@@ -96,11 +95,110 @@ export const getMembers = catchAsync(async (req, res, next) => {
         model: Account,
         attributes: ['accountId', 'email'],
       },
+      {
+        model: SubscriptionPlan,
+        required: false,
+        include: [
+          {
+            model: SubscriptionPackage,
+            attributes: ['packageName', 'packageType', 'duration', 'durationUnit', 'numberOfWorkout'],
+          },
+        ],
+      },
     ],
     order: [['createdAt', 'DESC']],
   });
 
-  return successResponse(res, 200, 'Lấy danh sách hội viên thành công!', {
-    members,
+  const result = members.map((m) => {
+    const plain = m.toJSON();
+    const activePlan = (plain.SubscriptionPlans || [])
+      .filter((p) => p.status === 'active')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+    plain.activePlan = activePlan;
+    return plain;
   });
+
+  return successResponse(res, 200, 'Lấy danh sách hội viên thành công!', {
+    members: result,
+  });
+});
+
+export const getMemberById = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const member = await Member.findByPk(id, {
+    include: [
+      { model: Account, attributes: ['email'] },
+      {
+        model: SubscriptionPlan,
+        required: false,
+        include: [{ model: SubscriptionPackage, attributes: ['packageName', 'packageType', 'duration', 'durationUnit', 'numberOfWorkout'] }],
+      },
+    ],
+  });
+
+  if (!member) return next(new AppError('Không tìm thấy hội viên', 404));
+
+  const plain = member.toJSON();
+  plain.activePlan = (plain.SubscriptionPlans || [])
+    .filter((p) => p.status === 'active')
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+
+  return successResponse(res, 200, 'Lấy thông tin hội viên thành công!', { member: plain });
+});
+
+export const updateMember = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const { memberName, phoneNumber, dateOfBirth, gender, occupation } = req.body;
+
+  const member = await Member.findByPk(id);
+  if (!member) return next(new AppError('Không tìm thấy hội viên', 404));
+
+  await member.update({ memberName, phoneNumber, dateOfBirth, gender, occupation });
+
+  return successResponse(res, 200, 'Cập nhật hội viên thành công!', { member });
+});
+
+export const deleteMember = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const member = await Member.findByPk(id, {
+    include: [{ model: Account, attributes: ['accountId'] }],
+  });
+  if (!member) return next(new AppError('Không tìm thấy hội viên', 404));
+
+  const accountId = member.Account?.accountId;
+  await member.destroy();
+  if (accountId) {
+    await Account.destroy({ where: { accountId } });
+  }
+
+  return successResponse(res, 200, 'Xóa hội viên thành công!');
+});
+
+export const getMemberWorkoutLogs = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const logs = await WorkoutLog.findAll({
+    where: { memberId: id },
+    include: [{ model: Staff, as: 'Recorder', attributes: ['staffName'] }],
+    order: [['workoutDate', 'DESC'], ['startTime', 'DESC']],
+  });
+
+  return successResponse(res, 200, 'Lấy lịch sử tập luyện thành công!', { logs });
+});
+
+export const getMemberPayments = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const plans = await SubscriptionPlan.findAll({
+    where: { memberId: id },
+    include: [
+      { model: SubscriptionPackage, attributes: ['packageName'] },
+      { model: Bill },
+    ],
+    order: [['createdAt', 'DESC']],
+  });
+
+  return successResponse(res, 200, 'Lấy lịch sử thanh toán thành công!', { plans });
 });

@@ -1982,7 +1982,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("vi-VN") : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
-            : e.usageStatus || "Hoạt động",
+              : e.usageStatus || "Hoạt động",
           rawStatus: e.usageStatus,
         })));
       }
@@ -2832,7 +2832,9 @@ function MaintenanceOwner() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa yêu cầu bảo trì"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((m) => m.code !== deleteId)); setDeleteId(null); }}>Xóa yêu cầu</Button>
+          <Button icon={Trash2} onClick={() => {
+            fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting.id}`, { method: "DELETE" }).then(() => { fetchReports(); setDeleteId(null); });
+          }}>Xóa yêu cầu</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
@@ -2847,95 +2849,360 @@ function MaintenanceOwner() {
 }
 
 /* ── Feedback ── */
-function Feedback() {
-  type FeedbackRecord = (typeof FEEDBACK)[number];
-  const [list, setList] = useState<FeedbackRecord[]>(FEEDBACK);
-  const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
-  const [typeFilter, setTypeFilter] = useState<"Tất cả" | "Thiết bị" | "Nhân viên">("Tất cả");
-  const [reply, setReply] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+type FeedbackItem = {
+  feedbackId: string;
+  feedbackType: string;
+  feedbackContent: string;
+  answerContent: string | null;
+  feedbackDate: string;
+  answerDate: string | null;
+  Member?: { memberName: string; phoneNumber: string; Account?: { email: string } };
+  Answerer?: { staffName: string } | null;
+};
 
-  const filtered = list.filter((f) =>
-    (statusFilter === "Tất cả" || f.status === statusFilter) &&
-    (typeFilter === "Tất cả" || f.type === typeFilter)
-  );
-  const replying = reply ? list.find((f) => f.id === reply) : null;
-  const deleting = deleteId ? list.find((f) => f.id === deleteId) : null;
-  const pending = list.filter((f) => f.status === "Chờ xử lý").length;
+function Feedback() {
+  const [list, setList] = useState<FeedbackItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
+  const [typeFilter, setTypeFilter] = useState<string>("Tất cả");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 8;
+
+  // Reply modal state
+  const [replyId, setReplyId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+
+  // View detail modal
+  const [viewId, setViewId] = useState<string | null>(null);
+
+  // Delete modal
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const token = localStorage.getItem("gymos_token");
+
+  const fetchFeedbacks = () => {
+    setLoading(true);
+    fetch("http://localhost:5000/api/v1/feedbacks", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) setList(res.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchFeedbacks(); }, []);
+
+  const getStatus = (f: FeedbackItem) => f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
+
+  const filtered = list.filter(f => {
+    const status = getStatus(f);
+    const matchStatus = statusFilter === "Tất cả" || status === statusFilter;
+    const matchType = typeFilter === "Tất cả" || (f.feedbackType || "Khác") === typeFilter;
+    const q = query.toLowerCase();
+    const matchQuery = !q ||
+      (f.Member?.memberName || "").toLowerCase().includes(q) ||
+      (f.feedbackContent || "").toLowerCase().includes(q) ||
+      f.feedbackId.toLowerCase().includes(q);
+    return matchStatus && matchType && matchQuery;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const pending = list.filter(f => !f.answerContent).length;
+  const answered = list.length - pending;
+
+  const replyingItem = replyId ? list.find(f => f.feedbackId === replyId) : null;
+  const viewingItem = viewId ? list.find(f => f.feedbackId === viewId) : null;
+  const deletingItem = deleteId ? list.find(f => f.feedbackId === deleteId) : null;
+
+  const doReply = async () => {
+    if (!replyId || !replyText.trim()) return;
+    setReplySending(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${replyId}/answer`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ answerContent: replyText.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchFeedbacks();
+        setReplyId(null);
+        setReplyText("");
+      } else {
+        alert(data.message || "Lỗi khi gửi phản hồi");
+      }
+    } catch {
+      alert("Lỗi kết nối máy chủ");
+    } finally {
+      setReplySending(false);
+    }
+  };
+
+  const doDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${deleteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchFeedbacks();
+        setDeleteId(null);
+      } else {
+        alert(data.message || "Lỗi khi xóa");
+      }
+    } catch {
+      alert("Lỗi kết nối máy chủ");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
+  const shortId = (id: string) => id.substring(0, 8).toUpperCase();
+
+  const typeCounts: Record<string, number> = {};
+  list.forEach(f => {
+    const t = f.feedbackType || "Khác";
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  });
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Phản hồi hội viên" sub={`${list.length} phản hồi — ${pending} đang chờ xử lý`} />
+      <SectionTitle
+        title="Phản hồi hội viên"
+        sub={`${list.length} phản hồi — ${pending} đang chờ xử lý — ${answered} đã phản hồi`}
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Tổng phản hồi", v: list.length, tone: "violet", icon: MessageSquare },
+          { label: "Chờ xử lý", v: pending, tone: "amber", icon: AlertTriangle },
+          { label: "Đã phản hồi", v: answered, tone: "emerald", icon: CheckCircle2 },
+          { label: "Loại phổ biến", v: Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || "—", tone: "sky", icon: Filter },
+        ].map((s: any) => (
+          <Card key={s.label}>
+            <div className="flex items-start justify-between">
+              <div className={cn("size-9 rounded-xl grid place-items-center",
+                s.tone === "violet" && "bg-[#6C63FF]/15 text-[#4F46E5] dark:text-[#A8A2FF]",
+                s.tone === "amber" && "bg-[#FFB547]/15 text-[#A66A00] dark:text-[#FFD89B]",
+                s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
+                s.tone === "sky" && "bg-sky-400/15 text-sky-700 dark:text-sky-300"
+              )}>
+                <s.icon className="size-4 stroke-[1.75]" />
+              </div>
+            </div>
+            <div className="text-[11px] uppercase text-muted-foreground tracking-wider mt-3">{s.label}</div>
+            <div className="font-display font-bold text-[22px] mt-0.5">{s.v}</div>
+          </Card>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setPage(1); }}
+            placeholder="Tìm theo tên HV, nội dung…"
+            className="w-full h-10 rounded-lg bg-input-background border border-border pl-9 pr-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition"
+          />
+        </div>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Tất cả">Tất cả trạng thái</option>
           <option value="Chờ xử lý">Chờ xử lý</option>
           <option value="Đã phản hồi">Đã phản hồi</option>
         </select>
         <div className="flex items-center gap-2">
-          {(["Tất cả", "Thiết bị", "Nhân viên"] as const).map((c) => (
-            <button key={c} onClick={() => setTypeFilter(c)} className={cn(
+          {(["Tất cả", ...Object.keys(typeCounts)]).filter((v, i, a) => a.indexOf(v) === i).map((c) => (
+            <button key={c} onClick={() => { setTypeFilter(c); setPage(1); }} className={cn(
               "h-9 px-3 rounded-lg text-[12.5px] border transition",
               typeFilter === c
-                ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-[#4F46E5] dark:text-[#A8A2FF]"
+                ? "bg-[#6C63FF]/15 border-[#6C63FF]/40 text-[#6C63FF] dark:text-[#A8A2FF]"
                 : "border-border text-muted-foreground hover:text-foreground hover:border-[#6C63FF]/30"
             )}>{c}</button>
           ))}
         </div>
       </div>
+
       <Card padded={false}>
-        <DataTable
-          head={["Mã PH", "Hội viên", "Loại", "Nội dung", "Ngày tạo", "Trạng thái", ""]}
-          rows={filtered.map((f) => [
-            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{f.id}</span>,
-            <span className="font-medium">{f.member}</span>,
-            <Badge tone={f.type === "Thiết bị" ? "amber" : "sky"}>{f.type}</Badge>,
-            <span className="text-muted-foreground line-clamp-1 max-w-md">{f.content}</span>,
-            f.date,
-            <StatusPill value={f.status} />,
-            <div className="flex items-center justify-end gap-0.5">
-              {f.status !== "Đã phản hồi" && <IconBtn icon={MessageSquare} onClick={() => setReply(f.id)} />}
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.id)} />
-            </div>,
-          ])}
-        />
-        {filtered.length === 0 && (
-          <div className="text-center text-muted-foreground py-10 text-[13px]">Không có phản hồi nào khớp với bộ lọc</div>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+            Đang tải dữ liệu…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-16 text-center">
+            <div className="size-12 rounded-2xl bg-muted/60 border border-border grid place-items-center mx-auto">
+              <MessageSquare className="size-5 text-muted-foreground" />
+            </div>
+            <h3 className="font-display mt-4">Không có phản hồi nào</h3>
+            <p className="text-[13px] text-muted-foreground mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+            {(query || statusFilter !== "Tất cả" || typeFilter !== "Tất cả") && (
+              <Button variant="outline" className="mt-4" onClick={() => { setQuery(""); setStatusFilter("Tất cả"); setTypeFilter("Tất cả"); setPage(1); }}>Xóa bộ lọc</Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <DataTable
+              head={["Mã PH", "Hội viên", "Loại", "Nội dung", "Ngày tạo", "Trạng thái", ""]}
+              rows={paginated.map((f) => {
+                const status = getStatus(f);
+                return [
+                  <button onClick={() => setViewId(f.feedbackId)} className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF] hover:underline">{shortId(f.feedbackId)}</button>,
+                  <div className="flex items-center gap-2">
+                    <div className="size-7 rounded-full bg-gradient-to-br from-sky-400 to-cyan-600 grid place-items-center text-[9px] text-white font-semibold">
+                      {(f.Member?.memberName || "?").split(" ").slice(-2).map(n => n[0]).join("")}
+                    </div>
+                    <span className="font-medium">{f.Member?.memberName || "Ẩn danh"}</span>
+                  </div>,
+                  <Badge tone={f.feedbackType === "Thiết bị" ? "amber" : f.feedbackType === "Dịch vụ" ? "violet" : "sky"}>{f.feedbackType || "Khác"}</Badge>,
+                  <span className="text-muted-foreground line-clamp-1 max-w-xs">{f.feedbackContent}</span>,
+                  fmtDate(f.feedbackDate),
+                  <StatusPill value={status} />,
+                  <div className="flex items-center justify-end gap-0.5">
+                    <IconBtn icon={Eye} onClick={() => setViewId(f.feedbackId)} />
+                    {status !== "Đã phản hồi" && (
+                      <IconBtn icon={MessageSquare} onClick={() => { setReplyId(f.feedbackId); setReplyText(""); }} />
+                    )}
+                    <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.feedbackId)} />
+                  </div>,
+                ];
+              })}
+            />
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border/60">
+                <span className="text-[12.5px] text-muted-foreground">
+                  Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length} phản hồi
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                    className="h-8 px-3 rounded-lg border border-border text-[12.5px] disabled:opacity-40 hover:bg-muted/60 transition">
+                    ‹ Trước
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                    if (p < 1 || p > totalPages) return null;
+                    return (
+                      <button key={p} onClick={() => setPage(p)}
+                        className={cn("h-8 w-8 rounded-lg border text-[12.5px] transition",
+                          p === page ? "bg-[#6C63FF] border-[#6C63FF] text-white" : "border-border hover:bg-muted/60"
+                        )}>{p}</button>
+                    );
+                  })}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    className="h-8 px-3 rounded-lg border border-border text-[12.5px] disabled:opacity-40 hover:bg-muted/60 transition">
+                    Sau ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
-      <Modal open={!!replying} onClose={() => setReply(null)} title="Xử lý phản hồi" wide
+      <Modal open={!!viewingItem} onClose={() => setViewId(null)} title="Chi tiết phản hồi" wide
         footer={<>
-          <Button variant="ghost" onClick={() => setReply(null)}>Hủy</Button>
-          <Button icon={ArrowRight} onClick={() => {
-            setList(list.map((f) => f.id === reply ? { ...f, status: "Đã phản hồi" } : f));
-            setReply(null);
-          }}>Gửi phản hồi</Button>
+          {!viewingItem?.answerContent && (
+            <Button icon={MessageSquare} onClick={() => { setViewId(null); setReplyId(viewingItem!.feedbackId); setReplyText(""); }}>Trả lời</Button>
+          )}
+          <Button variant="ghost" onClick={() => setViewId(null)}>Đóng</Button>
         </>}>
-        {replying && (
+        {viewingItem && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-muted/60 border border-border/70 p-4">
-              <div className="flex items-center gap-2 text-[12px] text-muted-foreground"><span className="font-mono text-[#4F46E5] dark:text-[#A8A2FF]">{replying.id}</span> · {replying.member} · {replying.date}</div>
-              <p className="mt-2 text-[13.5px] leading-relaxed">{replying.content}</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px]">
+              {[
+                ["Mã phản hồi", <span className="font-mono text-[#4F46E5] dark:text-[#A8A2FF]">{shortId(viewingItem.feedbackId)}</span>],
+                ["Hội viên", <span className="font-medium">{viewingItem.Member?.memberName || "Ẩn danh"}</span>],
+                ["Loại phản hồi", <Badge tone="amber">{viewingItem.feedbackType || "Khác"}</Badge>],
+                ["Ngày gửi", fmtDate(viewingItem.feedbackDate)],
+                ["Trạng thái", <StatusPill value={getStatus(viewingItem)} />],
+                ...(viewingItem.Answerer ? [["Người trả lời", viewingItem.Answerer.staffName]] : []),
+                ...(viewingItem.answerDate ? [["Ngày trả lời", fmtDate(viewingItem.answerDate)]] : []),
+              ].map(([k, v]: any) => (
+                <div key={k} className="flex flex-col gap-0.5">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{k}</span>
+                  <span className="font-medium">{v}</span>
+                </div>
+              ))}
             </div>
-            <Field label="Nội dung trả lời">
-              <textarea rows={4} placeholder="Cảm ơn bạn đã phản hồi…"
-                className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 resize-none" />
-            </Field>
+            <div>
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Nội dung phản hồi</span>
+              <p className="mt-1 text-[13.5px] bg-muted/40 rounded-lg p-3 border border-border/60 leading-relaxed">{viewingItem.feedbackContent}</p>
+            </div>
+            {viewingItem.answerContent && (
+              <div className="ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-3 pr-3">
+                <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB] font-medium">Trả lời từ quản lý{viewingItem.Answerer ? ` — ${viewingItem.Answerer.staffName}` : ""}</div>
+                <p className="text-[13.5px] mt-1 leading-relaxed">{viewingItem.answerContent}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
 
-      <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
+      <Modal open={!!replyId && !viewId} onClose={() => { setReplyId(null); setReplyText(""); }} title="Trả lời phản hồi" wide
+        footer={<>
+          <Button variant="ghost" onClick={() => { setReplyId(null); setReplyText(""); }}>Hủy</Button>
+          <Button icon={CheckCircle2}
+            className={cn(!replyText.trim() || replySending ? "opacity-50 cursor-not-allowed pointer-events-none" : "")}
+            onClick={doReply}>
+            {replySending ? "Đang gửi…" : "Gửi phản hồi"}
+          </Button>
+        </>}>
+        {replyingItem && (
+          <div className="space-y-4">
+            <div className="rounded-xl bg-muted/60 border border-border/70 p-4">
+              <div className="flex items-center gap-2 flex-wrap text-[12px] text-muted-foreground">
+                <span className="font-mono text-[#4F46E5] dark:text-[#A8A2FF]">{shortId(replyingItem.feedbackId)}</span>
+                <span>·</span>
+                <span className="font-medium">{replyingItem.Member?.memberName || "Ẩn danh"}</span>
+                <span>·</span>
+                <span>{fmtDate(replyingItem.feedbackDate)}</span>
+                <Badge tone={replyingItem.feedbackType === "Thiết bị" ? "amber" : "sky"}>{replyingItem.feedbackType || "Khác"}</Badge>
+              </div>
+              <p className="mt-2 text-[13.5px] leading-relaxed">{replyingItem.feedbackContent}</p>
+            </div>
+            <Field label={<>Nội dung trả lời <span className="text-[#FF5C5C]">*</span></>}>
+              <textarea
+                rows={5}
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                placeholder="Cảm ơn bạn đã phản hồi. Chúng tôi đã ghi nhận ý kiến của bạn và sẽ…"
+                className="w-full rounded-lg bg-input-background border border-border p-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 resize-none transition"
+              />
+            </Field>
+            <div className="text-[11.5px] text-muted-foreground">{replyText.length} ký tự</div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!deletingItem} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((f) => f.id !== deleteId)); setDeleteId(null); }}>Xóa phản hồi</Button>
+          <Button variant="danger" icon={Trash2}
+            className={cn(deleting ? "opacity-50 cursor-not-allowed pointer-events-none" : "")}
+            onClick={doDelete}>
+            {deleting ? "Đang xóa…" : "Xóa phản hồi"}
+          </Button>
         </>}>
-        {deleting && (
-          <div className="space-y-3">
-            <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa phản hồi <span className="font-mono font-medium">{deleting.id}</span> của {deleting.member}?</p>
-            <p className="text-[12.5px] text-muted-foreground">Hành động này không thể hoàn tác.</p>
+        {deletingItem && (
+          <div className="flex items-start gap-3">
+            <div className="size-10 rounded-full bg-[#FF5C5C]/15 grid place-items-center text-[#B91C1C] dark:text-[#FFA0A0] shrink-0"><Trash2 className="size-5" /></div>
+            <div>
+              <p className="text-[14px]">Xóa phản hồi của <span className="font-semibold">{deletingItem.Member?.memberName || "hội viên"}</span>?</p>
+              <p className="text-[12.5px] text-muted-foreground mt-1 line-clamp-2">"{deletingItem.feedbackContent}"</p>
+              <p className="text-[12px] text-muted-foreground mt-2">Hành động này không thể hoàn tác.</p>
+            </div>
           </div>
         )}
       </Modal>
@@ -2956,16 +3223,46 @@ function Reports({ view }: { view: string }) {
 }
 
 function ReportsOverview() {
+  const [revenue, setRevenue] = useState(0);
+  const [revenueByMonth, setRevenueByMonth] = useState<{ m: string; v: number }[]>([]);
+  const [newMembers, setNewMembers] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [membersByMonth, setMembersByMonth] = useState<{ m: string; v: number }[]>([]);
+  const [staffCount, setStaffCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem("gymos_token");
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetch("http://localhost:5000/api/v1/feedbacks/report-stats", {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json()),
+      fetch("http://localhost:5000/api/v1/staffs").then(r => r.json()),
+    ]).then(([statsRes, staffRes]) => {
+      if (statsRes.success) {
+        setRevenue(statsRes.data.revenue.total || 0);
+        setRevenueByMonth(statsRes.data.revenue.byMonth || []);
+        setNewMembers(statsRes.data.members.newThisMonth || 0);
+        setTotalMembers(statsRes.data.members.total || 0);
+        setMembersByMonth(statsRes.data.members.byMonth || []);
+      }
+      if (staffRes.success) {
+        setStaffCount(staffRes.data.length || 0);
+      }
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
   return (
     <>
-      <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành tháng 05 / 2026"
-        actions={<><Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+      <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
+        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("vi-VN")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
-          { k: "Doanh thu tháng", v: "246 tr", d: "+18.4%", icon: Wallet, tone: "violet" },
-          { k: "Hội viên mới", v: "52", d: "+12 HV", icon: UserPlus, tone: "emerald" },
-          { k: "Tổng hội viên", v: "1,248", d: "+4.1%", icon: Users, tone: "amber" },
-          { k: "Nhân sự", v: "32", d: "Ổn định", icon: ShieldCheck, tone: "sky" },
+          { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
+          { k: "Hội viên mới", v: loading ? "…" : newMembers, icon: UserPlus, tone: "emerald" },
+          { k: "Tổng hội viên", v: loading ? "…" : totalMembers.toLocaleString("vi-VN"), icon: Users, tone: "amber" },
+          { k: "Nhân sự", v: loading ? "…" : staffCount, icon: ShieldCheck, tone: "sky" },
         ].map((s: any) => (
           <Card key={s.k}>
             <div className="flex items-start justify-between">
@@ -2973,10 +3270,10 @@ function ReportsOverview() {
                 s.tone === "violet" && "bg-[#6C63FF]/15 text-[#4F46E5] dark:text-[#A8A2FF]",
                 s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
                 s.tone === "amber" && "bg-[#FFB547]/15 text-[#A66A00] dark:text-[#FFD89B]",
-                s.tone === "sky" && "bg-sky-400/15 text-sky-700 dark:text-sky-300")}>
+                s.tone === "sky" && "bg-sky-400/15 text-sky-700 dark:text-sky-300"
+              )}>
                 <s.icon className="size-5 stroke-[1.75]" />
               </div>
-              <Badge tone={s.tone}>{s.d}</Badge>
             </div>
             <div className="text-[11px] uppercase text-muted-foreground tracking-wider mt-4">{s.k}</div>
             <div className="font-display font-bold text-[26px] mt-1">{s.v}</div>
@@ -2991,25 +3288,30 @@ function ReportsOverview() {
               <h3 className="font-display">Doanh thu 6 tháng gần nhất</h3>
               <p className="text-[12px] text-muted-foreground mt-0.5">Đơn vị: triệu VND</p>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-              <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#6C63FF]" />Doanh thu</span>
-            </div>
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-2 rounded-full bg-[#6C63FF]" />Doanh thu</span>
           </div>
           <div className="h-64">
-            <ResponsiveContainer>
-              <AreaChart data={REVENUE}>
-                <defs>
-                  <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6C63FF" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#6C63FF" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, 300]} ticks={[0, 60, 120, 180, 240, 300]} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Area type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} fill="url(#grad-revenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+                Đang tải…
+              </div>
+            ) : (
+              <ResponsiveContainer>
+                <AreaChart data={revenueByMonth}>
+                  <defs>
+                    <linearGradient id="grad-rev-ov" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6C63FF" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#6C63FF" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} />
+                  <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [`${v} triệu`, "DT"]} />
+                  <Area type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} fill="url(#grad-rev-ov)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
@@ -3019,14 +3321,20 @@ function ReportsOverview() {
             <p className="text-[12px] text-muted-foreground mt-0.5">Theo tháng</p>
           </div>
           <div className="h-64">
-            <ResponsiveContainer>
-              <BarChart data={NEW_MEMBERS}>
-                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, 60]} ticks={[0, 15, 30, 45, 60]} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Bar dataKey="v" fill="#00C9A7" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart data={membersByMonth}>
+                  <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} />
+                  <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
+                  <Bar dataKey="v" fill="#00C9A7" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
@@ -3035,144 +3343,228 @@ function ReportsOverview() {
 }
 
 function RevenueReport() {
-  const txns = [
-    { who: "Phạm Khánh An", pkg: "Elite VIP 6T", amt: 9800000, pm: "Thẻ NH", d: "23/05/2026" },
-    { who: "Hoàng Minh Tú", pkg: "Gym Pro 3T", amt: 2400000, pm: "QR", d: "22/05/2026" },
-    { who: "Bùi Quỳnh Anh", pkg: "Personal 24B", amt: 5600000, pm: "Tiền mặt", d: "22/05/2026" },
-    { who: "Ngô Hữu Đức", pkg: "Gym Starter", amt: 1200000, pm: "QR", d: "21/05/2026" },
-  ];
-  const [tab, setTab] = useState<"day" | "month" | "quarter" | "year">("month");
-  const [day, setDay] = useState("2026-05-23");
-  const [quarter, setQuarter] = useState<"Q1" | "Q2" | "Q3" | "Q4">("Q2");
-  const [year, setYear] = useState("2026");
+  const [txns, setTxns] = useState<any[]>([]);
+  const [revenueByMonth, setRevenueByMonth] = useState<{ m: string; v: number }[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"month" | "year">("month");
+  const token = localStorage.getItem("gymos_token");
 
-  const dayData = ["06h", "08h", "10h", "12h", "14h", "16h", "18h", "20h", "22h"].map((h, i) => ({ d: h, v: Math.round(2 + Math.sin(i / 1.3) * 3 + i / 1.5) }));
-  const monthData = Array.from({ length: 14 }, (_, i) => ({ d: `${i + 10}/05`, v: 6 + Math.round(Math.sin(i / 1.4) * 4 + i / 2) }));
-  const QUARTER_MONTHS: Record<string, string[]> = { Q1: ["T1", "T2", "T3"], Q2: ["T4", "T5", "T6"], Q3: ["T7", "T8", "T9"], Q4: ["T10", "T11", "T12"] };
-  const quarterData = QUARTER_MONTHS[quarter].map((m, i) => ({ d: m, v: 160 + i * 28 + (quarter === "Q2" ? 20 : 0) }));
-  const yearData = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"].map((m, i) => ({ d: m, v: 120 + Math.round(Math.sin(i / 1.6) * 50 + i * 8) }));
-  const dataset = tab === "day" ? dayData : tab === "month" ? monthData : tab === "quarter" ? quarterData : yearData;
-  const total = dataset.reduce((s, d) => s + d.v, 0);
-  const totalLabel = tab === "day" || tab === "month" ? `${total} triệu` : `${(total).toLocaleString("vi-VN")} triệu`;
-  const maxV = Math.max(...dataset.map((d) => d.v));
-  const yMax = Math.ceil(maxV * 1.15 / 5) * 5 || 5;
-  const ticks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax].map((n) => Math.round(n));
+  const fetchRevenue = () => {
+    setLoading(true);
+    fetch(`http://localhost:5000/api/v1/feedbacks/report-stats`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setRevenueByMonth(res.data.revenue.byMonth || []);
+          setTotalRevenue(res.data.revenue.total || 0);
+          setTxns(res.data.revenue.transactions || []);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchRevenue(); }, []);
+
+  const maxV = revenueByMonth.length > 0 ? Math.max(...revenueByMonth.map(d => d.v)) : 0;
+  const yMax = Math.ceil(maxV * 1.2 / 5) * 5 || 10;
+  const ticks = [0, Math.round(yMax * 0.25), Math.round(yMax * 0.5), Math.round(yMax * 0.75), yMax];
 
   return (
     <>
-      <SectionTitle title="Thống kê doanh thu" sub="Phân tích doanh thu theo nhiều mốc thời gian" />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex p-1 rounded-xl border border-border bg-muted/40">
-          {([["day", "Ngày"], ["month", "Tháng"], ["quarter", "Quý"], ["year", "Năm"]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={cn(
-              "h-8 px-4 rounded-lg text-[12.5px] transition",
-              tab === k ? "bg-card text-foreground card-shadow" : "text-muted-foreground hover:text-foreground"
-            )}>{l}</button>
-          ))}
-        </div>
-        {tab === "day" && <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]" />}
-        {tab === "quarter" && (
-          <>
-            <select value={quarter} onChange={(e) => setQuarter(e.target.value as any)} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option value="Q1">Quý 1</option><option value="Q2">Quý 2</option><option value="Q3">Quý 3</option><option value="Q4">Quý 4</option>
-            </select>
-            <input value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-24 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]" />
-          </>
-        )}
-        {tab === "year" && <input value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-28 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]" />}
-        <div className="ml-auto"><Button icon={FileBarChart}>Xuất báo cáo</Button></div>
-      </div>
+      <SectionTitle
+        title="Thống kê doanh thu"
+        sub="Phân tích doanh thu theo thời gian thực từ hệ thống"
+        actions={<Button icon={FileBarChart}>Xuất báo cáo</Button>}
+      />
 
       <div className="grid grid-cols-3 gap-4">
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng doanh thu kỳ này</div><div className="font-display font-bold text-[28px] mt-1">{totalLabel}</div><Badge tone="violet">{tab === "day" ? day : tab === "quarter" ? `${quarter} / ${year}` : tab === "year" ? `Năm ${year}` : "Tháng 05/2026"}</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Đỉnh cao</div><div className="font-display font-bold text-[28px] mt-1">{maxV} tr</div><Badge tone="emerald">{dataset.find((d) => d.v === maxV)?.d}</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Trung bình</div><div className="font-display font-bold text-[28px] mt-1">{Math.round(total / dataset.length)} tr</div><Badge tone="sky">{dataset.length} mốc</Badge></Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng doanh thu</div>
+          <div className="font-display font-bold text-[28px] mt-1">
+            {loading ? "…" : `${(totalRevenue / 1_000_000).toFixed(1)} tr`}
+          </div>
+          <Badge tone="violet">6 tháng gần nhất</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Đỉnh cao</div>
+          <div className="font-display font-bold text-[28px] mt-1">{loading ? "…" : `${maxV} tr`}</div>
+          <Badge tone="emerald">{revenueByMonth.find(d => d.v === maxV)?.m || "—"}</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Trung bình/tháng</div>
+          <div className="font-display font-bold text-[28px] mt-1">
+            {loading || revenueByMonth.length === 0 ? "…" : `${Math.round(revenueByMonth.reduce((s, d) => s + d.v, 0) / revenueByMonth.length)} tr`}
+          </div>
+          <Badge tone="sky">{revenueByMonth.length} tháng</Badge>
+        </Card>
       </div>
 
       <Card>
-        <h3 className="font-display mb-4">Diễn biến doanh thu — {tab === "day" ? "theo giờ" : tab === "month" ? "hằng ngày" : tab === "quarter" ? "theo tháng trong quý" : "12 tháng"}</h3>
-        <div className="h-64">
-          <ResponsiveContainer>
-            {tab === "month" || tab === "day" ? (
-              <LineChart data={dataset}>
-                <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, yMax]} ticks={ticks} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Line type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} dot={{ fill: "#6C63FF", r: 3 }} />
-              </LineChart>
-            ) : (
-              <BarChart data={dataset}>
-                <XAxis dataKey="d" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={44} domain={[0, yMax]} ticks={ticks} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Bar dataKey="v" fill="#6C63FF" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
+        <h3 className="font-display mb-4">Biểu đồ doanh thu — 6 tháng gần nhất (triệu VND)</h3>
+        {loading ? (
+          <div className="h-64 flex items-center justify-center text-muted-foreground">
+            <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+            Đang tải dữ liệu…
+          </div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer>
+              <AreaChart data={revenueByMonth}>
+                <defs>
+                  <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6C63FF" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="#6C63FF" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={40} domain={[0, yMax]} ticks={ticks} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [`${v} triệu`, "Doanh thu"]} />
+                <Area type="monotone" dataKey="v" stroke="#6C63FF" strokeWidth={2.5} fill="url(#grad-revenue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </Card>
+
       <Card padded={false}>
-        <DataTable
-          head={["Hội viên", "Gói tập", "Số tiền", "Phương thức", "Ngày", ""]}
-          rows={txns.map((t) => [
-            <span className="font-medium">{t.who}</span>,
-            <Badge tone="violet">{t.pkg}</Badge>,
-            <span className="font-mono">{t.amt.toLocaleString("vi-VN")} ₫</span>,
-            <Badge tone={t.pm === "Tiền mặt" ? "amber" : t.pm === "QR" ? "emerald" : "sky"}>{t.pm}</Badge>,
-            t.d,
-            <IconBtn icon={Receipt} />,
-          ])}
-        />
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <h3 className="font-display">Giao dịch gần nhất</h3>
+          <Badge tone="violet">{txns.length} giao dịch</Badge>
+        </div>
+        {loading ? (
+          <div className="py-10 text-center text-muted-foreground text-[13px]">Đang tải…</div>
+        ) : txns.length === 0 ? (
+          <div className="py-10 text-center text-muted-foreground text-[13px]">Chưa có giao dịch nào</div>
+        ) : (
+          <DataTable
+            head={["Hội viên", "Gói tập", "Số tiền", "Phương thức", "Ngày"]}
+            rows={txns.map((t) => [
+              <span className="font-medium">{t.member}</span>,
+              <Badge tone="violet">{t.pkg}</Badge>,
+              <span className="font-mono font-semibold">{t.amount.toLocaleString("vi-VN")} ₫</span>,
+              <Badge tone={t.method === "cash" ? "amber" : t.method === "transfer" ? "emerald" : "sky"}>{t.method}</Badge>,
+              t.date,
+            ])}
+          />
+        )}
       </Card>
     </>
   );
 }
 
+
+
 function MembersReport() {
+  const [membersByMonth, setMembersByMonth] = useState<{ m: string; v: number }[]>([]);
+  const [pkgBreakdown, setPkgBreakdown] = useState<{ name: string; value: number }[]>([]);
+  const [newMembers, setNewMembers] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem("gymos_token");
+  const PIE_COLORS = ["#6C63FF", "#00C9A7", "#FFB547", "#FF5C5C", "#64B5F6", "#A78BFA"];
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`http://localhost:5000/api/v1/feedbacks/report-stats`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setMembersByMonth(res.data.members.byMonth || []);
+          setPkgBreakdown(res.data.members.pkgBreakdown || []);
+          setNewMembers(res.data.members.newThisMonth || 0);
+          setTotalMembers(res.data.members.total || 0);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const maxMembers = membersByMonth.length > 0 ? Math.max(...membersByMonth.map(d => d.v)) : 10;
+  const yMax = Math.ceil(maxMembers * 1.2) || 10;
+
   return (
     <>
-      <SectionTitle title="Thống kê hội viên" sub="Cơ cấu hội viên theo gói tập"
-        actions={<Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button>} />
+      <SectionTitle
+        title="Thống kê hội viên"
+        sub="Cơ cấu và tăng trưởng hội viên theo thời gian"
+        actions={<Button icon={FileBarChart}>Xuất báo cáo</Button>}
+      />
       <div className="grid grid-cols-3 gap-4">
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Hội viên mới</div><div className="font-display font-bold text-[28px] mt-1">52</div><Badge tone="emerald">+12 so với tháng trước</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Lượt gia hạn</div><div className="font-display font-bold text-[28px] mt-1">87</div><Badge tone="violet">+5.4%</Badge></Card>
-        <Card><div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng hội viên</div><div className="font-display font-bold text-[28px] mt-1">1,248</div><Badge tone="amber">Mục tiêu 1,300</Badge></Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Hội viên mới tháng này</div>
+          <div className="font-display font-bold text-[28px] mt-1">{loading ? "…" : newMembers}</div>
+          <Badge tone="emerald">6 tháng gần nhất</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tổng hội viên</div>
+          <div className="font-display font-bold text-[28px] mt-1">{loading ? "…" : totalMembers.toLocaleString("vi-VN")}</div>
+          <Badge tone="violet">Hệ thống</Badge>
+        </Card>
+        <Card>
+          <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Tỷ lệ tăng trưởng</div>
+          <div className="font-display font-bold text-[28px] mt-1">
+            {loading || totalMembers === 0 ? "…" : `${((newMembers / totalMembers) * 100).toFixed(1)}%`}
+          </div>
+          <Badge tone="amber">Tháng hiện tại</Badge>
+        </Card>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <Card className="lg:col-span-3">
-          <h3 className="font-display mb-4">Hội viên theo tháng</h3>
-          <div className="h-64">
-            <ResponsiveContainer>
-              <BarChart data={NEW_MEMBERS}>
-                <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, 60]} ticks={[0, 15, 30, 45, 60]} />
-                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-                <Bar dataKey="v" fill="#6C63FF" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h3 className="font-display mb-4">Hội viên đăng ký mới — 6 tháng gần nhất</h3>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center text-muted-foreground">
+              <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+              Đang tải…
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer>
+                <BarChart data={membersByMonth}>
+                  <XAxis dataKey="m" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} interval={0} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} domain={[0, yMax]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                  <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [v, "Hội viên mới"]} />
+                  <Bar dataKey="v" fill="#6C63FF" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
         <Card className="lg:col-span-2">
-          <h3 className="font-display mb-2">Phân bổ theo gói</h3>
-          <div className="h-64">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie data={PKG_BREAKDOWN} dataKey="value" innerRadius={55} outerRadius={88} paddingAngle={3}>
-                  {PKG_BREAKDOWN.map((p) => <Cell key={p.name} fill={p.color} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-1.5 mt-2">
-            {PKG_BREAKDOWN.map((p) => (
-              <div key={p.name} className="flex items-center justify-between text-[12.5px]">
-                <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: p.color }} />{p.name}</span>
-                <span className="font-mono text-muted-foreground">{p.value}%</span>
+          <h3 className="font-display mb-2">Phân bổ theo gói tập</h3>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center"><div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin" /></div>
+          ) : pkgBreakdown.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-muted-foreground text-[13px]">Chưa có dữ liệu</div>
+          ) : (
+            <>
+              <div className="h-48">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie data={pkgBreakdown} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
+                      {pkgBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} formatter={(v: any) => [`${v}%`, ""]} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="space-y-1.5 mt-2">
+                {pkgBreakdown.map((p, i) => (
+                  <div key={p.name} className="flex items-center justify-between text-[12.5px]">
+                    <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />{p.name}</span>
+                    <span className="font-mono text-muted-foreground">{p.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
       </div>
     </>
@@ -3180,32 +3572,164 @@ function MembersReport() {
 }
 
 function StaffReport() {
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [selMonth, setSelMonth] = useState(() => new Date().getMonth() + 1);
+  const [selYear, setSelYear] = useState(() => new Date().getFullYear());
+  const [loading, setLoading] = useState(false);
+  const [attendanceData, setAttendanceData] = useState<Record<string, { ok: number; late: number; absent: number }>>({});
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/staffs")
+      .then(r => r.json())
+      .then(res => { if (res.success) setStaffList(res.data); });
+  }, []);
+
+  useEffect(() => {
+    if (staffList.length === 0) return;
+    setLoading(true);
+    const fetchAll = staffList.slice(0, 8).map(s =>
+      fetch(`http://localhost:5000/api/v1/staffs/${s.code}/attendance?month=${selMonth}&year=${selYear}`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            const now = new Date();
+            const isCurrentMonth = now.getMonth() + 1 === selMonth && now.getFullYear() === selYear;
+            const isPastMonth = selYear < now.getFullYear() || (selYear === now.getFullYear() && selMonth < now.getMonth() + 1);
+            const daysInMonth = new Date(selYear, selMonth, 0).getDate();
+            const maxDay = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
+            let ok = 0, late = 0;
+            res.data.forEach((log: any) => {
+              if (log.checkInTime) {
+                const [h, m] = log.checkInTime.split(':').map(Number);
+                const dow = new Date(log.workDate).getDay();
+                const limit = (dow >= 1 && dow <= 5) ? 6 * 60 + 30 : 8 * 60;
+                if (h * 60 + m > limit) late++; else ok++;
+              } else ok++;
+            });
+            return { code: s.code, ok, late, absent: Math.max(0, maxDay - res.data.length) };
+          }
+          return { code: s.code, ok: 0, late: 0, absent: 0 };
+        })
+    );
+    Promise.all(fetchAll).then(results => {
+      const map: Record<string, any> = {};
+      results.forEach(r => { map[r.code] = r; });
+      setAttendanceData(map);
+      setLoading(false);
+    });
+  }, [staffList, selMonth, selYear]);
+
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = [2024, 2025, 2026];
+  const activeStaff = staffList.filter(s => s.status === "Đang làm" || s.status === "Nghỉ phép");
+  const totalOk = Object.values(attendanceData).reduce((s, a) => s + a.ok, 0);
+  const totalLate = Object.values(attendanceData).reduce((s, a) => s + a.late, 0);
+  const totalAbsent = Object.values(attendanceData).reduce((s, a) => s + a.absent, 0);
+  const daysInMonth = new Date(selYear, selMonth, 0).getDate();
+  const chartData = staffList.slice(0, 6).map(s => {
+    const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
+    return { name: s.name.split(" ").pop(), ok: a.ok, late: a.late, absent: a.absent };
+  });
+
   return (
     <>
-      <SectionTitle title="Thống kê nhân sự" sub="Hiệu suất chấm công tháng 05/2026"
-        actions={<Button variant="outline" icon={CalIcon}>Tháng 05/2026</Button>} />
+      <SectionTitle
+        title="Thống kê nhân sự"
+        sub={`Hiệu suất chấm công ${staffList.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              {months.map(m => <option key={m} value={m}>Tháng {m}</option>)}
+            </select>
+            <select value={selYear} onChange={e => setSelYear(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <Button icon={FileBarChart}>Xuất báo cáo</Button>
+          </div>
+        }
+      />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: "Tổng nhân sự", v: staffList.length, sub: `${activeStaff.length} đang làm việc`, color: "bg-[#6C63FF]/15 text-[#4F46E5]" },
+          { label: "Ngày đúng giờ", v: totalOk, sub: `${daysInMonth} ngày/tháng`, color: "bg-[#00C9A7]/15 text-[#00866F]" },
+          { label: "Đi chưa đủ giờ", v: totalLate, sub: "Cộng dồn", color: "bg-[#FFB547]/15 text-[#A66A00]" },
+          { label: "Tổng ngày vắng", v: totalAbsent, sub: "Cộng dồn", color: "bg-[#FF5C5C]/15 text-[#B91C1C]" },
+        ].map((s: any) => (
+          <Card key={s.label}>
+            <div className={cn("size-9 rounded-xl grid place-items-center mb-3", s.color)}>
+              <Users className="size-4 stroke-[1.75]" />
+            </div>
+            <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{s.label}</div>
+            <div className="font-display font-bold text-[26px] mt-1">
+              {loading ? <div className="size-5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : s.v}
+            </div>
+            <div className="text-[11.5px] text-muted-foreground mt-1">{s.sub}</div>
+          </Card>
+        ))}
+      </div>
+      {chartData.length > 0 && (
+        <Card>
+          <h3 className="font-display mb-4">Biểu đồ chấm công — {String(selMonth).padStart(2, "0")}/{selYear}</h3>
+          <div className="h-64">
+            <ResponsiveContainer>
+              <BarChart data={chartData}>
+                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={11} axisLine={false} tickLine={false} width={36} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.4} />
+                <Tooltip cursor={false} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" }} />
+                <Bar dataKey="ok" name="Đúng giờ" fill="#00C9A7" stackId="a" />
+                <Bar dataKey="late" name="Chưa đủ giờ" fill="#FFB547" stackId="a" />
+                <Bar dataKey="absent" name="Vắng" fill="#FF5C5C" stackId="a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center gap-5 mt-3 text-[11.5px] text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#00C9A7]" />Đúng giờ</span>
+            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#FFB547]" />Chưa đủ giờ</span>
+            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#FF5C5C]" />Vắng</span>
+          </div>
+        </Card>
+      )}
       <Card padded={false}>
-        <DataTable
-          head={["Nhân sự", "Số ngày đi làm", "Đi chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
-          rows={STAFF.slice(0, 6).map((s, i) => {
-            const perf = 95 - i * 4;
-            return [
-              <span className="font-medium">{s.name}</span>,
-              <span className="font-mono">{24 - i}</span>,
-              <span className="font-mono">{i}</span>,
-              <span className="font-mono">{i > 1 ? 1 : 0}</span>,
-              <div className="flex items-center gap-2 max-w-[160px]">
-                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full bg-gradient-to-r from-[#6C63FF] to-[#00C9A7]" style={{ width: `${perf}%` }} /></div>
-                <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
-              </div>,
-              <IconBtn icon={Eye} />,
-            ];
-          })}
-        />
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <div className="size-6 border-2 border-[#6C63FF] border-t-transparent rounded-full animate-spin mr-3" />
+            Đang tải dữ liệu chấm công…
+          </div>
+        ) : (
+          <DataTable
+            head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
+            rows={staffList.slice(0, 8).map((s) => {
+              const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
+              const total = a.ok + a.late + a.absent;
+              const perf = total > 0 ? Math.round(((a.ok + a.late * 0.5) / total) * 100) : 0;
+              return [
+                <div className="flex items-center gap-2.5">
+                  <div className="size-7 rounded-full bg-gradient-to-br from-[#6C63FF] to-[#3F39C7] grid place-items-center text-[10px] text-white font-semibold">
+                    {s.name.split(" ").slice(-2).map((n: string) => n[0]).join("")}
+                  </div>
+                  <span className="font-medium">{s.name}</span>
+                </div>,
+                <Badge tone={s.role?.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
+                <span className="font-mono text-[#00866F] dark:text-[#5FE6CB]">{a.ok}</span>,
+                <span className="font-mono text-[#A66A00] dark:text-[#FFD89B]">{a.late}</span>,
+                <span className="font-mono text-[#B91C1C] dark:text-[#FFA0A0]">{a.absent}</span>,
+                <div className="flex items-center gap-2 max-w-[160px]">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-[#6C63FF] to-[#00C9A7] transition-all" style={{ width: `${perf}%` }} />
+                  </div>
+                  <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
+                </div>,
+                <IconBtn icon={Eye} onClick={() => { }} />,
+              ];
+            })}
+          />
+        )}
       </Card>
     </>
   );
 }
+
 
 /* ── Members ── */
 type MemberRecord = (typeof MEMBERS)[number];
@@ -3243,97 +3767,227 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
   );
 }
 
+const getExpireDate = (plan: any) => {
+  if (!plan) return null;
+  const pkg = plan.SubscriptionPackage;
+  if (plan.startDate) {
+    const start = new Date(plan.startDate);
+    if (pkg?.packageType === "session" && pkg?.numberOfWorkout) {
+      // Gói session: startDate + numberOfWorkout ngày
+      start.setDate(start.getDate() + pkg.numberOfWorkout);
+      return start;
+    }
+    if (pkg?.duration) {
+      const unit = (pkg.durationUnit || "").toLowerCase();
+      if (unit === "ngày" || unit === "day" || unit === "days") start.setDate(start.getDate() + pkg.duration);
+      else if (unit === "tuần" || unit === "week" || unit === "weeks") start.setDate(start.getDate() + pkg.duration * 7);
+      else if (unit === "năm" || unit === "year" || unit === "years") start.setFullYear(start.getFullYear() + pkg.duration);
+      else start.setMonth(start.getMonth() + pkg.duration);
+      return start;
+    }
+  }
+  return plan.expireDate ? new Date(plan.expireDate) : null;
+};
+
 function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: (id: string) => void; onAdd: () => void; readonly?: boolean; disablePackage?: boolean }) {
   const [list, setList] = useState<any[]>([]);
-
-  const fetchMembers = () => {
-    fetch("http://localhost:5000/api/v1/members", {
-      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
-    })
-      .then(res => res.json())
-      .then(res => {
-        if (res.success) {
-          setList(res.data.members.map((m: any) => ({
-            code: m.memberId.substring(0, 8),
-            name: m.memberName,
-            phone: m.phoneNumber || "Chưa có",
-            pkg: "Gym Pro",
-            remain: "N/A",
-            status: "Đang hoạt động"
-          })));
-        }
-      });
-  };
-
-  useEffect(() => {
-    fetchMembers();
-  }, []);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const PAGE_SIZE = 6;
+
+  const token = localStorage.getItem("gymos_token");
+  const headers: any = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const computeStatus = (plan: any): string => {
+    if (!plan) return "Chưa có gói";
+    const expire = getExpireDate(plan);
+    if (!expire) return "Đang hoạt động";
+    const diffDays = Math.ceil((expire.getTime() - Date.now()) / 86400000);
+    if (diffDays < 0) return "Đã hết hạn";
+    if (diffDays <= 14) return "Sắp hết hạn";
+    return "Đang hoạt động";
+  };
+
+  const formatRemain = (plan: any): string => {
+    if (!plan) return "—";
+    if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
+    const expire = getExpireDate(plan);
+    if (expire) return expire.toLocaleDateString("vi-VN");
+    return "—";
+  };
+
+  const fetchMembers = () => {
+    const params = query.trim() ? `?search=${encodeURIComponent(query.trim())}` : "";
+    fetch(`http://localhost:5000/api/v1/members${params}`, { headers })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          setList(res.data.members.map((m: any) => ({
+            id: m.memberId,
+            code: m.memberId.substring(0, 8).toUpperCase(),
+            name: m.memberName,
+            phone: m.phoneNumber || "Chưa có",
+            pkg: m.activePlan?.SubscriptionPackage?.packageName ?? "Chưa có gói",
+            remain: formatRemain(m.activePlan),
+            status: computeStatus(m.activePlan),
+            raw: m,
+          })));
+          setPage(1);
+        }
+      });
+  };
+
+  useEffect(() => { fetchMembers(); }, []);
 
   const filtered = list.filter((m) =>
     (statusFilter === "Tất cả" || m.status === statusFilter) &&
-    (m.name.toLowerCase().includes(query.toLowerCase()) || m.code.toLowerCase().includes(query.toLowerCase()) || m.phone.includes(query))
+    (m.name.toLowerCase().includes(query.toLowerCase()) ||
+      m.code.toLowerCase().includes(query.toLowerCase()) ||
+      m.phone.includes(query))
   );
-  const editing = editId ? list.find((m) => m.code === editId) : null;
-  const deleting = deleteId ? list.find((m) => m.code === deleteId) : null;
-  const newThisWeek = list.filter((m) => m.status === "Đang hoạt động").length;
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const editingMember = editId ? list.find((m) => m.id === editId) : null;
+  const deletingMember = deleteId ? list.find((m) => m.id === deleteId) : null;
+  const activeCount = list.filter((m) => m.status === "Đang hoạt động").length;
+
+  const openEdit = (m: any) => {
+    setEditId(m.id);
+    setEditForm({
+      memberName: m.raw.memberName,
+      phoneNumber: m.raw.phoneNumber || "",
+      dateOfBirth: m.raw.dateOfBirth || "",
+      gender: m.raw.gender || "",
+      occupation: m.raw.occupation || "",
+    });
+  };
+
+  const handleEditSave = () => {
+    if (!editId) return;
+    setSaving(true);
+    fetch(`http://localhost:5000/api/v1/members/${editId}`, {
+      method: "PUT", headers,
+      body: JSON.stringify(editForm),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        setSaving(false);
+        if (res.success) { setEditId(null); fetchMembers(); }
+      })
+      .catch(() => setSaving(false));
+  };
+
+  const handleDelete = () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    fetch(`http://localhost:5000/api/v1/members/${deleteId}`, { method: "DELETE", headers })
+      .then((r) => r.json())
+      .then((res) => {
+        setDeleting(false);
+        if (res.success) { setDeleteId(null); fetchMembers(); }
+      })
+      .catch(() => setDeleting(false));
+  };
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Danh sách hội viên" sub={`${list.length} hội viên hiển thị — ${newThisWeek} đang hoạt động`}
+      <SectionTitle title="Danh sách hội viên" sub={`${list.length} hội viên hiển thị — ${activeCount} đang hoạt động`}
         actions={<Button icon={UserPlus} onClick={onAdd}>Thêm hội viên</Button>} />
       <div className="flex flex-wrap items-center gap-3">
-        <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+        <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query}
+          onChange={(e: any) => setQuery(e.target.value)} />
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
           <option value="Tất cả">Tất cả trạng thái</option>
           {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          <option value="Chưa có gói">Chưa có gói</option>
         </select>
       </div>
       <Card padded={false}>
         <DataTable
           head={["Mã HV", "Họ tên", "SĐT", "Gói tập", "Hạn / Số buổi còn lại", "Trạng thái", ""]}
-          rows={filtered.map((m) => [
+          rows={paginated.map((m) => [
             <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{m.code}</span>,
-            <button onClick={() => onSelect(m.code)} className="flex items-center gap-2.5 text-left hover:text-[#4F46E5] dark:text-[#A8A2FF]">
+            <button onClick={() => onSelect(m.id)} className="flex items-center gap-2.5 text-left hover:text-[#4F46E5] dark:text-[#A8A2FF]">
               <div className="size-7 rounded-full bg-gradient-to-br from-sky-400 to-cyan-600 grid place-items-center text-[10.5px] text-white font-semibold">
-                {m.name.split(" ").slice(-2).map(n => n[0]).join("")}
+                {m.name.split(" ").slice(-2).map((n: string) => n[0]).join("")}
               </div>
               <span className="font-medium">{m.name}</span>
             </button>,
             <span className="font-mono text-[12.5px]">{m.phone}</span>,
-            <Badge tone="violet">{m.pkg}</Badge>,
+            m.pkg === "Chưa có gói"
+              ? <span className="text-muted-foreground text-[12px]">Chưa có gói</span>
+              : <Badge tone="violet">{m.pkg}</Badge>,
             <span className="text-muted-foreground">{m.remain}</span>,
             <StatusPill value={m.status} />,
             <div className="flex items-center justify-end gap-0.5">
-              <IconBtn icon={Eye} onClick={() => onSelect(m.code)} />
-              <IconBtn icon={Pencil} onClick={() => setEditId(m.code)} />
-              {!readonly && <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(m.code)} />}
+              <IconBtn icon={Eye} onClick={() => onSelect(m.id)} />
+              <IconBtn icon={Pencil} onClick={() => openEdit(m)} />
+              {!readonly && <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(m.id)} />}
             </div>,
           ])}
         />
         {filtered.length === 0 && (
           <div className="text-center text-muted-foreground py-10 text-[13px]">Không có hội viên nào khớp với bộ lọc</div>
         )}
-        <Pagination />
+        <Pagination total={filtered.length} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />
       </Card>
 
-      <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa hội viên — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <MemberForm data={editing} disablePackage={disablePackage} />}
+      {/* Modal sửa hội viên */}
+      <Modal open={!!editingMember} onClose={() => setEditId(null)} title={`Chỉnh sửa hội viên — ${editingMember?.name ?? ""}`} wide
+        footer={<>
+          <Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button>
+          <Button icon={CheckCircle2} className={cn(saving && "opacity-50 pointer-events-none")} onClick={handleEditSave}>
+            {saving ? "Đang lưu…" : "Lưu thay đổi"}
+          </Button>
+        </>}>
+        {editingMember && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label={<>Họ và tên<Req /></>}>
+              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+            </Field>
+            <Field label={<>Số điện thoại<Req /></>}>
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+            </Field>
+            <Field label="Ngày sinh">
+              <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
+            </Field>
+            <Field label="Giới tính">
+              <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+                <option value="">Chưa chọn</option>
+                <option value="male">Nam</option>
+                <option value="female">Nữ</option>
+                <option value="other">Khác</option>
+              </select>
+            </Field>
+            <div className="col-span-2">
+              <Field label="Nghề nghiệp">
+                <Input placeholder="VD: Kỹ sư phần mềm" value={editForm.occupation} onChange={(e: any) => setEditForm((f: any) => ({ ...f, occupation: e.target.value }))} />
+              </Field>
+            </div>
+          </div>
+        )}
       </Modal>
 
-      <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa hội viên"
+      {/* Modal xóa hội viên */}
+      <Modal open={!!deletingMember} onClose={() => setDeleteId(null)} title="Xóa hội viên"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((m) => m.code !== deleteId)); setDeleteId(null); }}>Xóa hội viên</Button>
+          <Button variant="danger" icon={Trash2} className={cn(deleting && "opacity-50 pointer-events-none")} onClick={handleDelete}>
+            {deleting ? "Đang xóa…" : "Xóa hội viên"}
+          </Button>
         </>}>
-        {deleting && (
+        {deletingMember && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa hội viên <span className="font-medium">{deleting.name}</span> ({deleting.code})?</p>
+            <p className="text-[14px]">Xóa hội viên <span className="font-medium">{deletingMember.name}</span> ({deletingMember.code})?</p>
             <p className="text-[12.5px] text-muted-foreground">Toàn bộ lịch sử tập luyện, thanh toán và phản hồi của hội viên này sẽ bị xóa khỏi hệ thống.</p>
           </div>
         )}
@@ -3346,9 +4000,13 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
+  const [step0Errors, setStep0Errors] = useState<Record<string, string>>({});
+  const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
 
   const [sellable, setSellable] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
+  const [trainerList, setTrainerList] = useState<any[]>([]);
+  const [trainerId, setTrainerId] = useState("");
 
   const [formData, setFormData] = useState({
     memberName: "",
@@ -3360,29 +4018,63 @@ function NewMember({ onBack }: { onBack?: () => void }) {
     password: "",
     address: ""
   });
-  const updateForm = (k: string, v: any) => setFormData(prev => ({ ...prev, [k]: v }));
+  const updateForm = (k: string, v: any) => {
+    setFormData(prev => ({ ...prev, [k]: v }));
+    if (step0Errors[k]) setStep0Errors(prev => { const n = { ...prev }; delete n[k]; return n; });
+  };
 
+  const validateStep0 = () => {
+    const errs: Record<string, string> = {};
+    if (!formData.memberName.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    if (!formData.dateOfBirth) errs.dateOfBirth = "Vui lòng chọn ngày sinh";
+    if (!formData.phoneNumber.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
+    else if (!/^(0|\+84)[0-9]{8,10}$/.test(formData.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại không hợp lệ";
+    if (!formData.email.trim()) errs.email = "Vui lòng nhập email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errs.email = "Email không hợp lệ";
+    if (!formData.password) errs.password = "Vui lòng nhập mật khẩu";
+    else if (formData.password.length < 6) errs.password = "Mật khẩu tối thiểu 6 ký tự";
+    setStep0Errors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const validateStep1 = () => {
+    const errs: Record<string, string> = {};
+    if (!pkgId) errs.pkgId = "Vui lòng chọn gói tập";
+    const selectedPkg = sellable.find((p) => p.id === pkgId);
+    if (selectedPkg?.trainer && !trainerId) errs.trainerId = "Gói này yêu cầu chọn huấn luyện viên";
+    setStep1Errors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+
+  const token = localStorage.getItem("gymos_token");
   useEffect(() => {
+    const headers: any = { Authorization: `Bearer ${token}` };
     fetch("http://localhost:5000/api/v1/packages")
-      .then(res => res.json())
+      .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.status === "active").map((d: any) => ({
-            id: d.packageId,
-            name: d.packageName,
+          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive).map((d: any) => ({
+            id: d.packageId, name: d.packageName,
             type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
-            price: Number(d.price),
-            vip: d.vipIncluded,
-            trainer: d.trainerIncluded
+            price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded
           }));
           setSellable(list);
           if (list.length > 0) setPkgId(list[0].id);
         }
       });
+    fetch("http://localhost:5000/api/v1/staffs", { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setTrainerList((res.data || []).filter((s: any) => s.role === "Huấn luyện viên"));
+        }
+      });
   }, []);
 
+
   const pkg = sellable.find((p) => p.id === pkgId);
-  if (pay && pkg) return <Payment kind={pay} formData={formData} pkgId={pkgId} pkg={pkg} onBack={() => setPay(null)} onComplete={onBack} />;
+  if (pay && pkg) return <Payment kind={pay} formData={formData} pkgId={pkgId} pkg={pkg} trainerId={trainerId} onBack={() => setPay(null)} onComplete={onBack} />;
   return (
     <div className="space-y-6">
       {onBack && (
@@ -3410,8 +4102,14 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       {step === 0 && (
         <Card>
           <div className="grid grid-cols-2 gap-4">
-            <Field label={<>Họ và tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={formData.memberName} onChange={(e: any) => updateForm("memberName", e.target.value)} /></Field>
-            <Field label={<>Ngày sinh<Req /></>}><Input type="date" value={formData.dateOfBirth} onChange={(e: any) => updateForm("dateOfBirth", e.target.value)} /></Field>
+            <Field label={<>Họ và tên<Req /></>}>
+              <Input placeholder="Nguyễn Văn A" value={formData.memberName} onChange={(e: any) => updateForm("memberName", e.target.value)} className={step0Errors.memberName ? "border-red-400" : ""} />
+              {step0Errors.memberName && <p className="text-[11px] text-red-500 mt-1">{step0Errors.memberName}</p>}
+            </Field>
+            <Field label={<>Ngày sinh<Req /></>}>
+              <Input type="date" value={formData.dateOfBirth} onChange={(e: any) => updateForm("dateOfBirth", e.target.value)} className={step0Errors.dateOfBirth ? "border-red-400" : ""} />
+              {step0Errors.dateOfBirth && <p className="text-[11px] text-red-500 mt-1">{step0Errors.dateOfBirth}</p>}
+            </Field>
             <Field label={<>Giới tính<Req /></>}>
               <div className="flex gap-2">{[
                 { l: "Nam", v: "male" },
@@ -3422,14 +4120,23 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               ))}</div>
             </Field>
             <Field label={<>Nghề nghiệp</>}><Input placeholder="VD: Kỹ sư phần mềm" value={formData.job} onChange={(e: any) => updateForm("job", e.target.value)} /></Field>
-            <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phoneNumber} onChange={(e: any) => updateForm("phoneNumber", e.target.value)} /></Field>
-            <Field label={<>Email<Req /></>}><Input icon={Mail} placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} /></Field>
-            <Field label={<>Mật khẩu đăng nhập<Req /></>}><Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} /></Field>
+            <Field label={<>Số điện thoại<Req /></>}>
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phoneNumber} onChange={(e: any) => updateForm("phoneNumber", e.target.value)} className={step0Errors.phoneNumber ? "border-red-400" : ""} />
+              {step0Errors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{step0Errors.phoneNumber}</p>}
+            </Field>
+            <Field label={<>Email<Req /></>}>
+              <Input icon={Mail} placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
+              {step0Errors.email && <p className="text-[11px] text-red-500 mt-1">{step0Errors.email}</p>}
+            </Field>
+            <Field label={<>Mật khẩu đăng nhập<Req /></>}>
+              <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} className={step0Errors.password ? "border-red-400" : ""} />
+              {step0Errors.password && <p className="text-[11px] text-red-500 mt-1">{step0Errors.password}</p>}
+            </Field>
             <div className="col-span-2"><Field label={<>Địa chỉ</>}><Input placeholder="Số nhà, đường, quận, thành phố" value={formData.address} onChange={(e: any) => updateForm("address", e.target.value)} /></Field></div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
             <Button variant="ghost">Hủy</Button>
-            <Button icon={ArrowRight} onClick={() => setStep(1)}>Tiếp tục</Button>
+            <Button icon={ArrowRight} onClick={() => { if (validateStep0()) setStep(1); }}>Tiếp tục</Button>
           </div>
         </Card>
       )}
@@ -3440,7 +4147,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
             <h3 className="font-display mb-4">Chọn gói tập</h3>
             <Field label="Gói tập">
               <div className="relative">
-                <select value={pkgId} onChange={(e) => setPkgId(e.target.value)}
+                <select value={pkgId} onChange={(e) => { setPkgId(e.target.value); setTrainerId(""); setStep1Errors({}); }}
                   className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
                   {sellable.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -3466,13 +4173,17 @@ function NewMember({ onBack }: { onBack?: () => void }) {
             )}
             <div className="mt-5 grid grid-cols-2 gap-4">
               {pkg?.trainer && (
-                <Field label="Huấn luyện viên" hint="Bắt buộc khi gói có Trainer">
+                <Field label={<>Huấn luyện viên<Req /></>} hint="Bắt buộc khi gói có Trainer">
                   <div className="relative">
-                    <select className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-                      <option>Lê Đức Mạnh</option><option>Phan Thu Hà</option><option>Đỗ Anh Tuấn</option>
+                    <select value={trainerId} onChange={(e: any) => { setTrainerId(e.target.value); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }} className={cn("w-full h-10 rounded-lg bg-input-background border px-3 text-[13px] appearance-none", step1Errors.trainerId ? "border-red-400" : "border-border")}>
+                      <option value="">— Chọn huấn luyện viên —</option>
+                      {trainerList.map((t: any) => (
+                        <option key={t.staffId || t.code} value={t.staffId || t.code}>{t.name}</option>
+                      ))}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                   </div>
+                  {step1Errors.trainerId && <p className="text-[11px] text-red-500 mt-1">{step1Errors.trainerId}</p>}
                 </Field>
               )}
               <Field label="Phương thức thanh toán">
@@ -3501,7 +4212,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
           </Card>
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => setStep(0)}>← Quay lại</Button>
-            <Button icon={ArrowRight} onClick={() => setPay(method)}>Tiến hành thanh toán bằng {method === "card" ? "Thẻ NH" : method === "qr" ? "QR Code" : "Tiền mặt"}</Button>
+            <Button icon={ArrowRight} onClick={() => { if (validateStep1()) setPay(method); }}>Tiến hành thanh toán bằng {method === "card" ? "Thẻ NH" : method === "qr" ? "QR Code" : "Tiền mặt"}</Button>
           </div>
         </>
       )}
@@ -3509,7 +4220,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   );
 }
 
-function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "card" | "qr" | "cash"; formData: any; pkgId: string; pkg: any; onBack: () => void; onComplete?: () => void }) {
+function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplete, mode = "new" }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; trainerId?: string; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew" }) {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -3610,7 +4321,7 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
           <div className="mt-4 space-y-3 text-[13px]">
             {[
               ["Gói tập", pkg.name],
-              ["Hội viên", formData.memberName],
+              ["Hội viên", formData?.memberName || "Bạn"],
               ["Ngày bắt đầu", new Date().toLocaleDateString("vi-VN")]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
@@ -3634,6 +4345,26 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
               setLoading(true);
               setError(null);
               try {
+                const methodMap: Record<string, string> = { card: "card", qr: "transfer", cash: "cash" };
+                if (mode === "renew") {
+                  const rRes = await fetch("http://localhost:5000/api/v1/subscriptions/renew", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+                    },
+                    body: JSON.stringify({
+                      packageId: pkgId,
+                      paymentMethod: methodMap[kind] || "cash"
+                    })
+                  });
+                  const rData = await rRes.json();
+                  if (!rData.success) throw new Error(rData.message || "Lỗi gia hạn gói tập");
+
+                  setDone(true);
+                  return;
+                }
+
                 // 1. Create Member
                 const mRes = await fetch("http://localhost:5000/api/v1/members", {
                   method: "POST",
@@ -3664,16 +4395,16 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
                   },
                   body: JSON.stringify({
                     memberId,
-                    packageId: pkgId
+                    packageId: pkgId,
+                    ...(trainerId ? { trainerId } : {})
                   })
                 });
                 const sData = await sRes.json();
                 if (!sData.success) throw new Error(sData.message || "Lỗi tạo subscription");
 
-                const subId = sData.data.subscription.subscriptionId;
+                const subId = sData.data.subscription.planId || sData.data.subscription.subscriptionId;
 
                 // 3. Process Payment
-                const methodMap: Record<string, string> = { card: "card", qr: "transfer", cash: "cash" };
                 const pRes = await fetch(`http://localhost:5000/api/v1/subscriptions/${subId}/pay`, {
                   method: "POST",
                   headers: {
@@ -3712,52 +4443,115 @@ function Payment({ kind, formData, pkgId, pkg, onBack, onComplete }: { kind: "ca
 }
 
 function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage }: { id?: string | null; onBack: () => void; onDeleted?: () => void; onRenew?: () => void; readonly?: boolean; disablePackage?: boolean }) {
-  const baseMember = (id ? MEMBERS.find((m) => m.code === id) : undefined) ?? MEMBERS[0];
-  const [member, setMember] = useState<MemberRecord>(baseMember);
-  const [checked, setChecked] = useState(false);
+  const [member, setMember] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [tab, setTab] = useState<0 | 1 | 2>(0);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
   const [delDayIdx, setDelDayIdx] = useState<number | null>(null);
-  const [days, setDays] = useState([
-    { d: "23/05/2026", in: "06:42", out: "08:11", dur: "1g 29p", note: "PT: Lê Đức Mạnh — Push day" },
-    { d: "21/05/2026", in: "07:05", out: "08:34", dur: "1g 29p", note: "PT: Lê Đức Mạnh — Pull day" },
-    { d: "19/05/2026", in: "18:22", out: "19:51", dur: "1g 29p", note: "Cardio tự do" },
-    { d: "17/05/2026", in: "06:50", out: "08:20", dur: "1g 30p", note: "PT: Lê Đức Mạnh — Leg day" },
-  ]);
-  const [tab, setTab] = useState<0 | 1 | 2>(0);
-  const [payments] = useState([
-    { code: "PAY-20251112", d: "12/11/2025", desc: "Đăng ký Elite VIP 6 tháng", method: "Thẻ NH", amount: 8990000, status: "Thành công" },
-    { code: "PAY-20250812", d: "12/08/2025", desc: "Gia hạn Premium 3 tháng", method: "QR Code", amount: 4490000, status: "Thành công" },
-    { code: "PAY-20250512", d: "12/05/2025", desc: "Đăng ký Premium 3 tháng", method: "Tiền mặt", amount: 4490000, status: "Thành công" },
-  ]);
-  const [feedbacks] = useState([
-    { d: "22/05/2026", c: "Phòng tắm thiếu khăn vào giờ cao điểm…", s: "Chờ xử lý", r: null as string | null },
-    { d: "12/05/2026", c: "Đề xuất thêm lớp Yoga buổi tối thứ 4 và thứ 6.", s: "Đã phản hồi", r: "Cảm ơn bạn đã đóng góp. Trung tâm sẽ mở lớp Yoga thứ 6 từ tuần sau." },
-  ]);
+  const [saving, setSaving] = useState(false);
+  const [deletingMember, setDeletingMember] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [checked, setChecked] = useState(false);
+
+  const token = localStorage.getItem("gymos_token");
+  const headers: any = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const fetchMember = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}`, { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          setMember(res.data.member);
+          setEditForm({
+            memberName: res.data.member.memberName,
+            phoneNumber: res.data.member.phoneNumber || "",
+            dateOfBirth: res.data.member.dateOfBirth || "",
+            gender: res.data.member.gender || "",
+            occupation: res.data.member.occupation || "",
+          });
+        }
+      });
+  };
+
+  const fetchLogs = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}/workout-logs`, { headers })
+      .then(r => r.json())
+      .then(res => { if (res.success) setLogs(res.data.logs); });
+  };
+
+  const fetchPayments = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}/payments`, { headers })
+      .then(r => r.json())
+      .then(res => { if (res.success) setPayments(res.data.plans); });
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    fetchMember();
+    fetchLogs();
+    fetchPayments();
+  }, [id]);
+
+  const handleSave = () => {
+    setSaving(true);
+    fetch(`http://localhost:5000/api/v1/members/${id}`, {
+      method: "PUT", headers,
+      body: JSON.stringify(editForm),
+    })
+      .then(r => r.json())
+      .then(res => {
+        setSaving(false);
+        if (res.success) { setEdit(false); fetchMember(); }
+      })
+      .catch(() => setSaving(false));
+  };
+
+  const handleDelete = () => {
+    setDeletingMember(true);
+    fetch(`http://localhost:5000/api/v1/members/${id}`, { method: "DELETE", headers })
+      .then(r => r.json())
+      .then(res => {
+        setDeletingMember(false);
+        if (res.success) { setDel(false); onDeleted?.(); onBack(); }
+      })
+      .catch(() => setDeletingMember(false));
+  };
+
+  if (!member) return <div className="text-muted-foreground text-[13px] py-10 text-center">Đang tải...</div>;
+
+  const plan = member.activePlan;
+  const pkg = plan?.SubscriptionPackage;
+
+  const expireDate = getExpireDate(plan);
+
+  const diffDays = expireDate ? Math.ceil((expireDate.getTime() - Date.now()) / 86400000) : null;
 
   return (
     <div className="space-y-5">
       <button onClick={onBack} className="text-[12.5px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ChevronRight className="size-3.5 rotate-180" /> Quay lại danh sách hội viên
+        <ChevronLeft className="size-3.5" /> Quay lại danh sách hội viên
       </button>
+
       <Card>
         <div className="flex flex-col md:flex-row gap-6 items-start">
           <div className="flex items-center gap-4 flex-1">
             <div className="size-20 rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-600 grid place-items-center text-white font-display text-[24px] font-bold">
-              {member.name.split(" ").slice(-2).map((n) => n[0]).join("")}
+              {member.memberName.split(" ").slice(-2).map((n: string) => n[0]).join("")}
             </div>
             <div>
-              <div className="font-mono text-[12px] text-muted-foreground">{member.code}</div>
-              <h2 className="font-display text-[22px] mt-0.5">{member.name}</h2>
+              <div className="font-mono text-[12px] text-muted-foreground">{member.memberId.substring(0, 8).toUpperCase()}</div>
+              <h2 className="font-display text-[22px] mt-0.5">{member.memberName}</h2>
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phone}</span>
-                <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.name.split(" ").slice(-1)[0].toLowerCase()}@gmail.com</span>
-                <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />02/07/1996</span>
+                <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
+                <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("vi-VN")}</span>}
               </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>
+            {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
             <Button variant={checked ? "danger" : "secondary"} icon={CheckCircle2} onClick={() => setChecked(!checked)}>
@@ -3765,21 +4559,36 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             </Button>
           </div>
         </div>
+
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
-            <div className="flex items-center gap-2"><Badge tone="amber">★ VIP</Badge><Badge tone="violet">Trainer</Badge></div>
-            <div className="font-display font-semibold text-[16px] mt-2">{member.pkg}</div>
-            <div className="text-[12px] text-muted-foreground">Bắt đầu 12/11/2025</div>
+            <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
+            <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("vi-VN")}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
-            <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
-            <div className="font-display font-bold text-[20px] mt-1">12/11/2026</div>
-            <div className="text-[12px] text-[#00866F] dark:text-[#5FE6CB]">Còn 172 ngày</div>
+            {pkg?.packageType === "session" ? <>
+              <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
+              {expireDate ? <>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
+                  {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
+                </div>
+              </> : <div className="font-display font-bold text-[20px] mt-1 text-muted-foreground">—</div>}
+            </> : <>
+              <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
+              {expireDate ? <>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
+                  {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
+                </div>
+              </> : <div className="font-display font-bold text-[20px] mt-1 text-muted-foreground">—</div>}
+            </>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Số buổi đã tập</div>
-            <div className="font-display font-bold text-[20px] mt-1">{days.length} / —</div>
-            <div className="text-[12px] text-muted-foreground">Trung bình 4 buổi / tuần</div>
+            <div className="font-display font-bold text-[20px] mt-1">{logs.length}</div>
+            <div className="text-[12px] text-muted-foreground">Tổng buổi ghi nhận</div>
           </div>
         </div>
       </Card>
@@ -3794,81 +4603,106 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         </div>
 
         {tab === 0 && (
-          <DataTable
-            head={["Ngày", "Giờ vào", "Giờ ra", "Tổng thời gian", "Ghi chú", ""]}
-            rows={days.map((d, idx) => [
-              d.d, d.in, d.out, d.dur,
-              <span className="text-muted-foreground">{d.note}</span>,
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDelDayIdx(idx)} />,
-            ])}
-          />
+          <>
+            <DataTable
+              head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
+              rows={logs.map((d, idx) => [
+                new Date(d.workoutDate).toLocaleDateString("vi-VN"),
+                d.startTime?.slice(0, 5) || "—",
+                d.duration ? `${d.duration} phút` : "—",
+                <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
+                !readonly && <IconBtn icon={Trash2} tone="danger" onClick={() => setDelDayIdx(idx)} />,
+              ])}
+            />
+            {logs.length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Chưa có buổi tập nào được ghi nhận</div>}
+          </>
         )}
 
         {tab === 1 && (
           <>
             <DataTable
-              head={["Mã giao dịch", "Ngày", "Nội dung", "Phương thức", "Số tiền", "Trạng thái"]}
-              rows={payments.map((p) => [
-                <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{p.code}</span>,
-                p.d,
-                <span>{p.desc}</span>,
-                <Badge tone={p.method === "Thẻ NH" ? "violet" : p.method === "QR Code" ? "sky" : "amber"}>{p.method}</Badge>,
-                <span className="font-display font-semibold">{p.amount.toLocaleString("vi-VN")} ₫</span>,
-                <StatusPill value={p.status} />,
+              head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
+              rows={payments.filter(p => p.Bill).map((p) => [
+                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("vi-VN") : "—",
+                <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
+                <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
+                  {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
+                </Badge>,
+                <span className="font-display font-semibold">{Number(p.Bill?.amount || 0).toLocaleString("vi-VN")} ₫</span>,
+                <StatusPill value="Thành công" />,
               ])}
             />
-            {payments.length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Chưa có giao dịch nào</div>}
+            {payments.filter(p => p.Bill).length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Chưa có giao dịch nào</div>}
           </>
         )}
 
         {tab === 2 && (
-          <div className="p-5 space-y-3">
-            {feedbacks.map((f, i) => (
-              <div key={i} className="rounded-xl border border-border/70 bg-muted/30 p-4">
-                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <span>{member.name} · {f.d}</span><StatusPill value={f.s} />
-                </div>
-                <p className="mt-2 text-[14px]">{f.c}</p>
-                {f.r && (
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
-                    <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ quản lý</div>
-                    <p className="text-[13px] mt-1">{f.r}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-            {feedbacks.length === 0 && <div className="text-center text-muted-foreground py-6 text-[13px]">Hội viên chưa có phản hồi nào</div>}
+          <div className="p-5">
+            <div className="text-center text-muted-foreground py-6 text-[13px]">Xem phản hồi tại mục Phản hồi hội viên</div>
           </div>
         )}
       </Card>
 
-      <Modal open={edit} onClose={() => setEdit(false)} title={`Chỉnh sửa hội viên — ${member.name}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEdit(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEdit(false)}>Lưu thay đổi</Button></>}>
-        <MemberForm data={member} disablePackage={disablePackage} />
+      {/* Modal sửa */}
+      <Modal open={edit} onClose={() => setEdit(false)} title={`Chỉnh sửa — ${member.memberName}`} wide
+        footer={<>
+          <Button variant="ghost" onClick={() => setEdit(false)}>Hủy</Button>
+          <Button icon={CheckCircle2} className={cn(saving && "opacity-50 pointer-events-none")} onClick={handleSave}>
+            {saving ? "Đang lưu…" : "Lưu thay đổi"}
+          </Button>
+        </>}>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label={<>Họ và tên<Req /></>}>
+            <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+          </Field>
+          <Field label={<>Số điện thoại<Req /></>}>
+            <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+          </Field>
+          <Field label="Ngày sinh">
+            <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
+          </Field>
+          <Field label="Giới tính">
+            <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
+              <option value="">Chưa chọn</option>
+              <option value="male">Nam</option>
+              <option value="female">Nữ</option>
+              <option value="other">Khác</option>
+            </select>
+          </Field>
+          <div className="col-span-2">
+            <Field label="Nghề nghiệp">
+              <Input placeholder="VD: Kỹ sư phần mềm" value={editForm.occupation} onChange={(e: any) => setEditForm((f: any) => ({ ...f, occupation: e.target.value }))} />
+            </Field>
+          </div>
+        </div>
       </Modal>
 
+      {/* Modal xóa */}
       <Modal open={del} onClose={() => setDel(false)} title="Xóa hội viên"
         footer={<>
           <Button variant="ghost" onClick={() => setDel(false)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setDel(false); onDeleted?.(); onBack(); }}>Xóa hội viên</Button>
+          <Button variant="danger" icon={Trash2} className={cn(deletingMember && "opacity-50 pointer-events-none")} onClick={handleDelete}>
+            {deletingMember ? "Đang xóa…" : "Xóa hội viên"}
+          </Button>
         </>}>
         <div className="space-y-3">
           <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-          <p className="text-[14px]">Xóa hội viên <span className="font-medium">{member.name}</span> ({member.code})?</p>
+          <p className="text-[14px]">Xóa hội viên <span className="font-medium">{member.memberName}</span>?</p>
           <p className="text-[12.5px] text-muted-foreground">Toàn bộ lịch sử tập luyện, thanh toán và phản hồi sẽ bị xóa khỏi hệ thống.</p>
         </div>
       </Modal>
 
-      <Modal open={delDayIdx !== null} onClose={() => setDelDayIdx(null)} title="Xóa ngày tập luyện"
+      {/* Modal xóa buổi tập */}
+      <Modal open={delDayIdx !== null} onClose={() => setDelDayIdx(null)} title="Xóa buổi tập"
         footer={<>
           <Button variant="ghost" onClick={() => setDelDayIdx(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setDays(days.filter((_, i) => i !== delDayIdx)); setDelDayIdx(null); }}>Xóa ngày</Button>
+          <Button variant="danger" icon={Trash2} onClick={() => { setLogs(logs.filter((_, i) => i !== delDayIdx)); setDelDayIdx(null); }}>Xóa</Button>
         </>}>
-        {delDayIdx !== null && days[delDayIdx] && (
+        {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{days[delDayIdx].d}</span> ({days[delDayIdx].in} – {days[delDayIdx].out})?</p>
-            <p className="text-[12.5px] text-muted-foreground">Hành động này không thể hoàn tác.</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("vi-VN")}</span>?</p>
           </div>
         )}
       </Modal>
@@ -3878,52 +4712,306 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
 /* ── Member views ── */
 function MemberHistory() {
-  const days = Array.from({ length: 31 }, (_, i) => i % 2 === 0 || i % 5 === 0);
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth() };
+  });
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
+
+  const token = localStorage.getItem("gymos_token");
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("http://localhost:5000/api/v1/workout-logs/summary", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setSummary(d.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  /* ── helpers ── */
+  const fmtTime = (t: string | null | undefined) => {
+    if (!t) return "—";
+    return t.slice(0, 5);
+  };
+
+  const fmtDuration = (mins: number | null | undefined) => {
+    if (!mins) return "—";
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}g ${m}p` : `${m}p`;
+  };
+
+  const fmtDate = (d: string | null) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("vi-VN");
+  };
+
+  /* ── calendar ── */
+  const { year, month } = viewMonth;
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  // convert so Mon=0
+  const startOffset = (firstDay + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const workoutDates = new Set(
+    (summary?.workoutLogs ?? [])
+      .filter((l: any) => {
+        const d = new Date(l.workoutDate);
+        return d.getFullYear() === year && d.getMonth() === month;
+      })
+      .map((l: any) => new Date(l.workoutDate).getDate())
+  );
+
+  const monthName = new Date(year, month, 1).toLocaleDateString("vi-VN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const prevMonth = () =>
+    setViewMonth(({ year, month }) =>
+      month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }
+    );
+  const nextMonth = () =>
+    setViewMonth(({ year, month }) =>
+      month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
+    );
+
+  const monthCount = workoutDates.size;
+
+  /* ── active plan display ── */
+  const plan = summary?.activePlan ?? null;
+  const pkg = plan?.SubscriptionPackage ?? null;
+  const trainer = plan?.Trainer ?? null;
+  const daysLeft = plan?.daysRemaining ?? null;
+
+  /* ── pagination ── */
+  const allLogs: any[] = summary?.workoutLogs ?? [];
+  const totalPages = Math.ceil(allLogs.length / PAGE_SIZE);
+  const pageLogs = allLogs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <SectionTitle title="Lịch sử tập luyện" sub="Đang tải dữ liệu…" />
+        <div className="flex items-center justify-center py-20 text-muted-foreground text-[13px]">
+          <Activity className="size-5 mr-2 animate-pulse" /> Đang tải…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <SectionTitle title="Lịch sử tập luyện" sub="Theo dõi tiến độ của bạn trong tháng này" />
+
+      {/* Subscription card */}
       <Card>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div className="flex items-center gap-2"><Badge tone="amber">★ VIP</Badge><Badge tone="violet">Có Trainer</Badge></div>
-            <h3 className="font-display text-[20px] mt-2">Elite VIP 6 tháng</h3>
-            <div className="text-[12.5px] text-muted-foreground">PT phụ trách: Lê Đức Mạnh · Bắt đầu 12/11/2025</div>
+            {plan ? (
+              <>
+                <div className="flex items-center gap-2">
+                  {pkg?.vipIncluded && <Badge tone="amber">★ VIP</Badge>}
+                  {pkg?.trainerIncluded && <Badge tone="violet">Có Trainer</Badge>}
+                  {!plan && <Badge tone="gray">Chưa có gói</Badge>}
+                </div>
+                <h3 className="font-display text-[20px] mt-2">
+                  {pkg?.packageName ?? "Gói tập"}
+                </h3>
+                <div className="text-[12.5px] text-muted-foreground mt-0.5">
+                  {trainer ? `PT phụ trách: ${trainer.staffName} · ` : ""}
+                  Bắt đầu {plan.startDate ? fmtDate(plan.startDate) : "—"}
+                </div>
+              </>
+            ) : (
+              <>
+                <Badge tone="gray">Chưa có gói tập</Badge>
+                <h3 className="font-display text-[20px] mt-2 text-muted-foreground">
+                  Bạn chưa đăng ký gói tập nào
+                </h3>
+                <div className="text-[12.5px] text-muted-foreground">
+                  Hãy gia hạn để tiếp tục tập luyện.
+                </div>
+              </>
+            )}
           </div>
-          <div className="text-right">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Hết hạn sau</div>
-            <div className="font-display font-bold text-[28px] text-[#00866F] dark:text-[#5FE6CB]">172 ngày</div>
-          </div>
+          {plan && (
+            <div className="text-right">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Hết hạn sau</div>
+              <div className={cn(
+                "font-display font-bold text-[28px]",
+                daysLeft !== null && daysLeft <= 14
+                  ? "text-[#FF5C5C]"
+                  : "text-[#00866F] dark:text-[#5FE6CB]"
+              )}>
+                {daysLeft !== null ? `${daysLeft} ngày` : "—"}
+              </div>
+              {plan.expireDate && (
+                <div className="text-[11px] text-muted-foreground">
+                  Hạn: {fmtDate(plan.expireDate)}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
-      <div className="grid lg:grid-cols-5 gap-5">
-        <Card className="lg:col-span-2">
-          <h3 className="font-display">Tháng 05 / 2026</h3>
-          <div className="grid grid-cols-7 gap-1.5 mt-4 text-center">
-            {"T2 T3 T4 T5 T6 T7 CN".split(" ").map((d) => (<div key={d} className="text-[10px] text-muted-foreground py-1">{d}</div>))}
-            {Array.from({ length: 3 }).map((_, i) => <div key={"x" + i} />)}
-            {days.map((d, i) => (
-              <div key={i} className={cn("aspect-square rounded-lg grid place-items-center text-[11.5px] relative",
-                d ? "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB] border border-[#00C9A7]/30" : "bg-muted/40 text-muted-foreground border border-border/60")}>
-                {i + 1}
-                {d && <span className="absolute bottom-0.5 right-0.5 size-1 rounded-full bg-[#00C9A7]" />}
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          {
+            icon: Activity,
+            label: "Tổng buổi tập",
+            value: `${summary?.totalSessions ?? 0} buổi`,
+            tone: "emerald",
+          },
+          {
+            icon: TrendingUp,
+            label: "Tháng này",
+            value: `${monthCount} buổi`,
+            tone: "violet",
+          },
+          {
+            icon: Sparkles,
+            label: "Chuỗi hiện tại",
+            value: `${summary?.streak ?? 0} ngày 🔥`,
+            tone: "amber",
+          },
+        ].map((s) => (
+          <Card key={s.label}>
+            <div className="flex items-center gap-3">
+              <div className={cn("size-9 rounded-lg grid place-items-center",
+                s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
+                s.tone === "violet" && "bg-[#6C63FF]/15 text-[#4F46E5] dark:text-[#A8A2FF]",
+                s.tone === "amber" && "bg-[#FFB547]/15 text-[#A66A00] dark:text-[#FFD89B]")}>
+                <s.icon className="size-4 stroke-[1.75]" />
               </div>
-            ))}
+              <div>
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+                <div className="font-display font-bold text-[18px]">{s.value}</div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-5 gap-5">
+        {/* Calendar */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display capitalize">{monthName}</h3>
+            <div className="flex items-center gap-1">
+              <button onClick={prevMonth}
+                className="size-7 rounded-md hover:bg-accent grid place-items-center text-muted-foreground hover:text-foreground transition">
+                <ChevronLeft className="size-4" />
+              </button>
+              <button onClick={nextMonth}
+                className="size-7 rounded-md hover:bg-accent grid place-items-center text-muted-foreground hover:text-foreground transition">
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
           </div>
-          <div className="mt-4 text-[12px] text-muted-foreground">✓ 18 buổi tập trong tháng — chuỗi 5 ngày liên tiếp 🔥</div>
+          <div className="grid grid-cols-7 gap-1.5 text-center">
+            {"T2 T3 T4 T5 T6 T7 CN".split(" ").map((d) => (
+              <div key={d} className="text-[10px] text-muted-foreground py-1">{d}</div>
+            ))}
+            {Array.from({ length: startOffset }).map((_, i) => <div key={"pad" + i} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const today = new Date();
+              const isToday =
+                today.getFullYear() === year &&
+                today.getMonth() === month &&
+                today.getDate() === day;
+              const worked = workoutDates.has(day);
+              return (
+                <div key={day} className={cn(
+                  "aspect-square rounded-lg grid place-items-center text-[11.5px] relative transition",
+                  worked
+                    ? "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB] border border-[#00C9A7]/30"
+                    : "bg-muted/40 text-muted-foreground border border-border/60",
+                  isToday && "ring-2 ring-[#6C63FF]/60 ring-offset-1"
+                )}>
+                  {day}
+                  {worked && (
+                    <span className="absolute bottom-0.5 right-0.5 size-1 rounded-full bg-[#00C9A7]" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 text-[12px] text-muted-foreground">
+            ✓ {monthCount} buổi tập trong tháng
+            {(summary?.streak ?? 0) > 1 && ` — chuỗi ${summary.streak} ngày liên tiếp 🔥`}
+          </div>
         </Card>
+
+        {/* Session table */}
         <Card className="lg:col-span-3" padded={false}>
-          <div className="px-5 pt-5"><h3 className="font-display">Buổi tập gần đây</h3></div>
-          <DataTable
-            head={["Ngày", "Giờ vào", "Giờ ra", "Thời lượng", "Ghi chú"]}
-            rows={[
-              ["23/05/2026", "06:42", "08:11", "1g 29p", "Push day"],
-              ["21/05/2026", "07:05", "08:34", "1g 29p", "Pull day"],
-              ["19/05/2026", "18:22", "19:51", "1g 29p", "Cardio tự do"],
-              ["17/05/2026", "06:50", "08:20", "1g 30p", "Leg day"],
-              ["15/05/2026", "07:00", "08:40", "1g 40p", "Full body"],
-            ].map((r) => r.map((c, i) => i === 4 ? <span className="text-muted-foreground">{c}</span> : c))}
-          />
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+            <h3 className="font-display">Buổi tập gần đây</h3>
+            <span className="text-[12px] text-muted-foreground">
+              {allLogs.length} buổi tổng cộng
+            </span>
+          </div>
+          {allLogs.length === 0 ? (
+            <div className="text-center text-muted-foreground py-10 text-[13px]">
+              Chưa có buổi tập nào được ghi nhận
+            </div>
+          ) : (
+            <>
+              <DataTable
+                head={["Ngày", "Giờ vào", "Giờ ra", "Thời lượng", "Ghi chú"]}
+                rows={pageLogs.map((l: any) => {
+                  const startMin = l.startTime
+                    ? parseInt(l.startTime.slice(0, 2)) * 60 + parseInt(l.startTime.slice(3, 5))
+                    : 0;
+                  const endMin = l.endTime
+                    ? parseInt(l.endTime.slice(0, 2)) * 60 + parseInt(l.endTime.slice(3, 5))
+                    : null;
+                  const durMins = l.duration
+                    ? l.duration
+                    : endMin !== null
+                      ? endMin - startMin
+                      : null;
+                  return [
+                    fmtDate(l.workoutDate),
+                    <span className="font-mono text-[12px]">{fmtTime(l.startTime)}</span>,
+                    <span className="font-mono text-[12px]">{l.endTime ? fmtTime(l.endTime) : "—"}</span>,
+                    durMins ? <Badge tone="emerald">{fmtDuration(durMins)}</Badge> : <span className="text-muted-foreground">—</span>,
+                    <span className="text-muted-foreground text-[12px]">{l.notes || (l.Recorder ? l.Recorder.staffName : "—")}</span>,
+                  ];
+                })}
+              />
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 py-3 border-t border-border/60">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="size-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-accent disabled:opacity-40 transition">
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                  <span className="text-[12px] text-muted-foreground">
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="size-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-accent disabled:opacity-40 transition">
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </Card>
       </div>
     </div>
@@ -4007,54 +5095,126 @@ function MemberPayments() {
   );
 }
 
-type MyFeedback = { id: string; d: string; c: string; s: string; r: string | null; type: "Thiết bị" | "Nhân viên"; ref?: string };
+type MyFeedback = { feedbackId: string; feedbackDate: string; feedbackContent: string; answerContent: string | null; feedbackType: string; createdAt?: string };
 function MemberFeedback() {
-  const [list, setList] = useState<MyFeedback[]>([
-    { id: "f1", d: "22/05/2026", c: "Phòng tắm thiếu khăn vào giờ cao điểm…", s: "Chờ xử lý", r: null, type: "Thiết bị" },
-    { id: "f2", d: "12/05/2026", c: "Đề xuất thêm lớp Yoga buổi tối thứ 4 và thứ 6.", s: "Đã phản hồi", r: "Cảm ơn bạn đã đóng góp. Trung tâm sẽ mở lớp Yoga thứ 6 từ tuần sau. ❤️", type: "Nhân viên" },
-  ]);
+  const [list, setList] = useState<MyFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+
+  const fetchFeedbacks = () => {
+    fetch("http://localhost:5000/api/v1/feedbacks/me", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setList(data.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchFeedbacks();
+    fetch("http://localhost:5000/api/v1/staffs")
+      .then(res => res.json())
+      .then(data => { if (data.success) setStaffList(data.data); });
+    fetch("http://localhost:5000/api/v1/equipments")
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setEquipmentList(data); });
+  }, []);
+
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
   const [fbType, setFbType] = useState<"Thiết bị" | "Nhân viên">("Thiết bị");
   const [ref, setRef] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const deleting = deleteId ? list.find((f) => f.id === deleteId) : null;
+  const deleting = deleteId ? list.find((f) => f.feedbackId === deleteId) : null;
 
-  const today = new Date().toLocaleDateString("vi-VN");
-  const submit = () => {
+  const submit = async () => {
     if (!content.trim()) return;
-    setList([{ id: "f" + Date.now(), d: today, c: content.trim(), s: "Chờ xử lý", r: null, type: fbType, ref: ref || undefined }, ...list]);
-    setContent(""); setRef("");
-    setOpen(false);
+
+    let finalContent = content.trim();
+    if (ref) {
+      const refType = fbType === "Thiết bị" ? "Thiết bị liên quan" : "Nhân viên liên quan";
+      finalContent = `[${refType}: ${ref}]\n\n${finalContent}`;
+    }
+
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/feedbacks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
+        },
+        body: JSON.stringify({
+          feedbackType: fbType,
+          feedbackContent: finalContent
+        })
+      });
+      if (res.ok) {
+        setContent(""); setRef(""); setOpen(false);
+        fetchFeedbacks();
+      } else {
+        const errorData = await res.json();
+        console.error("API Error:", errorData);
+        alert(errorData.message || "Có lỗi xảy ra khi gửi phản hồi!");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Không thể kết nối đến máy chủ.");
+    }
+  };
+
+  const deleteFeedback = async () => {
+    if (!deleteId) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${deleteId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      });
+      if (res.ok) {
+        setDeleteId(null);
+        fetchFeedbacks();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Phản hồi của tôi" sub={`${list.length} phản hồi — theo dõi tiến độ xử lý`}
+      <SectionTitle title="Phản hồi của tôi" sub={loading ? "Đang tải..." : `${list.length} phản hồi — theo dõi tiến độ xử lý`}
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
-        {list.map((f) => (
-          <Card key={f.id}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <span>Bạn · {f.d}</span>
-                  <Badge tone={f.type === "Thiết bị" ? "amber" : "sky"}>{f.type}</Badge>
-                  <StatusPill value={f.s} />
-                </div>
-                <p className="mt-2 text-[14px]">{f.c}</p>
-                {f.r && (
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
-                    <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ quản lý</div>
-                    <p className="text-[13px] mt-1">{f.r}</p>
+        {list.map((f) => {
+          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("vi-VN") : "";
+          const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
+          return (
+            <Card key={f.feedbackId}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <span>Bạn · {d}</span>
+                    <Badge tone={f.feedbackType === "Thiết bị" ? "amber" : "sky"}>{f.feedbackType}</Badge>
+                    <StatusPill value={s} />
                   </div>
+                  <p className="mt-2 text-[14px] whitespace-pre-wrap">{f.feedbackContent}</p>
+                  {f.answerContent && (
+                    <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
+                      <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ quản lý</div>
+                      <p className="text-[13px] mt-1 whitespace-pre-wrap">{f.answerContent}</p>
+                    </div>
+                  )}
+                </div>
+                {!f.answerContent && (
+                  <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.feedbackId)} />
                 )}
               </div>
-              <IconBtn icon={Trash2} tone="danger" onClick={() => setDeleteId(f.id)} />
-            </div>
-          </Card>
-        ))}
-        {list.length === 0 && (
+            </Card>
+          );
+        })}
+        {!loading && list.length === 0 && (
           <Card><div className="text-center text-muted-foreground py-6 text-[13px]">Bạn chưa gửi phản hồi nào</div></Card>
         )}
       </div>
@@ -4078,7 +5238,7 @@ function MemberFeedback() {
               <select value={ref} onChange={(e) => setRef(e.target.value)}
                 className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="">— Không chọn —</option>
-                {EQUIPMENT_ITEMS.map((i) => <option key={i.code} value={i.code}>{i.code} — {i.room}</option>)}
+                {equipmentList.map((i) => <option key={i.equipmentCode} value={i.equipmentCode}>{i.equipmentCode} — {i.Room?.roomName}</option>)}
               </select>
             </Field>
           )}
@@ -4087,7 +5247,7 @@ function MemberFeedback() {
               <select value={ref} onChange={(e) => setRef(e.target.value)}
                 className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="">— Không chọn —</option>
-                {STAFF.map((s) => <option key={s.code} value={s.code}>{s.code} — {s.name} ({s.role})</option>)}
+                {staffList.map((s) => <option key={s.code} value={s.code}>{s.code} — {s.name} ({s.role})</option>)}
               </select>
             </Field>
           )}
@@ -4100,25 +5260,28 @@ function MemberFeedback() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => { setList(list.filter((f) => f.id !== deleteId)); setDeleteId(null); }}>Xóa phản hồi</Button>
+          <Button icon={Trash2} onClick={deleteFeedback}>Xóa phản hồi</Button>
         </>}>
-        {deleting && (
-          <div className="space-y-3">
-            <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa phản hồi đã gửi ngày <span className="font-medium">{deleting.d}</span>?</p>
-            <p className="text-[12.5px] text-muted-foreground line-clamp-2">"{deleting.c}"</p>
-          </div>
-        )}
+        {deleting && (() => {
+          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("vi-VN") : "";
+          return (
+            <div className="space-y-3">
+              <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
+              <p className="text-[14px]">Xóa phản hồi đã gửi ngày <span className="font-medium">{d}</span>?</p>
+              <p className="text-[12.5px] text-muted-foreground line-clamp-2">"{deleting.feedbackContent}"</p>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );
 }
 
-function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: string) => void }) {
+function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChange: (id: string) => void; packages: any[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const list = PACKAGES.filter((p) => p.status === "Đang kinh doanh");
-  const selected = list.find((p) => p.id === pkgId);
+  const list = packages;
+  const selected = list.find((p) => p.packageId === pkgId);
 
   useEffect(() => {
     if (!open) return;
@@ -4128,10 +5291,12 @@ function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: st
   }, [open]);
 
   const renderRow = (p: typeof list[number], inList: boolean) => {
+    const isSession = p.packageType === "session";
+    const durationLabel = isSession ? `${p.numberOfWorkout || 0} buổi` : `${p.duration || 0} ${p.durationUnit || "tháng"}`;
     const perks = [
-      p.type.includes("buổi") ? `${p.type} (theo lượt tập)` : `Tập không giới hạn trong ${p.type}`,
-      p.vip ? "Phòng tắm VIP + tủ đồ riêng" : "Sử dụng toàn bộ khu vực tập luyện",
-      p.trainer ? "Có Huấn luyện viên 1-kèm-1" : "Tự tập theo lịch cá nhân",
+      isSession ? `${durationLabel} (theo lượt tập)` : `Tập không giới hạn trong ${durationLabel}`,
+      p.vipIncluded ? "Phòng tắm VIP + tủ đồ riêng" : "Sử dụng toàn bộ khu vực tập luyện",
+      p.trainerIncluded ? "Có Huấn luyện viên 1-kèm-1" : "Tự tập theo lịch cá nhân",
     ];
     return (
       <div className="flex items-start gap-3 w-full">
@@ -4141,15 +5306,15 @@ function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: st
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-[11px] text-muted-foreground">{p.id}</span>
-              <span className="font-display font-semibold text-[14px] truncate">{p.name}</span>
+              <span className="font-mono text-[11px] text-muted-foreground">{p.packageCode}</span>
+              <span className="font-display font-semibold text-[14px] truncate">{p.packageName}</span>
             </div>
-            <div className="font-display font-bold text-[15px] whitespace-nowrap">{p.price.toLocaleString("vi-VN")} ₫</div>
+            <div className="font-display font-bold text-[15px] whitespace-nowrap">{Number(p.price).toLocaleString("vi-VN")} ₫</div>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <Badge tone="sky">{p.type}</Badge>
-            {p.vip && <Badge tone="amber">★ VIP</Badge>}
-            {p.trainer && <Badge tone="violet">Có HLV</Badge>}
+            <Badge tone="sky">{durationLabel}</Badge>
+            {p.vipIncluded && <Badge tone="amber">★ VIP</Badge>}
+            {p.trainerIncluded && <Badge tone="violet">Có HLV</Badge>}
           </div>
           {inList && (
             <ul className="mt-2 space-y-1 text-[11.5px] text-muted-foreground">
@@ -4179,10 +5344,10 @@ function PackageDropdown({ pkgId, onChange }: { pkgId: string; onChange: (id: st
         <div className="absolute z-30 left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
           <div className="max-h-[360px] overflow-y-auto py-1">
             {list.map((p) => {
-              const active = p.id === pkgId;
+              const active = p.packageId === pkgId;
               return (
-                <button key={p.id} type="button"
-                  onClick={() => { onChange(p.id); setOpen(false); }}
+                <button key={p.packageId} type="button"
+                  onClick={() => { onChange(p.packageId); setOpen(false); }}
                   className={cn("w-full text-left px-3 py-3 border-b border-border/60 last:border-0 transition",
                     active ? "bg-[#6C63FF]/10" : "hover:bg-muted/60")}>
                   {renderRow(p, true)}
@@ -4201,8 +5366,40 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/packages")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
+      });
+
+    fetch("http://localhost:5000/api/v1/subscriptions/me", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data.subscriptions) {
+          const active = data.data.subscriptions.find((s: any) => s.status === 'active');
+          if (active) setCurrentPlan(active);
+        }
+      });
+  }, []);
+
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
-  if (pay) return <Payment kind={pay} onBack={() => { setPay(null); setSelected(null); }} />;
+  if (pay) {
+    const pkg = packages.find((p) => p.packageId === selected);
+    return <Payment kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} onBack={() => { setPay(null); setSelected(null); }} onComplete={() => navigate("/history")} />;
+  }
+
+  const calDaysRemain = (expireDate: string) => {
+    const diff = new Date(expireDate).getTime() - new Date().getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
+  };
+
   return (
     <div className="space-y-5">
       {onBack && (
@@ -4215,16 +5412,25 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <Badge tone="amber">Gói hiện tại</Badge>
-            <h3 className="font-display text-[20px] mt-2">Elite VIP 6 tháng</h3>
-            <div className="text-[12.5px] text-muted-foreground">Còn 172 ngày — Hết hạn 12/11/2026</div>
+            {currentPlan ? (
+              <>
+                <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("vi-VN")}</div>
+              </>
+            ) : (
+              <>
+                <h3 className="font-display text-[20px] mt-2 text-muted-foreground">Chưa có gói tập</h3>
+                <div className="text-[12.5px] text-muted-foreground">Bạn chưa đăng ký gói tập nào hoặc gói đã hết hạn.</div>
+              </>
+            )}
           </div>
-          <Badge tone="emerald">Đang hoạt động</Badge>
+          <Badge tone={currentPlan ? "emerald" : "zinc"}>{currentPlan ? "Đang hoạt động" : "Không có gói"}</Badge>
         </div>
       </Card>
       <Card>
         <h3 className="font-display mb-4">Chọn gói gia hạn</h3>
         <Field label="Gói tập">
-          <PackageDropdown pkgId={pkgId} onChange={setPkgId} />
+          <PackageDropdown pkgId={pkgId} onChange={setPkgId} packages={packages} />
         </Field>
         {pkgId && (
           <div className="mt-5 flex justify-end">
@@ -4233,21 +5439,23 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         )}
       </Card>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${PACKAGES.find((p) => p.id === selected)?.name ?? ""}`} wide
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
           <Button variant="ghost" onClick={() => setSelected(null)}>Hủy</Button>
           <Button icon={ArrowRight} onClick={() => setPay(method)}>Tiến hành thanh toán</Button>
         </>}>
         {selected && (() => {
-          const pkg = PACKAGES.find((p) => p.id === selected)!;
+          const pkg = packages.find((p) => p.packageId === selected)!;
+          const isSession = pkg.packageType === "session";
+          const durationLabel = isSession ? `${pkg.numberOfWorkout || 0} buổi` : `${pkg.duration || 0} ${pkg.durationUnit || "tháng"}`;
           return (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 rounded-xl bg-muted/40 border border-border/70">
                 <div>
-                  <div className="font-display font-semibold text-[16px]">{pkg.name}</div>
-                  <div className="text-[12.5px] text-muted-foreground">{pkg.type}</div>
+                  <div className="font-display font-semibold text-[16px]">{pkg.packageName}</div>
+                  <div className="text-[12.5px] text-muted-foreground">{durationLabel}</div>
                 </div>
-                <div className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</div>
+                <div className="font-display font-bold text-[22px]">{Number(pkg.price).toLocaleString("vi-VN")} ₫</div>
               </div>
               <Field label="Phương thức thanh toán">
                 <div className="grid grid-cols-3 gap-2">
@@ -4278,16 +5486,44 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
 
 /* ── PT students ── */
 function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
-  const [list, setList] = useState<MemberRecord[]>(MEMBERS.slice(0, 4));
+  const [list, setList] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
-  const [editId, setEditId] = useState<string | null>(null);
+
+  const token = localStorage.getItem("gymos_token");
+  const headers: any = { Authorization: `Bearer ${token}` };
+
+  const computeStatus = (plan: any): string => {
+    if (!plan) return "Chưa có gói";
+    const expire = getExpireDate(plan);
+    if (!expire) return "Đang hoạt động";
+    const diff = Math.ceil((expire.getTime() - Date.now()) / 86400000);
+    if (diff < 0) return "Đã hết hạn";
+    if (diff <= 14) return "Sắp hết hạn";
+    return "Đang hoạt động";
+  };
+
+  const formatRemain = (plan: any): string => {
+    if (!plan) return "—";
+    const expire = getExpireDate(plan);
+    if (expire) return expire.toLocaleDateString("vi-VN");
+    return "—";
+  };
+
+  const fetchStudents = () => {
+    const params = query.trim() ? `?search=${encodeURIComponent(query.trim())}` : "";
+    fetch(`http://localhost:5000/api/v1/members/my-students${params}`, { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) setList(res.data.members);
+      });
+  };
+
+  useEffect(() => { fetchStudents(); }, [query]);
 
   const filtered = list.filter((m) =>
-    (statusFilter === "Tất cả" || m.status === statusFilter) &&
-    (m.name.toLowerCase().includes(query.toLowerCase()) || m.code.toLowerCase().includes(query.toLowerCase()) || m.phone.includes(query))
+    statusFilter === "Tất cả" || computeStatus(m.activePlan) === statusFilter
   );
-  const editing = editId ? list.find((m) => m.code === editId) : null;
 
   return (
     <div className="space-y-5">
@@ -4303,15 +5539,14 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
         <DataTable
           head={["Mã HV", "Họ tên", "SĐT", "Gói tập", "Hạn / Buổi còn lại", "Trạng thái", ""]}
           rows={filtered.map((m) => [
-            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{m.code}</span>,
-            <button onClick={() => onSelect(m.code)} className="font-medium hover:text-[#4F46E5] dark:text-[#A8A2FF]">{m.name}</button>,
-            <span className="font-mono text-[12.5px]">{m.phone}</span>,
-            <Badge tone="violet">{m.pkg}</Badge>,
-            <span className="text-muted-foreground">{m.remain}</span>,
-            <StatusPill value={m.status} />,
+            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{m.memberId.substring(0, 8).toUpperCase()}</span>,
+            <button onClick={() => onSelect(m.memberId)} className="font-medium hover:text-[#4F46E5] dark:text-[#A8A2FF]">{m.memberName}</button>,
+            <span className="font-mono text-[12.5px]">{m.phoneNumber || "—"}</span>,
+            <Badge tone="violet">{m.activePlan?.SubscriptionPackage?.packageName ?? "Chưa có gói"}</Badge>,
+            <span className="text-muted-foreground">{formatRemain(m.activePlan)}</span>,
+            <StatusPill value={computeStatus(m.activePlan)} />,
             <div className="flex items-center justify-end gap-0.5">
-              <IconBtn icon={Eye} onClick={() => onSelect(m.code)} />
-              <IconBtn icon={Pencil} onClick={() => setEditId(m.code)} />
+              <IconBtn icon={Eye} onClick={() => onSelect(m.memberId)} />
             </div>,
           ])}
         />
@@ -4319,11 +5554,6 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
           <div className="text-center text-muted-foreground py-10 text-[13px]">Không có học viên nào khớp với bộ lọc</div>
         )}
       </Card>
-
-      <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa học viên — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => setEditId(null)}>Lưu thay đổi</Button></>}>
-        {editing && <MemberForm data={editing} disablePackage />}
-      </Modal>
     </div>
   );
 }

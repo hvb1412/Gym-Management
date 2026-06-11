@@ -6,10 +6,25 @@ import {
 
 import {
     createFeedback,
-    answerFeedback
+    answerFeedback,
+    getMemberFeedbacks,
+    getAllFeedbacks,
+    deleteFeedback
 } from "../controllers/feedback.controller.js";
 
 const router = express.Router();
+
+router.get(
+    "/me",
+    verifyToken,
+    getMemberFeedbacks
+);
+
+router.get(
+    "/",
+    verifyToken,
+    getAllFeedbacks
+);
 
 router.post(
     "/",
@@ -17,10 +32,17 @@ router.post(
     createFeedback
 );
 
+router.delete(
+    "/:id",
+    verifyToken,
+    deleteFeedback
+);
+
 router.put(
     "/:id/answer",
     verifyToken,
     answerFeedback
 );
+
 
 export default router;

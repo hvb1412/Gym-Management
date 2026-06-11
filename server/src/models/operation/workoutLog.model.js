@@ -31,9 +31,19 @@ WorkoutLog.init(
       allowNull: false,
     },
 
+    endTime: {
+      type: DataTypes.TIME,
+      allowNull: true,
+    },
+
     duration: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
+    },
+
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
   {

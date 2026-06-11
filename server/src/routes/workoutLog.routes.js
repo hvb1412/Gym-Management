@@ -13,30 +13,53 @@ import {
 
 import {
   checkInMember,
+  checkOutMember,
+  getTodayLogForMember,
   getMyWorkoutLogs,
+  getMyWorkoutSummary,
 } from "../controllers/workoutLog.controller.js";
 
 const router = express.Router();
 
+// POST /workout-logs — check in a member (staff / PT)
 router.post(
   "/",
   verifyToken,
-  restrictTo(
-    "owner",
-    "manager",
-    "pt"
-  ),
-  validate(
-    createWorkoutLogSchema
-  ),
+  restrictTo("owner", "manager", "pt"),
+  validate(createWorkoutLogSchema),
   checkInMember
 );
 
+// PATCH /workout-logs/:workoutId/checkout — check out (staff / PT)
+router.patch(
+  "/:workoutId/checkout",
+  verifyToken,
+  restrictTo("owner", "manager", "pt"),
+  checkOutMember
+);
+
+// GET /workout-logs/member/:memberId/today — today's log for a member (staff use)
+router.get(
+  "/member/:memberId/today",
+  verifyToken,
+  restrictTo("owner", "manager", "pt"),
+  getTodayLogForMember
+);
+
+// GET /workout-logs/me — lịch sử buổi tập (member)
 router.get(
   "/me",
   verifyToken,
   restrictTo("member"),
   getMyWorkoutLogs
+);
+
+// GET /workout-logs/summary — tổng quan lịch sử (member)
+router.get(
+  "/summary",
+  verifyToken,
+  restrictTo("member"),
+  getMyWorkoutSummary
 );
 
 export default router;
