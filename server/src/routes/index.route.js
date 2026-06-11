@@ -11,10 +11,12 @@ import equipmentReportRoutes from "./equipmentReport.routes.js";
 import staffWorkLogRoutes from "./staffWorkLog.routes.js";
 import memberRoutes from "./member.routes.js";
 import workoutLogRoutes from "./workoutLog.routes.js";
+import reportRoutes from "./report.routes.js";
 
 const router = express.Router();
 
 router.use('/auth', authRoute);
+router.use("/reports", reportRoutes);
 router.use("/subscriptions", subscriptionRoutes);
 router.use("/feedbacks", feedbackRoutes);
 router.use("/staffs", staffRoutes);
