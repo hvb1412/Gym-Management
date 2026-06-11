@@ -643,7 +643,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: TrendingUp, label: "Chuỗi tập liên tiếp", value: "...", tone: "amber" }
       ];
       return [
-        { icon: Dumbbell, label: "Buổi tập còn lại", value: memberStats?.member?.remainingWorkout ?? 0, tone: "violet" },
+        { icon: Dumbbell, label: "Buổi tập còn lại", value: memberStats?.activePlan?.SubscriptionPackage?.packageType === "time" ? "Không giới hạn" : (memberStats?.activePlan?.remainingSessions ?? 0), tone: "violet" },
         { icon: Activity, label: "Tổng số buổi tập", value: memberStats?.totalSessions ?? 0, tone: "emerald" },
         { icon: TrendingUp, label: "Chuỗi tập liên tiếp", value: `${memberStats?.streak ?? 0} ngày`, tone: "amber" }
       ];
@@ -3279,7 +3279,7 @@ function ReportsOverview() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch("http://localhost:5000/api/v1/feedbacks/report-stats", {
+      fetch("http://localhost:5000/api/v1/reports/stats", {
         headers: { Authorization: `Bearer ${token}` }
       }).then(r => r.json()),
       fetch("http://localhost:5000/api/v1/staffs").then(r => r.json()),
@@ -3396,7 +3396,7 @@ function RevenueReport() {
 
   const fetchRevenue = () => {
     setLoading(true);
-    fetch(`http://localhost:5000/api/v1/feedbacks/report-stats`, {
+    fetch(`http://localhost:5000/api/v1/reports/stats`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
@@ -3514,7 +3514,7 @@ function MembersReport() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`http://localhost:5000/api/v1/feedbacks/report-stats`, {
+    fetch(`http://localhost:5000/api/v1/reports/stats`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(r => r.json())
