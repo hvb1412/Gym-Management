@@ -4000,6 +4000,8 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
+  const [step0Errors, setStep0Errors] = useState<Record<string, string>>({});
+  const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
 
   const [sellable, setSellable] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
@@ -4016,7 +4018,34 @@ function NewMember({ onBack }: { onBack?: () => void }) {
     password: "",
     address: ""
   });
-  const updateForm = (k: string, v: any) => setFormData(prev => ({ ...prev, [k]: v }));
+  const updateForm = (k: string, v: any) => {
+    setFormData(prev => ({ ...prev, [k]: v }));
+    if (step0Errors[k]) setStep0Errors(prev => { const n = { ...prev }; delete n[k]; return n; });
+  };
+
+  const validateStep0 = () => {
+    const errs: Record<string, string> = {};
+    if (!formData.memberName.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    if (!formData.dateOfBirth) errs.dateOfBirth = "Vui lòng chọn ngày sinh";
+    if (!formData.phoneNumber.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
+    else if (!/^(0|\+84)[0-9]{8,10}$/.test(formData.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại không hợp lệ";
+    if (!formData.email.trim()) errs.email = "Vui lòng nhập email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errs.email = "Email không hợp lệ";
+    if (!formData.password) errs.password = "Vui lòng nhập mật khẩu";
+    else if (formData.password.length < 6) errs.password = "Mật khẩu tối thiểu 6 ký tự";
+    setStep0Errors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const validateStep1 = () => {
+    const errs: Record<string, string> = {};
+    if (!pkgId) errs.pkgId = "Vui lòng chọn gói tập";
+    const selectedPkg = sellable.find((p) => p.id === pkgId);
+    if (selectedPkg?.trainer && !trainerId) errs.trainerId = "Gói này yêu cầu chọn huấn luyện viên";
+    setStep1Errors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
 
   const token = localStorage.getItem("gymos_token");
   useEffect(() => {
@@ -4073,8 +4102,14 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       {step === 0 && (
         <Card>
           <div className="grid grid-cols-2 gap-4">
-            <Field label={<>Họ và tên<Req /></>}><Input placeholder="Nguyễn Văn A" value={formData.memberName} onChange={(e: any) => updateForm("memberName", e.target.value)} /></Field>
-            <Field label={<>Ngày sinh<Req /></>}><Input type="date" value={formData.dateOfBirth} onChange={(e: any) => updateForm("dateOfBirth", e.target.value)} /></Field>
+            <Field label={<>Họ và tên<Req /></>}>
+              <Input placeholder="Nguyễn Văn A" value={formData.memberName} onChange={(e: any) => updateForm("memberName", e.target.value)} className={step0Errors.memberName ? "border-red-400" : ""} />
+              {step0Errors.memberName && <p className="text-[11px] text-red-500 mt-1">{step0Errors.memberName}</p>}
+            </Field>
+            <Field label={<>Ngày sinh<Req /></>}>
+              <Input type="date" value={formData.dateOfBirth} onChange={(e: any) => updateForm("dateOfBirth", e.target.value)} className={step0Errors.dateOfBirth ? "border-red-400" : ""} />
+              {step0Errors.dateOfBirth && <p className="text-[11px] text-red-500 mt-1">{step0Errors.dateOfBirth}</p>}
+            </Field>
             <Field label={<>Giới tính<Req /></>}>
               <div className="flex gap-2">{[
                 { l: "Nam", v: "male" },
@@ -4085,14 +4120,23 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               ))}</div>
             </Field>
             <Field label={<>Nghề nghiệp</>}><Input placeholder="VD: Kỹ sư phần mềm" value={formData.job} onChange={(e: any) => updateForm("job", e.target.value)} /></Field>
-            <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phoneNumber} onChange={(e: any) => updateForm("phoneNumber", e.target.value)} /></Field>
-            <Field label={<>Email<Req /></>}><Input icon={Mail} placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} /></Field>
-            <Field label={<>Mật khẩu đăng nhập<Req /></>}><Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} /></Field>
+            <Field label={<>Số điện thoại<Req /></>}>
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phoneNumber} onChange={(e: any) => updateForm("phoneNumber", e.target.value)} className={step0Errors.phoneNumber ? "border-red-400" : ""} />
+              {step0Errors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{step0Errors.phoneNumber}</p>}
+            </Field>
+            <Field label={<>Email<Req /></>}>
+              <Input icon={Mail} placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
+              {step0Errors.email && <p className="text-[11px] text-red-500 mt-1">{step0Errors.email}</p>}
+            </Field>
+            <Field label={<>Mật khẩu đăng nhập<Req /></>}>
+              <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} className={step0Errors.password ? "border-red-400" : ""} />
+              {step0Errors.password && <p className="text-[11px] text-red-500 mt-1">{step0Errors.password}</p>}
+            </Field>
             <div className="col-span-2"><Field label={<>Địa chỉ</>}><Input placeholder="Số nhà, đường, quận, thành phố" value={formData.address} onChange={(e: any) => updateForm("address", e.target.value)} /></Field></div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
             <Button variant="ghost">Hủy</Button>
-            <Button icon={ArrowRight} onClick={() => setStep(1)}>Tiếp tục</Button>
+            <Button icon={ArrowRight} onClick={() => { if (validateStep0()) setStep(1); }}>Tiếp tục</Button>
           </div>
         </Card>
       )}
@@ -4103,7 +4147,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
             <h3 className="font-display mb-4">Chọn gói tập</h3>
             <Field label="Gói tập">
               <div className="relative">
-                <select value={pkgId} onChange={(e) => setPkgId(e.target.value)}
+                <select value={pkgId} onChange={(e) => { setPkgId(e.target.value); setTrainerId(""); setStep1Errors({}); }}
                   className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
                   {sellable.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -4129,9 +4173,9 @@ function NewMember({ onBack }: { onBack?: () => void }) {
             )}
             <div className="mt-5 grid grid-cols-2 gap-4">
               {pkg?.trainer && (
-                <Field label="Huấn luyện viên" hint="Bắt buộc khi gói có Trainer">
+                <Field label={<>Huấn luyện viên<Req /></>} hint="Bắt buộc khi gói có Trainer">
                   <div className="relative">
-                    <select value={trainerId} onChange={(e: any) => setTrainerId(e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
+                    <select value={trainerId} onChange={(e: any) => { setTrainerId(e.target.value); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }} className={cn("w-full h-10 rounded-lg bg-input-background border px-3 text-[13px] appearance-none", step1Errors.trainerId ? "border-red-400" : "border-border")}>
                       <option value="">— Chọn huấn luyện viên —</option>
                       {trainerList.map((t: any) => (
                         <option key={t.staffId || t.code} value={t.staffId || t.code}>{t.name}</option>
@@ -4139,6 +4183,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                   </div>
+                  {step1Errors.trainerId && <p className="text-[11px] text-red-500 mt-1">{step1Errors.trainerId}</p>}
                 </Field>
               )}
               <Field label="Phương thức thanh toán">
@@ -4167,7 +4212,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
           </Card>
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => setStep(0)}>← Quay lại</Button>
-            <Button icon={ArrowRight} onClick={() => setPay(method)}>Tiến hành thanh toán bằng {method === "card" ? "Thẻ NH" : method === "qr" ? "QR Code" : "Tiền mặt"}</Button>
+            <Button icon={ArrowRight} onClick={() => { if (validateStep1()) setPay(method); }}>Tiến hành thanh toán bằng {method === "card" ? "Thẻ NH" : method === "qr" ? "QR Code" : "Tiền mặt"}</Button>
           </div>
         </>
       )}
@@ -4935,8 +4980,8 @@ function MemberHistory() {
                   const durMins = l.duration
                     ? l.duration
                     : endMin !== null
-                    ? endMin - startMin
-                    : null;
+                      ? endMin - startMin
+                      : null;
                   return [
                     fmtDate(l.workoutDate),
                     <span className="font-mono text-[12px]">{fmtTime(l.startTime)}</span>,
