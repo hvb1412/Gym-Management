@@ -4507,7 +4507,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
   const [saving, setSaving] = useState(false);
   const [deletingMember, setDeletingMember] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
-  const [checked, setChecked] = useState(false);
+  const [todayLog, setTodayLog] = useState<any>(null);
 
   const token = localStorage.getItem("gymos_token");
   const headers: any = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -4541,12 +4541,55 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
       .then(res => { if (res.success) setPayments(res.data.plans); });
   };
 
+  const fetchTodayLog = () => {
+    fetch(`http://localhost:5000/api/v1/workout-logs/member/${id}/today`, { headers })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setTodayLog(res.data);
+        } else {
+          setTodayLog(null);
+        }
+      });
+  };
+
   useEffect(() => {
     if (!id) return;
     fetchMember();
     fetchLogs();
     fetchPayments();
+    fetchTodayLog();
   }, [id]);
+
+  const handleCheckInOut = () => {
+    if (todayLog) {
+      fetch(`http://localhost:5000/api/v1/workout-logs/${todayLog.workoutId}/checkout`, {
+        method: "PATCH", headers
+      }).then(r => r.json()).then(res => {
+        if (res.success) {
+          fetchTodayLog();
+          fetchLogs();
+          alert("Check out thành công!");
+        } else {
+          alert(res.message);
+        }
+      });
+    } else {
+      fetch(`http://localhost:5000/api/v1/workout-logs`, {
+        method: "POST", headers,
+        body: JSON.stringify({ memberId: id })
+      }).then(r => r.json()).then(res => {
+        if (res.success) {
+          fetchTodayLog();
+          fetchLogs();
+          fetchMember();
+          alert("Check in thành công!");
+        } else {
+          alert(res.message);
+        }
+      });
+    }
+  };
 
   const handleSave = () => {
     setSaving(true);
@@ -4608,8 +4651,8 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button variant={checked ? "danger" : "secondary"} icon={CheckCircle2} onClick={() => setChecked(!checked)}>
-              {checked ? "Check out hôm nay" : "Check in hôm nay"}
+            <Button variant={todayLog ? "danger" : "secondary"} icon={CheckCircle2} onClick={handleCheckInOut}>
+              {todayLog ? "Check out hôm nay" : "Check in hôm nay"}
             </Button>
           </div>
         </div>
