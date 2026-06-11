@@ -490,8 +490,8 @@ function ThemeToggle({ theme, onToggle, floating }: { theme: "light" | "dark"; o
 }
 
 function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?: any) => void; theme: "light" | "dark"; onToggleTheme: () => void }) {
-  const [email, setEmail] = useState("owner@gymos.vn");
-  const [password, setPassword] = useState("owner@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = async () => {
@@ -584,9 +584,29 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
   );
 }
 
-function HomeWidgets({ role }: { role: Role }) {
+function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const navigate = useNavigate();
   const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
+  
+  const [memberStats, setMemberStats] = useState<any>(null);
+  const [loading, setLoading] = useState(role === "member");
+  
+  useEffect(() => {
+    if (role === "member") {
+      fetch("http://localhost:5000/api/v1/workout-logs/summary", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("gymos_token")}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setMemberStats(data.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    }
+  }, [role]);
+
   const widgets: Record<Role, { icon: any; title: string; desc: string; view: string; tone: string }[]> = {
     owner: [
       { icon: Users, title: "Quản lý nhân sự", desc: "Danh sách, chấm công, đánh giá nhân sự", view: "staff", tone: "from-[#6C63FF]/20 to-transparent" },
@@ -610,11 +630,39 @@ function HomeWidgets({ role }: { role: Role }) {
     member: [
       { icon: CreditCard, title: "Gia hạn gói tập", desc: "Đăng ký hoặc gia hạn gói hiện tại", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
       { icon: CalIcon, title: "Lịch sử tập luyện", desc: "Xem lại các buổi tập đã check in", view: "history", tone: "from-[#00C9A7]/20 to-transparent" },
+      { icon: Receipt, title: "Lịch sử thanh toán", desc: "Kiểm tra các hóa đơn và biên lai", view: "mpayments", tone: "from-sky-500/20 to-transparent" },
       { icon: MessageSquare, title: "Gửi phản hồi", desc: "Đóng góp ý kiến cho phòng tập", view: "mfeedback", tone: "from-[#FFB547]/20 to-transparent" },
     ],
   };
 
+  const stats = useMemo(() => {
+    if (role === "member") {
+      if (loading) return [
+        { icon: Dumbbell, label: "Buổi tập còn lại", value: "...", tone: "violet" },
+        { icon: Activity, label: "Tổng số buổi tập", value: "...", tone: "emerald" },
+        { icon: TrendingUp, label: "Chuỗi tập liên tiếp", value: "...", tone: "amber" }
+      ];
+      return [
+        { icon: Dumbbell, label: "Buổi tập còn lại", value: memberStats?.member?.remainingWorkout ?? 0, tone: "violet" },
+        { icon: Activity, label: "Tổng số buổi tập", value: memberStats?.totalSessions ?? 0, tone: "emerald" },
+        { icon: TrendingUp, label: "Chuỗi tập liên tiếp", value: `${memberStats?.streak ?? 0} ngày`, tone: "amber" }
+      ];
+    }
+    return [
+      { icon: Activity, label: "Check in hôm nay", value: "128", tone: "emerald" },
+      { icon: TrendingUp, label: "Doanh thu hôm nay", value: "12.4 tr", tone: "violet" },
+      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "4", tone: "amber" },
+    ];
+  }, [role, memberStats, loading]);
+
   const me = ROLE_META[role] || ROLE_META["member"];
+  const personName = user?.name || me.person;
+  const firstName = personName.split(" ").pop();
+  
+  // Format current date in Vietnamese
+  const today = new Date();
+  const dateStr = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(today);
+
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-3xl border border-border bg-muted/30 p-8">
@@ -622,18 +670,14 @@ function HomeWidgets({ role }: { role: Role }) {
           <div className="space-y-3">
             <Badge tone="violet">{me.name}</Badge>
             <h1 className="font-display text-[32px] font-bold tracking-tight leading-tight">
-              Xin chào, {me.person.split(" ").pop()} 👋
+              Xin chào, {firstName} 👋
             </h1>
             <p className="text-[14px] text-muted-foreground leading-relaxed">
-              Hôm nay là <span className="text-foreground">Chủ Nhật, 07/06/2026</span>. Chúc bạn một ngày làm việc hiệu quả tại GymOS.
+              Hôm nay là <span className="text-foreground">{dateStr}</span>. Chúc bạn một ngày {role === "member" ? "tập luyện năng suất" : "làm việc hiệu quả"} tại GymOS.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { icon: Activity, label: "Check in hôm nay", value: "128", tone: "emerald" },
-              { icon: TrendingUp, label: "Doanh thu hôm nay", value: "12.4 tr", tone: "violet" },
-              { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "4", tone: "amber" },
-            ].map((s) => (
+            {stats.map((s) => (
               <div key={s.label} className="flex items-center gap-3 rounded-xl bg-muted/70 border border-border p-3">
                 <div className={cn("size-9 grid place-items-center rounded-lg",
                   s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
@@ -4845,14 +4889,16 @@ function MemberHistory() {
           </div>
           {plan && (
             <div className="text-right">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Hết hạn sau</div>
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                {daysLeft === 0 ? "Thời gian hết hạn" : "Hết hạn sau"}
+              </div>
               <div className={cn(
                 "font-display font-bold text-[28px]",
                 daysLeft !== null && daysLeft <= 14
                   ? "text-[#FF5C5C]"
                   : "text-[#00866F] dark:text-[#5FE6CB]"
               )}>
-                {daysLeft !== null ? `${daysLeft} ngày` : "—"}
+                {daysLeft !== null ? (daysLeft === 0 ? "Hôm nay" : `${daysLeft} ngày`) : "—"}
               </div>
               {plan.expireDate && (
                 <div className="text-[11px] text-muted-foreground">
@@ -5020,39 +5066,96 @@ function MemberHistory() {
 
 function MemberPayments() {
   const [methodFilter, setMethodFilter] = useState<string>("Tất cả");
-  const payments = [
-    { code: "PAY-20251112", d: "12/11/2025", desc: "Đăng ký Elite VIP 6 tháng", method: "Thẻ NH", amount: 8990000, status: "Thành công" },
-    { code: "PAY-20250812", d: "12/08/2025", desc: "Gia hạn Premium 3 tháng", method: "QR Code", amount: 4490000, status: "Thành công" },
-    { code: "PAY-20250512", d: "12/05/2025", desc: "Đăng ký Premium 3 tháng", method: "Tiền mặt", amount: 4490000, status: "Thành công" },
-    { code: "PAY-20241112", d: "12/11/2024", desc: "Đăng ký Basic 1 tháng", method: "Tiền mặt", amount: 890000, status: "Thành công" },
-    { code: "PAY-20240810", d: "10/08/2024", desc: "Đăng ký Basic 1 tháng", method: "QR Code", amount: 890000, status: "Thành công" },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/subscriptions/me", {
+      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setSubscriptions(data.data.subscriptions || []);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const payments = useMemo(() => {
+    return subscriptions
+      .filter((plan: any) => plan.Bill) // Only plans with bills
+      .map((plan: any) => {
+        const d = new Date(plan.Bill.paymentDate);
+        return {
+          code: `PAY-${plan.Bill.billId.split("-")[0].toUpperCase()}`,
+          rawDate: d,
+          d: d.toLocaleDateString("vi-VN"),
+          desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
+          method: plan.Bill.paymentMethod || "Tiền mặt",
+          amount: parseFloat(plan.Bill.amount),
+          status: "Thành công"
+        };
+      })
+      .sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
+  }, [subscriptions]);
+
+  const activePlan = useMemo(() => {
+    const active = subscriptions.find((p: any) => p.status === "active");
+    if (!active) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expire = new Date(active.expireDate);
+    const daysLeft = Math.max(0, Math.ceil((expire.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    return {
+      name: active.SubscriptionPackage?.packageName || "Gói tập",
+      startDate: new Date(active.startDate).toLocaleDateString("vi-VN"),
+      expireDate: new Date(active.expireDate).toLocaleDateString("vi-VN"),
+      daysLeft
+    };
+  }, [subscriptions]);
+
   const filtered = payments.filter((p) => methodFilter === "Tất cả" || p.method === methodFilter);
   const total = payments.reduce((s, p) => s + p.amount, 0);
   const methodBadgeTone = (m: string) => m === "Thẻ NH" ? "violet" : m === "QR Code" ? "sky" : "amber";
+
+  if (loading) {
+    return <div className="p-10 text-center text-muted-foreground">Đang tải dữ liệu...</div>;
+  }
 
   return (
     <div className="space-y-5">
       <SectionTitle title="Lịch sử thanh toán" sub="Toàn bộ giao dịch gắn với tài khoản của bạn" />
 
       {/* Gói hiện tại */}
-      <Card>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <Badge tone="amber">★ Gói hiện tại</Badge>
-            <h3 className="font-display text-[20px] mt-2">Elite VIP 6 tháng</h3>
-            <div className="text-[12.5px] text-muted-foreground mt-0.5">Bắt đầu 12/11/2025 · Còn 172 ngày — Hết hạn 12/11/2026</div>
+      {activePlan ? (
+        <Card>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <Badge tone="amber">★ Gói hiện tại</Badge>
+              <h3 className="font-display text-[20px] mt-2">{activePlan.name}</h3>
+              <div className="text-[12.5px] text-muted-foreground mt-0.5">
+                Bắt đầu {activePlan.startDate} · Còn {activePlan.daysLeft} ngày — Hết hạn {activePlan.expireDate}
+              </div>
+            </div>
+            <StatusPill value="Đang hoạt động" />
           </div>
-          <StatusPill value="Đang hoạt động" />
-        </div>
-      </Card>
+        </Card>
+      ) : (
+        <Card>
+          <div className="text-[14px] text-muted-foreground">Bạn chưa có gói tập nào đang hoạt động.</div>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Tổng chi tiêu", value: total.toLocaleString("vi-VN") + " ₫", tone: "violet" },
           { label: "Số giao dịch", value: payments.length + " giao dịch", tone: "sky" },
-          { label: "Lần thanh toán gần nhất", value: payments[0].d, tone: "emerald" },
+          { label: "Lần thanh toán gần nhất", value: payments.length > 0 ? payments[0].d : "Chưa có", tone: "emerald" },
         ].map((s) => (
           <Card key={s.label}>
             <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{s.label}</div>
@@ -5079,12 +5182,12 @@ function MemberPayments() {
         <DataTable
           head={["Mã giao dịch", "Ngày", "Nội dung", "Phương thức", "Số tiền", "Trạng thái"]}
           rows={filtered.map((p) => [
-            <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{p.code}</span>,
+            <span key="code" className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{p.code}</span>,
             p.d,
-            <span className="text-muted-foreground">{p.desc}</span>,
-            <Badge tone={methodBadgeTone(p.method) as any}>{p.method}</Badge>,
-            <span className="font-display font-semibold">{p.amount.toLocaleString("vi-VN")} ₫</span>,
-            <StatusPill value={p.status} />,
+            <span key="desc" className="text-muted-foreground">{p.desc}</span>,
+            <Badge key="badge" tone={methodBadgeTone(p.method) as any}>{p.method}</Badge>,
+            <span key="amount" className="font-display font-semibold">{p.amount.toLocaleString("vi-VN")} ₫</span>,
+            <StatusPill key="status" value={p.status} />,
           ])}
         />
         {filtered.length === 0 && (
@@ -5684,7 +5787,7 @@ export default function App() {
               <Header role={role} user={user} breadcrumb={breadcrumb} onLogout={handleLogout} />
               <main className="flex-1 p-7 max-w-[1440px] w-full mx-auto">
                 <Routes>
-                  <Route path="/" element={<HomeWidgets role={role} />} />
+                  <Route path="/" element={<HomeWidgets role={role} user={user} />} />
 
                   {/* Owner routes */}
                   {role === "owner" && <>
