@@ -67,6 +67,62 @@ export const checkInMember = catchAsync(
   }
 );
 
+// ── Check-out ─────────────────────────────────────────────
+export const checkOutMember = catchAsync(
+  async (req, res, next) => {
+    const { workoutId } = req.params;
+
+    const log = await WorkoutLog.findByPk(workoutId);
+    if (!log) {
+      return next(new AppError("Không tìm thấy buổi tập", 404));
+    }
+
+    if (log.endTime) {
+      return next(new AppError("Hội viên đã check out rồi", 400));
+    }
+
+    const now = new Date();
+    const endTimeStr = now.toTimeString().split(" ")[0];
+
+    // Calculate duration in minutes
+    const [sh, sm, ss] = log.startTime.split(":").map(Number);
+    const [eh, em, es] = endTimeStr.split(":").map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin = eh * 60 + em;
+    const duration = Math.max(0, endMin - startMin);
+
+    log.endTime = endTimeStr;
+    log.duration = duration;
+    await log.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Check out thành công",
+      data: log,
+    });
+  }
+);
+
+// ── Get today's log for a specific member (staff/PT use) ──
+export const getTodayLogForMember = catchAsync(
+  async (req, res, next) => {
+    const { memberId } = req.params;
+
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10);
+
+    const log = await WorkoutLog.findOne({
+      where: { memberId, workoutDate: dateStr },
+      order: [["startTime", "DESC"]],
+    });
+
+    res.status(200).json({
+      success: true,
+      data: log || null,
+    });
+  }
+);
+
 // ── Get my workout logs (member) ──────────────────────────
 export const getMyWorkoutLogs = catchAsync(
   async (req, res, next) => {
@@ -198,9 +254,9 @@ export const getMyWorkoutSummary = catchAsync(
         },
         activePlan: activePlan
           ? {
-              ...activePlan.toJSON(),
-              daysRemaining,
-            }
+            ...activePlan.toJSON(),
+            daysRemaining,
+          }
           : null,
         workoutLogs: logs,
         totalSessions: logs.length,

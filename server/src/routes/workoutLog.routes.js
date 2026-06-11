@@ -13,6 +13,8 @@ import {
 
 import {
   checkInMember,
+  checkOutMember,
+  getTodayLogForMember,
   getMyWorkoutLogs,
   getMyWorkoutSummary,
 } from "../controllers/workoutLog.controller.js";
@@ -26,6 +28,22 @@ router.post(
   restrictTo("owner", "manager", "pt"),
   validate(createWorkoutLogSchema),
   checkInMember
+);
+
+// PATCH /workout-logs/:workoutId/checkout — check out (staff / PT)
+router.patch(
+  "/:workoutId/checkout",
+  verifyToken,
+  restrictTo("owner", "manager", "pt"),
+  checkOutMember
+);
+
+// GET /workout-logs/member/:memberId/today — today's log for a member (staff use)
+router.get(
+  "/member/:memberId/today",
+  verifyToken,
+  restrictTo("owner", "manager", "pt"),
+  getTodayLogForMember
 );
 
 // GET /workout-logs/me — lịch sử buổi tập (member)
