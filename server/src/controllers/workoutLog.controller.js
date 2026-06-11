@@ -21,6 +21,7 @@ export const checkInMember = catchAsync(
 
     const activePlan = await SubscriptionPlan.findOne({
       where: { memberId, status: "active" },
+      include: [{ model: SubscriptionPackage }],
     });
 
     if (!activePlan) {
@@ -37,12 +38,21 @@ export const checkInMember = catchAsync(
       return next(new AppError("Gói tập đã hết hạn", 403));
     }
 
-    if (member.remainingWorkout <= 0) {
-      return next(new AppError("Không còn buổi tập", 403));
+    if (activePlan.SubscriptionPackage?.packageType === "session") {
+      if (activePlan.remainingSessions <= 0) {
+        return next(new AppError("Không còn buổi tập", 403));
+      }
+      activePlan.remainingSessions -= 1;
+      await activePlan.save();
     }
 
-    member.remainingWorkout -= 1;
-    await member.save();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const existingLog = await WorkoutLog.findOne({
+      where: { memberId, workoutDate: todayStr }
+    });
+    if (existingLog) {
+      return next(new AppError("Hội viên đã check in hôm nay rồi", 400));
+    }
 
     const staff = await Staff.findOne({
       where: { accountId: req.user.accountId },
@@ -77,9 +87,10 @@ export const checkOutMember = catchAsync(
       return next(new AppError("Không tìm thấy buổi tập", 404));
     }
 
-    if (log.endTime) {
-      return next(new AppError("Hội viên đã check out rồi", 400));
-    }
+    // Commented out to allow multiple check-outs
+    // if (log.endTime) {
+    //   return next(new AppError("Hội viên đã check out rồi", 400));
+    // }
 
     const now = new Date();
     const endTimeStr = now.toTimeString().split(" ")[0];
