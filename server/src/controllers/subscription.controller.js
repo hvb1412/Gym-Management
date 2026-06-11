@@ -22,15 +22,26 @@ const getTodayDateString = () => {
   }).format(new Date());
 };
 
-const calculateExpireDate = (packageType, duration) => {
+const calculateExpireDate = (packageType, durationUnit, duration, numberOfWorkout) => {
   const today = new Date(getTodayDateString());
 
-  if (packageType === 'daily' || packageType === 'day') {
+  if (packageType === 'session') {
+    today.setDate(today.getDate() + (numberOfWorkout || 365));
+    return today.toISOString().split('T')[0];
+  }
+
+  const unit = (durationUnit || '').toLowerCase();
+
+  if (unit === 'ngày' || unit === 'day' || unit === 'daily') {
     today.setDate(today.getDate() + (duration || 1));
-  } else if (packageType === 'monthly' || packageType === 'month') {
+  } else if (unit === 'tuần' || unit === 'week') {
+    today.setDate(today.getDate() + (duration || 1) * 7);
+  } else if (unit === 'tháng' || unit === 'month' || unit === 'monthly') {
     today.setMonth(today.getMonth() + (duration || 1));
-  } else if (packageType === 'yearly' || packageType === 'year') {
+  } else if (unit === 'năm' || unit === 'year' || unit === 'yearly') {
     today.setFullYear(today.getFullYear() + (duration || 1));
+  } else {
+    today.setMonth(today.getMonth() + (duration || 1));
   }
 
   return today.toISOString().split('T')[0];
@@ -68,7 +79,7 @@ export const createSubscription = catchAsync(async (req, res, next) => {
   }
 
   const startDate = getTodayDateString();
-  const expireDate = calculateExpireDate(pkg.packageType, pkg.duration);
+  const expireDate = calculateExpireDate(pkg.packageType, pkg.durationUnit, pkg.duration, pkg.numberOfWorkout);
   const remainingSessions = pkg.packageType === 'session' ? pkg.numberOfWorkout : 0;
 
   const plan = await SubscriptionPlan.create({
@@ -239,7 +250,7 @@ export const renewSubscription = catchAsync(async (req, res, next) => {
   }
 
   const startDate = getTodayDateString();
-  const expireDate = calculateExpireDate(pkg.packageType, pkg.duration);
+  const expireDate = calculateExpireDate(pkg.packageType, pkg.durationUnit, pkg.duration, pkg.numberOfWorkout);
   const remainingSessions = pkg.packageType === 'session' ? pkg.numberOfWorkout : 0;
   const amount = pkg.price;
 

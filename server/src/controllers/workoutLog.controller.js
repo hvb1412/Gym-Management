@@ -235,12 +235,14 @@ export const getMyWorkoutSummary = catchAsync(
     // Days remaining
     let daysRemaining = null;
     if (activePlan?.expireDate) {
-      const diff =
-        new Date(activePlan.expireDate).getTime() -
-        Date.now();
+      const expireDate = new Date(activePlan.expireDate);
+      expireDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diff = expireDate.getTime() - today.getTime();
       daysRemaining = Math.max(
         0,
-        Math.ceil(diff / 86400000)
+        Math.round(diff / 86400000)
       );
     }
 
