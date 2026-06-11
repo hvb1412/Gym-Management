@@ -3811,6 +3811,16 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
   );
 }
 
+const getDiffDays = (expireDate: any) => {
+  if (!expireDate) return null;
+  const expire = new Date(expireDate);
+  expire.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = expire.getTime() - today.getTime();
+  return Math.round(diff / 86400000);
+};
+
 const getExpireDate = (plan: any) => {
   if (!plan) return null;
   const pkg = plan.SubscriptionPackage;
@@ -3852,7 +3862,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     if (!plan) return "Chưa có gói";
     const expire = getExpireDate(plan);
     if (!expire) return "Đang hoạt động";
-    const diffDays = Math.ceil((expire.getTime() - Date.now()) / 86400000);
+    const diffDays = getDiffDays(expire) ?? 0;
     if (diffDays < 0) return "Đã hết hạn";
     if (diffDays <= 14) return "Sắp hết hạn";
     return "Đang hoạt động";
@@ -4570,7 +4580,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
   const expireDate = getExpireDate(plan);
 
-  const diffDays = expireDate ? Math.ceil((expireDate.getTime() - Date.now()) / 86400000) : null;
+  const diffDays = getDiffDays(expireDate);
 
   return (
     <div className="space-y-5">
@@ -5102,13 +5112,10 @@ function MemberPayments() {
   }, [subscriptions]);
 
   const activePlan = useMemo(() => {
-    const active = subscriptions.find((p: any) => p.status === "active");
+    const active = subscriptions.filter((p: any) => p.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     if (!active) return null;
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expire = new Date(active.expireDate);
-    const daysLeft = Math.max(0, Math.ceil((expire.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const daysLeft = Math.max(0, getDiffDays(active.expireDate) ?? 0);
     
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
@@ -5486,7 +5493,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.subscriptions) {
-          const active = data.data.subscriptions.find((s: any) => s.status === 'active');
+          const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
           if (active) setCurrentPlan(active);
         }
       });
@@ -5499,8 +5506,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
   }
 
   const calDaysRemain = (expireDate: string) => {
-    const diff = new Date(expireDate).getTime() - new Date().getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
+    return Math.max(0, getDiffDays(expireDate) ?? 0);
   };
 
   return (
@@ -5600,7 +5606,7 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
     if (!plan) return "Chưa có gói";
     const expire = getExpireDate(plan);
     if (!expire) return "Đang hoạt động";
-    const diff = Math.ceil((expire.getTime() - Date.now()) / 86400000);
+    const diff = getDiffDays(expire) ?? 0;
     if (diff < 0) return "Đã hết hạn";
     if (diff <= 14) return "Sắp hết hạn";
     return "Đang hoạt động";
