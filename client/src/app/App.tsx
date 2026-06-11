@@ -4667,52 +4667,306 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
 /* ── Member views ── */
 function MemberHistory() {
-  const days = Array.from({ length: 31 }, (_, i) => i % 2 === 0 || i % 5 === 0);
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [viewMonth, setViewMonth] = useState<{ year: number; month: number }>(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth() };
+  });
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
+
+  const token = localStorage.getItem("gymos_token");
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("http://localhost:5000/api/v1/workout-logs/summary", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setSummary(d.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  /* ── helpers ── */
+  const fmtTime = (t: string | null | undefined) => {
+    if (!t) return "—";
+    return t.slice(0, 5);
+  };
+
+  const fmtDuration = (mins: number | null | undefined) => {
+    if (!mins) return "—";
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}g ${m}p` : `${m}p`;
+  };
+
+  const fmtDate = (d: string | null) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("vi-VN");
+  };
+
+  /* ── calendar ── */
+  const { year, month } = viewMonth;
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  // convert so Mon=0
+  const startOffset = (firstDay + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const workoutDates = new Set(
+    (summary?.workoutLogs ?? [])
+      .filter((l: any) => {
+        const d = new Date(l.workoutDate);
+        return d.getFullYear() === year && d.getMonth() === month;
+      })
+      .map((l: any) => new Date(l.workoutDate).getDate())
+  );
+
+  const monthName = new Date(year, month, 1).toLocaleDateString("vi-VN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const prevMonth = () =>
+    setViewMonth(({ year, month }) =>
+      month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }
+    );
+  const nextMonth = () =>
+    setViewMonth(({ year, month }) =>
+      month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
+    );
+
+  const monthCount = workoutDates.size;
+
+  /* ── active plan display ── */
+  const plan = summary?.activePlan ?? null;
+  const pkg = plan?.SubscriptionPackage ?? null;
+  const trainer = plan?.Trainer ?? null;
+  const daysLeft = plan?.daysRemaining ?? null;
+
+  /* ── pagination ── */
+  const allLogs: any[] = summary?.workoutLogs ?? [];
+  const totalPages = Math.ceil(allLogs.length / PAGE_SIZE);
+  const pageLogs = allLogs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <SectionTitle title="Lịch sử tập luyện" sub="Đang tải dữ liệu…" />
+        <div className="flex items-center justify-center py-20 text-muted-foreground text-[13px]">
+          <Activity className="size-5 mr-2 animate-pulse" /> Đang tải…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <SectionTitle title="Lịch sử tập luyện" sub="Theo dõi tiến độ của bạn trong tháng này" />
+
+      {/* Subscription card */}
       <Card>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div className="flex items-center gap-2"><Badge tone="amber">★ VIP</Badge><Badge tone="violet">Có Trainer</Badge></div>
-            <h3 className="font-display text-[20px] mt-2">Elite VIP 6 tháng</h3>
-            <div className="text-[12.5px] text-muted-foreground">PT phụ trách: Lê Đức Mạnh · Bắt đầu 12/11/2025</div>
+            {plan ? (
+              <>
+                <div className="flex items-center gap-2">
+                  {pkg?.vipIncluded && <Badge tone="amber">★ VIP</Badge>}
+                  {pkg?.trainerIncluded && <Badge tone="violet">Có Trainer</Badge>}
+                  {!plan && <Badge tone="gray">Chưa có gói</Badge>}
+                </div>
+                <h3 className="font-display text-[20px] mt-2">
+                  {pkg?.packageName ?? "Gói tập"}
+                </h3>
+                <div className="text-[12.5px] text-muted-foreground mt-0.5">
+                  {trainer ? `PT phụ trách: ${trainer.staffName} · ` : ""}
+                  Bắt đầu {plan.startDate ? fmtDate(plan.startDate) : "—"}
+                </div>
+              </>
+            ) : (
+              <>
+                <Badge tone="gray">Chưa có gói tập</Badge>
+                <h3 className="font-display text-[20px] mt-2 text-muted-foreground">
+                  Bạn chưa đăng ký gói tập nào
+                </h3>
+                <div className="text-[12.5px] text-muted-foreground">
+                  Hãy gia hạn để tiếp tục tập luyện.
+                </div>
+              </>
+            )}
           </div>
-          <div className="text-right">
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Hết hạn sau</div>
-            <div className="font-display font-bold text-[28px] text-[#00866F] dark:text-[#5FE6CB]">172 ngày</div>
-          </div>
+          {plan && (
+            <div className="text-right">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Hết hạn sau</div>
+              <div className={cn(
+                "font-display font-bold text-[28px]",
+                daysLeft !== null && daysLeft <= 14
+                  ? "text-[#FF5C5C]"
+                  : "text-[#00866F] dark:text-[#5FE6CB]"
+              )}>
+                {daysLeft !== null ? `${daysLeft} ngày` : "—"}
+              </div>
+              {plan.expireDate && (
+                <div className="text-[11px] text-muted-foreground">
+                  Hạn: {fmtDate(plan.expireDate)}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
-      <div className="grid lg:grid-cols-5 gap-5">
-        <Card className="lg:col-span-2">
-          <h3 className="font-display">Tháng 05 / 2026</h3>
-          <div className="grid grid-cols-7 gap-1.5 mt-4 text-center">
-            {"T2 T3 T4 T5 T6 T7 CN".split(" ").map((d) => (<div key={d} className="text-[10px] text-muted-foreground py-1">{d}</div>))}
-            {Array.from({ length: 3 }).map((_, i) => <div key={"x" + i} />)}
-            {days.map((d, i) => (
-              <div key={i} className={cn("aspect-square rounded-lg grid place-items-center text-[11.5px] relative",
-                d ? "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB] border border-[#00C9A7]/30" : "bg-muted/40 text-muted-foreground border border-border/60")}>
-                {i + 1}
-                {d && <span className="absolute bottom-0.5 right-0.5 size-1 rounded-full bg-[#00C9A7]" />}
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          {
+            icon: Activity,
+            label: "Tổng buổi tập",
+            value: `${summary?.totalSessions ?? 0} buổi`,
+            tone: "emerald",
+          },
+          {
+            icon: TrendingUp,
+            label: "Tháng này",
+            value: `${monthCount} buổi`,
+            tone: "violet",
+          },
+          {
+            icon: Sparkles,
+            label: "Chuỗi hiện tại",
+            value: `${summary?.streak ?? 0} ngày 🔥`,
+            tone: "amber",
+          },
+        ].map((s) => (
+          <Card key={s.label}>
+            <div className="flex items-center gap-3">
+              <div className={cn("size-9 rounded-lg grid place-items-center",
+                s.tone === "emerald" && "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB]",
+                s.tone === "violet" && "bg-[#6C63FF]/15 text-[#4F46E5] dark:text-[#A8A2FF]",
+                s.tone === "amber" && "bg-[#FFB547]/15 text-[#A66A00] dark:text-[#FFD89B]")}>
+                <s.icon className="size-4 stroke-[1.75]" />
               </div>
-            ))}
+              <div>
+                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+                <div className="font-display font-bold text-[18px]">{s.value}</div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-5 gap-5">
+        {/* Calendar */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display capitalize">{monthName}</h3>
+            <div className="flex items-center gap-1">
+              <button onClick={prevMonth}
+                className="size-7 rounded-md hover:bg-accent grid place-items-center text-muted-foreground hover:text-foreground transition">
+                <ChevronLeft className="size-4" />
+              </button>
+              <button onClick={nextMonth}
+                className="size-7 rounded-md hover:bg-accent grid place-items-center text-muted-foreground hover:text-foreground transition">
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
           </div>
-          <div className="mt-4 text-[12px] text-muted-foreground">✓ 18 buổi tập trong tháng — chuỗi 5 ngày liên tiếp 🔥</div>
+          <div className="grid grid-cols-7 gap-1.5 text-center">
+            {"T2 T3 T4 T5 T6 T7 CN".split(" ").map((d) => (
+              <div key={d} className="text-[10px] text-muted-foreground py-1">{d}</div>
+            ))}
+            {Array.from({ length: startOffset }).map((_, i) => <div key={"pad" + i} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const today = new Date();
+              const isToday =
+                today.getFullYear() === year &&
+                today.getMonth() === month &&
+                today.getDate() === day;
+              const worked = workoutDates.has(day);
+              return (
+                <div key={day} className={cn(
+                  "aspect-square rounded-lg grid place-items-center text-[11.5px] relative transition",
+                  worked
+                    ? "bg-[#00C9A7]/15 text-[#00866F] dark:text-[#5FE6CB] border border-[#00C9A7]/30"
+                    : "bg-muted/40 text-muted-foreground border border-border/60",
+                  isToday && "ring-2 ring-[#6C63FF]/60 ring-offset-1"
+                )}>
+                  {day}
+                  {worked && (
+                    <span className="absolute bottom-0.5 right-0.5 size-1 rounded-full bg-[#00C9A7]" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 text-[12px] text-muted-foreground">
+            ✓ {monthCount} buổi tập trong tháng
+            {(summary?.streak ?? 0) > 1 && ` — chuỗi ${summary.streak} ngày liên tiếp 🔥`}
+          </div>
         </Card>
+
+        {/* Session table */}
         <Card className="lg:col-span-3" padded={false}>
-          <div className="px-5 pt-5"><h3 className="font-display">Buổi tập gần đây</h3></div>
-          <DataTable
-            head={["Ngày", "Giờ vào", "Giờ ra", "Thời lượng", "Ghi chú"]}
-            rows={[
-              ["23/05/2026", "06:42", "08:11", "1g 29p", "Push day"],
-              ["21/05/2026", "07:05", "08:34", "1g 29p", "Pull day"],
-              ["19/05/2026", "18:22", "19:51", "1g 29p", "Cardio tự do"],
-              ["17/05/2026", "06:50", "08:20", "1g 30p", "Leg day"],
-              ["15/05/2026", "07:00", "08:40", "1g 40p", "Full body"],
-            ].map((r) => r.map((c, i) => i === 4 ? <span className="text-muted-foreground">{c}</span> : c))}
-          />
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+            <h3 className="font-display">Buổi tập gần đây</h3>
+            <span className="text-[12px] text-muted-foreground">
+              {allLogs.length} buổi tổng cộng
+            </span>
+          </div>
+          {allLogs.length === 0 ? (
+            <div className="text-center text-muted-foreground py-10 text-[13px]">
+              Chưa có buổi tập nào được ghi nhận
+            </div>
+          ) : (
+            <>
+              <DataTable
+                head={["Ngày", "Giờ vào", "Giờ ra", "Thời lượng", "Ghi chú"]}
+                rows={pageLogs.map((l: any) => {
+                  const startMin = l.startTime
+                    ? parseInt(l.startTime.slice(0, 2)) * 60 + parseInt(l.startTime.slice(3, 5))
+                    : 0;
+                  const endMin = l.endTime
+                    ? parseInt(l.endTime.slice(0, 2)) * 60 + parseInt(l.endTime.slice(3, 5))
+                    : null;
+                  const durMins = l.duration
+                    ? l.duration
+                    : endMin !== null
+                    ? endMin - startMin
+                    : null;
+                  return [
+                    fmtDate(l.workoutDate),
+                    <span className="font-mono text-[12px]">{fmtTime(l.startTime)}</span>,
+                    <span className="font-mono text-[12px]">{l.endTime ? fmtTime(l.endTime) : "—"}</span>,
+                    durMins ? <Badge tone="emerald">{fmtDuration(durMins)}</Badge> : <span className="text-muted-foreground">—</span>,
+                    <span className="text-muted-foreground text-[12px]">{l.notes || (l.Recorder ? l.Recorder.staffName : "—")}</span>,
+                  ];
+                })}
+              />
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 py-3 border-t border-border/60">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="size-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-accent disabled:opacity-40 transition">
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                  <span className="text-[12px] text-muted-foreground">
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="size-7 rounded-md border border-border grid place-items-center text-muted-foreground hover:bg-accent disabled:opacity-40 transition">
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </Card>
       </div>
     </div>
