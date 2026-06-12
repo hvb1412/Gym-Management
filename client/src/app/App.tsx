@@ -1544,7 +1544,7 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
   const initialUnit = data ? (data.type.includes("tháng") ? "month" : data.type.includes("tuần") ? "week" : data.type.includes("ngày") ? "day" : "month") : "month";
   const [unit, setUnit] = useState(initialUnit);
 
-  const [price, setPrice] = useState(data ? data.price.toString() : "");
+  const [price, setPrice] = useState(data ? data.price.toLocaleString("vi-VN") : "");
   const [vip, setVip] = useState(data?.vip ?? false);
   const [trainer, setTrainer] = useState(data?.trainer ?? false);
   const [status, setStatus] = useState(data?.status ?? "Đang kinh doanh");
@@ -1596,11 +1596,11 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
           <Input placeholder={pkgType === "session" ? "VD: Gym Pro 24 buổi" : "VD: Gym Pro 6 tháng"} value={name} onChange={(e: any) => setName(e.target.value)} required />
         </Field>
         {pkgType === "session" ? (
-          <Field label={<>Số buổi<Req /></>}><Input placeholder="VD: 24" type="number" value={num} onChange={(e: any) => setNum(e.target.value)} required /></Field>
+          <Field label={<>Số buổi<Req /></>}><Input placeholder="VD: 24" type="text" inputMode="numeric" value={num} onChange={(e: any) => setNum(e.target.value.replace(/\D/g, ""))} required /></Field>
         ) : (
           <Field label={<>Thời hạn<Req /></>}>
             <div className="grid grid-cols-[1fr_auto] gap-2">
-              <Input placeholder="VD: 6" type="number" value={num} onChange={(e: any) => setNum(e.target.value)} required />
+              <Input placeholder="VD: 6" type="text" inputMode="numeric" value={num} onChange={(e: any) => setNum(e.target.value.replace(/\D/g, ""))} required />
               <select value={unit} onChange={(e: any) => setUnit(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="month">Tháng</option>
                 <option value="week">Tuần</option>
@@ -1609,7 +1609,10 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
             </div>
           </Field>
         )}
-        <Field label={<>Giá (VND)<Req /></>}><Input placeholder="VD: 2.400.000" value={price} onChange={(e: any) => setPrice(e.target.value)} required /></Field>
+        <Field label={<>Giá (VND)<Req /></>}><Input placeholder="VD: 2.400.000" value={price} onChange={(e: any) => {
+          const raw = e.target.value.replace(/\D/g, "");
+          setPrice(raw ? parseInt(raw, 10).toLocaleString("vi-VN") : "");
+        }} required /></Field>
         <Field label="Tùy chọn">
           <div className="space-y-2 pt-1">
             {([["VIP", vip, setVip], ["Kèm Huấn luyện viên", trainer, setTrainer], ["Đang kinh doanh", status === "Đang kinh doanh", (v: boolean) => setStatus(v ? "Đang kinh doanh" : "Ngừng kinh doanh")]] as const).map(([n, on, setter]) => (
@@ -2520,7 +2523,7 @@ function EquipmentTypeForm({ data, onChange }: { data?: Partial<EquipmentType>; 
         </select>
       </Field>
       <Field label={<>Hãng / Nhà sản xuất<Req /></>}><Input placeholder="VD: Matrix" value={data?.brand || ""} onChange={(e: any) => onChange({ ...data, brand: e.target.value })} /></Field>
-      <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="number" value={data?.warranty?.toString() || ""} onChange={(e: any) => onChange({ ...data, warranty: parseInt(e.target.value) || 0 })} /></Field>
+      <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="text" inputMode="numeric" value={data?.warranty?.toString() || ""} onChange={(e: any) => { const raw = e.target.value.replace(/\D/g, ""); onChange({ ...data, warranty: raw ? parseInt(raw, 10) : 0 }) }} /></Field>
       <div className="col-span-2">
         <Field label={<>Mô tả<Req /></>}>
           <textarea value={data?.desc || ""} onChange={(e) => onChange({ ...data, desc: e.target.value })} placeholder="Mô tả chi tiết loại thiết bị…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
