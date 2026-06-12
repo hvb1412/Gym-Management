@@ -27,6 +27,9 @@ export const login = catchAsync(async (req, res, next) => {
     // Ưu tiên tìm Staff trước
     const staffProfile = await Staff.findOne({ where: { accountId: account.accountId } });
     if(staffProfile) {
+        if (staffProfile.status === 'Đã thôi việc' || staffProfile.status === 'Đã vô hiệu hóa') {
+            return next(new AppError('Tài khoản của bạn đã bị vô hiệu hóa hoặc không còn hoạt động!', 403));
+        }
         role = staffProfile.position;
         profile = staffProfile;
         staffId = staffProfile.staffId;
