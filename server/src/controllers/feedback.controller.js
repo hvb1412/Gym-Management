@@ -285,7 +285,7 @@ export const getReportStats = catchAsync(async (req, res, next) => {
                     pkg: b.SubscriptionPlan?.SubscriptionPackage?.packageName || "Unknown",
                     amount: parseFloat(b.amount),
                     method: b.paymentMethod,
-                    date: b.paymentDate ? new Date(b.paymentDate).toLocaleDateString("vi-VN") : "N/A"
+                    date: b.paymentDate ? new Date(b.paymentDate).toLocaleDateString("en-GB") : "N/A"
                 }))
             },
             members: {

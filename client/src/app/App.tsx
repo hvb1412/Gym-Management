@@ -2269,7 +2269,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           typeName: e.EquipmentType?.equipmentName || "—",
           typeId: e.equipmentTypeId,
           pos: e.position || `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`,
-          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("vi-VN") : "—",
+          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("en-GB") : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
               : e.usageStatus || "Hoạt động",
@@ -3161,7 +3161,7 @@ function MaintenanceOwner() {
       const res = await fetch("http://localhost:5000/api/v1/equipment-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString('vi-VN'), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
+        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString("en-GB"), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
       });
       const data = await res.json();
       if (data.success) {
@@ -3462,7 +3462,7 @@ function Feedback() {
     }
   };
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
   const shortId = (id: string) => id.substring(0, 8).toUpperCase();
 
   const typeCounts: Record<string, number> = {};
@@ -3750,7 +3750,7 @@ function ReportsOverview() {
   return (
     <>
       <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
-        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("vi-VN")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("en-GB")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
           { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
@@ -4322,7 +4322,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     if (!plan) return "—";
     if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("vi-VN");
+    if (expire) return expire.toLocaleDateString("en-GB");
     return "—";
   };
 
@@ -4844,7 +4844,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             {[
               ["Gói tập", pkg.name],
               ["Hội viên", formData?.memberName || "Bạn"],
-              ["Ngày bắt đầu", new Date().toLocaleDateString("vi-VN")]
+              ["Ngày bắt đầu", new Date().toLocaleDateString("en-GB")]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
@@ -5134,7 +5134,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
                 <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
-                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("vi-VN")}</span>}
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("en-GB")}</span>}
               </div>
             </div>
           </div>
@@ -5152,13 +5152,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
             <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
-            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("vi-VN")}</div>}
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("en-GB")}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             {pkg?.packageType === "session" ? <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5166,7 +5166,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             </> : <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5195,7 +5195,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
               rows={logs.map((d, idx) => [
-                new Date(d.workoutDate).toLocaleDateString("vi-VN"),
+                new Date(d.workoutDate).toLocaleDateString("en-GB"),
                 d.startTime?.slice(0, 5) || "—",
                 d.duration ? `${d.duration} phút` : "—",
                 <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
@@ -5211,7 +5211,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
               rows={payments.filter(p => p.Bill).map((p) => [
-                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("vi-VN") : "—",
+                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("en-GB") : "—",
                 <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
                 <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
                   {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
@@ -5290,7 +5290,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("vi-VN")}</span>?</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("en-GB")}</span>?</p>
           </div>
         )}
       </Modal>
@@ -5339,7 +5339,7 @@ function MemberHistory() {
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("vi-VN");
+    return new Date(d).toLocaleDateString("en-GB");
   };
 
   /* ── calendar ── */
@@ -5635,7 +5635,7 @@ function MemberPayments() {
         return {
           code: `PAY-${plan.Bill.billId.split("-")[0].toUpperCase()}`,
           rawDate: d,
-          d: d.toLocaleDateString("vi-VN"),
+          d: d.toLocaleDateString("en-GB"),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
           method: plan.Bill.paymentMethod || "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
@@ -5653,8 +5653,8 @@ function MemberPayments() {
     
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
-      startDate: new Date(active.startDate).toLocaleDateString("vi-VN"),
-      expireDate: new Date(active.expireDate).toLocaleDateString("vi-VN"),
+      startDate: new Date(active.startDate).toLocaleDateString("en-GB"),
+      expireDate: new Date(active.expireDate).toLocaleDateString("en-GB"),
       daysLeft
     };
   }, [subscriptions]);
@@ -5845,7 +5845,7 @@ function MemberFeedback() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
         {list.map((f) => {
-          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("vi-VN") : "";
+          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("en-GB") : "";
           const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
           return (
             <Card key={f.feedbackId}>
@@ -5920,7 +5920,7 @@ function MemberFeedback() {
           <Button icon={Trash2} disabled={isSubmitting} onClick={deleteFeedback}>{isSubmitting ? "Đang xóa..." : "Xóa phản hồi"}</Button>
         </>}>
         {deleting && (() => {
-          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("vi-VN") : "";
+          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("en-GB") : "";
           return (
             <div className="space-y-3">
               <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -6071,7 +6071,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
             {currentPlan ? (
               <>
                 <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
-                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("vi-VN")}</div>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("en-GB")}</div>
               </>
             ) : (
               <>
@@ -6162,7 +6162,7 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
   const formatRemain = (plan: any): string => {
     if (!plan) return "—";
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("vi-VN");
+    if (expire) return expire.toLocaleDateString("en-GB");
     return "—";
   };
 
