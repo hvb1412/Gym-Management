@@ -128,7 +128,7 @@ export const getReportStats = catchAsync(async (req, res, next) => {
       pkg: pkgName,
       amount: Number(bill.amount),
       method: bill.paymentMethod === 'Tiền mặt' ? 'cash' : (bill.paymentMethod === 'Chuyển khoản' ? 'transfer' : 'cash'),
-      date: new Date(bill.createdAt).toLocaleDateString('vi-VN')
+      date: new Date(bill.createdAt).toLocaleDateString("en-GB")
     };
   });
 
