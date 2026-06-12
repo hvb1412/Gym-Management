@@ -285,7 +285,7 @@ export const getReportStats = catchAsync(async (req, res, next) => {
                     pkg: b.SubscriptionPlan?.SubscriptionPackage?.packageName || "Unknown",
                     amount: parseFloat(b.amount),
                     method: b.paymentMethod,
-                    date: b.paymentDate ? new Date(b.paymentDate).toLocaleDateString("en-GB") : "N/A"
+                    date: b.paymentDate ? (() => { const d = new Date(b.paymentDate); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; })() : "N/A"
                 }))
             },
             members: {

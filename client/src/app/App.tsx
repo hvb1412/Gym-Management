@@ -108,6 +108,16 @@ const PKG_BREAKDOWN: any[] = [];
 
 const cn = (...x: (string | false | undefined)[]) => x.filter(Boolean).join(" ");
 
+function formatDate(dateString: string | Date | null | undefined): string {
+  if (!dateString) return "—";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "emerald" | "amber" | "red" | "sky" | "gray"; children: React.ReactNode }) {
   const map: Record<string, string> = {
     default: "bg-muted text-foreground/80 border-border",
@@ -167,14 +177,94 @@ function IconBtn({ icon: Icon, tone = "default", onClick }: { icon: any; tone?: 
 
 function Input({ icon: Icon, placeholder, type = "text", className, value, onChange, ...rest }: any) {
   const controlled = onChange !== undefined;
+  const finalRest = { ...rest };
+  if (type === "date" && !finalRest.max) {
+    finalRest.max = new Date().toISOString().split("T")[0];
+  }
   return (
     <div className={cn("relative", className)}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground stroke-[1.75]" />}
-      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...rest} className={cn(
+      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...finalRest} className={cn(
         "w-full h-10 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60",
         "focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3",
         Icon && "pl-9"
       )} />
+    </div>
+  );
+}
+
+function SearchableSelect({ options, value, onChange, placeholder = "Chọn...", disabled, className, defaultValue }: any) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const isControlled = value !== undefined;
+  const currentValue = isControlled ? value : internalValue;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleChange = (val: string) => {
+    if (!isControlled) setInternalValue(val);
+    if (onChange) onChange({ target: { value: val } } as any);
+    setOpen(false);
+    setSearch("");
+  };
+
+  const selected = options.find((o: any) => o.value == currentValue);
+  const filtered = options.filter((o: any) => String(o.label).toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className={cn("relative", className)} ref={ref}>
+      <button type="button" disabled={disabled} onClick={() => setOpen(!open)}
+        className={cn("w-full h-10 flex items-center justify-between rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none transition", open ? "border-[#6C63FF] ring-2 ring-[#6C63FF]/15" : "", disabled && "opacity-50 cursor-not-allowed")}
+      >
+        <span className="truncate">{selected ? selected.label : placeholder}</span>
+        <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+      </button>
+      
+      {open && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 flex flex-col rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+          <div className="bg-popover p-1 border-b border-border shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input 
+                type="text" 
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                placeholder="Tìm kiếm..." 
+                className="w-full h-8 bg-muted/50 rounded-md border-none pl-7 pr-3 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#6C63FF]"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          </div>
+          <div className="overflow-y-auto flex-1 p-1 space-y-0.5">
+            {filtered.length === 0 ? (
+              <div className="p-3 text-center text-[12.5px] text-muted-foreground">Không tìm thấy kết quả</div>
+            ) : (
+              filtered.map((o: any) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => handleChange(o.value)}
+                  className={cn("w-full flex items-center justify-between px-2.5 py-2 text-[13px] rounded-md text-left transition hover:bg-accent hover:text-foreground", currentValue == o.value && "bg-accent/60 text-foreground font-medium")}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {currentValue == o.value && <CheckCircle2 className="size-3.5 text-[#6C63FF]" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -753,7 +843,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   
   // Format current date in Vietnamese
   const today = new Date();
-  const dateStr = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(today);
+  const dateStr = formatDate(today);
 
   return (
     <div className="space-y-8">
@@ -892,12 +982,15 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phone} onChange={(e: any) => handleChange("phone", e.target.value)} required /></Field>
       <Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận…" value={formData.address} onChange={(e: any) => handleChange("address", e.target.value)} required /></Field>
       <Field label={<>Role<Req /></>}>
-        <div className="relative">
-          <select value={formData.role} onChange={(e) => handleChange("role", e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-            <option>Nhân viên quản lý</option><option>Huấn luyện viên</option><option>Chủ phòng tập</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-        </div>
+        <SearchableSelect
+          value={formData.role}
+          onChange={(e: any) => handleChange("role", e.target.value)}
+          options={[
+            { value: "Nhân viên quản lý", label: "Nhân viên quản lý" },
+            { value: "Huấn luyện viên", label: "Huấn luyện viên" },
+            { value: "Chủ phòng tập", label: "Chủ phòng tập" },
+          ]}
+        />
       </Field>
       {needsAccount && (
         <>
@@ -911,12 +1004,16 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       )}
       {isEdit && (
         <Field label={<>Trạng thái<Req /></>}>
-          <div className="relative">
-            <select value={formData.status} onChange={(e) => handleChange("status", e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-              <option>Đang làm</option><option>Nghỉ phép</option><option>Đã thôi việc</option><option>Đã vô hiệu hóa</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-          </div>
+          <SearchableSelect
+            value={formData.status}
+            onChange={(e: any) => handleChange("status", e.target.value)}
+            options={[
+              { value: "Đang làm", label: "Đang làm" },
+              { value: "Nghỉ phép", label: "Nghỉ phép" },
+              { value: "Đã thôi việc", label: "Đã thôi việc" },
+              { value: "Đã vô hiệu hóa", label: "Đã vô hiệu hóa" },
+            ]}
+          />
         </Field>
       )}
 
@@ -1614,11 +1711,15 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
           <Field label={<>Thời hạn<Req /></>}>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <Input placeholder="VD: 6" type="text" inputMode="numeric" value={num} onChange={(e: any) => setNum(e.target.value.replace(/\D/g, ""))} required />
-              <select value={unit} onChange={(e: any) => setUnit(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="month">Tháng</option>
-                <option value="week">Tuần</option>
-                <option value="day">Ngày</option>
-              </select>
+              <SearchableSelect
+                value={unit}
+                onChange={(e: any) => setUnit(e.target.value)}
+                options={[
+                  { value: "month", label: "Tháng" },
+                  { value: "week", label: "Tuần" },
+                  { value: "day", label: "Ngày" },
+                ]}
+              />
             </div>
           </Field>
         )}
@@ -1810,16 +1911,26 @@ function Packages() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Thêm gói tập</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên gói…" className="max-w-xs" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Đang kinh doanh">Đang kinh doanh</option>
-          <option value="Ngừng kinh doanh">Ngừng kinh doanh</option>
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả loại</option>
-          <option value="session">Theo số buổi</option>
-          <option value="duration">Theo thời gian</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Đang kinh doanh", label: "Đang kinh doanh" },
+            { value: "Ngừng kinh doanh", label: "Ngừng kinh doanh" },
+          ]}
+        />
+        <SearchableSelect
+          value={typeFilter}
+          onChange={(e: any) => setTypeFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả loại" },
+            { value: "session", label: "Theo số buổi" },
+            { value: "duration", label: "Theo thời gian" },
+          ]}
+        />
         <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
           <input type="checkbox" checked={filterVip} onChange={(e) => setFilterVip(e.target.checked)} className="size-4 rounded accent-[#6C63FF]" />
           VIP
@@ -1992,14 +2103,18 @@ function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e:
         <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={code} onChange={(e: any) => setCode(e.target.value)} required /></Field>
         <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={name} onChange={(e: any) => setName(e.target.value)} required /></Field>
         <Field label={<>Loại phòng<Req /></>}>
-          <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-            {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <SearchableSelect
+            value={type}
+            onChange={(e: any) => setType(e.target.value)}
+            options={ROOM_TYPES.map((t) => ({ value: t, label: t }))}
+          />
         </Field>
         <Field label={<>Trạng thái<Req /></>}>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-            {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <SearchableSelect
+            value={status}
+            onChange={(e: any) => setStatus(e.target.value)}
+            options={ROOM_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
         </Field>
       </div>
     </form>
@@ -2157,14 +2272,24 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Thêm phòng tập</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên hoặc mã phòng…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả loại phòng</option>
-          {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          value={typeFilter}
+          onChange={(e: any) => setTypeFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả loại phòng" },
+            ...ROOM_TYPES.map((t) => ({ value: t, label: t }))
+          ]}
+        />
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            ...ROOM_STATUSES.map((s) => ({ value: s, label: s }))
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -2239,16 +2364,18 @@ function RoomDeviceForm({ data }: { data?: { code?: string; typeId?: string; pos
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label={<>Loại thiết bị<Req /></>}>
-        <select defaultValue={data?.typeId ?? EQUIPMENT_TYPES[0].id} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {EQUIPMENT_TYPES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+        <SearchableSelect
+          defaultValue={data?.typeId ?? EQUIPMENT_TYPES[0].id}
+          options={EQUIPMENT_TYPES.map((t) => ({ value: t.id, label: t.name }))}
+        />
       </Field>
       <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code} /></Field>
       <Field label={<>Vị trí trong phòng<Req /></>}><Input placeholder="VD: Hàng 2 — Slot 5" value={data?.pos} /></Field>
       <Field label={<>Tình trạng<Req /></>}>
-        <select defaultValue={data?.status ?? "Hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          defaultValue={data?.status ?? "Hoạt động"}
+          options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+        />
       </Field>
     </div>
   );
@@ -2289,7 +2416,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           typeName: e.EquipmentType?.equipmentName || "—",
           typeId: e.equipmentTypeId,
           pos: e.position || `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`,
-          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("en-GB") : "—",
+          purchaseDate: e.purchaseDate ? formatDate(e.purchaseDate) : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
               : e.usageStatus || "Hoạt động",
@@ -2468,19 +2595,23 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         footer={<><Button variant="ghost" onClick={() => setAddDev(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={handleAddDevice}>Thêm thiết bị</Button></>}>
         <div className="grid grid-cols-2 gap-4">
           <Field label={<>Loại thiết bị<Req /></>}>
-            <select value={newDev.typeId} onChange={(e) => setNewDev({ ...newDev, typeId: e.target.value })}
-              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option value="">-- Chọn loại thiết bị --</option>
-              {equipmentTypes.map((t: any) => <option key={t.equipmentTypeId} value={t.equipmentTypeId}>{t.equipmentName}</option>)}
-            </select>
+            <SearchableSelect
+              value={newDev.typeId}
+              onChange={(e: any) => setNewDev({ ...newDev, typeId: e.target.value })}
+              options={[
+                { value: "", label: "-- Chọn loại thiết bị --" },
+                ...equipmentTypes.map((t: any) => ({ value: t.equipmentTypeId, label: t.equipmentName }))
+              ]}
+            />
           </Field>
           <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={newDev.code} onChange={(e: any) => setNewDev({ ...newDev, code: e.target.value })} /></Field>
           <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={newDev.pos} onChange={(e: any) => setNewDev({ ...newDev, pos: e.target.value })} /></Field>
           <Field label={<>Tình trạng<Req /></>}>
-            <select value={newDev.status} onChange={(e) => setNewDev({ ...newDev, status: e.target.value })}
-              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <SearchableSelect
+              value={newDev.status}
+              onChange={(e: any) => setNewDev({ ...newDev, status: e.target.value })}
+              options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+            />
           </Field>
         </div>
       </Modal>
@@ -2494,10 +2625,11 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <Field label={<>Tên loại thiết bị</>}><Input value={editDev.typeName} readOnly /></Field>
             <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={editDev.pos} onChange={(e: any) => setEditDev({ ...editDev, pos: e.target.value })} /></Field>
             <Field label={<>Tình trạng<Req /></>}>
-              <select value={editDev.status} onChange={(e) => setEditDev({ ...editDev, status: e.target.value })}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <SearchableSelect
+                value={editDev.status}
+                onChange={(e: any) => setEditDev({ ...editDev, status: e.target.value })}
+                options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+              />
             </Field>
             <Field label={<>Ngày mua</>}><Input value={editDev.purchaseDate} readOnly /></Field>
           </div>
@@ -2531,9 +2663,11 @@ function EquipmentTypeForm({ data, onChange }: { data?: Partial<EquipmentType>; 
       <Field label={<>Mã loại<Req /></>}><Input placeholder="VD: ET07" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
       <Field label={<>Tên loại thiết bị<Req /></>}><Input placeholder="VD: Máy tập đẩy ngực" value={data?.name || ""} onChange={(e: any) => onChange({ ...data, name: e.target.value })} /></Field>
       <Field label={<>Phân loại<Req /></>}>
-        <select value={data?.category || "Cardio"} onChange={(e) => onChange({ ...data, category: e.target.value as any })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <SearchableSelect
+          value={data?.category || "Cardio"}
+          onChange={(e: any) => onChange({ ...data, category: e.target.value as any })}
+          options={EQUIPMENT_CATEGORIES.map((c) => ({ value: c, label: c }))}
+        />
       </Field>
       <Field label={<>Hãng / Nhà sản xuất<Req /></>}><Input placeholder="VD: Matrix" value={data?.brand || ""} onChange={(e: any) => onChange({ ...data, brand: e.target.value })} /></Field>
       <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="text" inputMode="numeric" value={data?.warranty?.toString() || ""} onChange={(e: any) => { const raw = e.target.value.replace(/\D/g, ""); onChange({ ...data, warranty: raw ? parseInt(raw, 10) : 0 }) }} /></Field>
@@ -2552,17 +2686,23 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
     <div className="grid grid-cols-2 gap-4">
       <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
       <Field label={<>Phòng / Khu vực<Req /></>}>
-        <select value={data?.room || rooms[0]?.name} onChange={(e) => onChange({ ...data, room: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {rooms.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
-        </select>
+        <SearchableSelect
+          value={data?.room || rooms[0]?.name}
+          onChange={(e: any) => onChange({ ...data, room: e.target.value })}
+          options={rooms.map((r) => ({ value: r.name, label: r.name }))}
+        />
       </Field>
       <Field label={<>Ngày mua<Req /></>}><Input type="date" placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
       <Field label={<>Trạng thái<Req /></>}>
-        <select value={data?.status || "Hoạt động"} onChange={(e) => onChange({ ...data, status: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Hoạt động">Hoạt động</option>
-          <option value="Đang bảo trì">Đang bảo trì</option>
-          <option value="Ngừng sử dụng">Ngừng sử dụng</option>
-        </select>
+        <SearchableSelect
+          value={data?.status || "Hoạt động"}
+          onChange={(e: any) => onChange({ ...data, status: e.target.value })}
+          options={[
+            { value: "Hoạt động", label: "Hoạt động" },
+            { value: "Đang bảo trì", label: "Đang bảo trì" },
+            { value: "Ngừng sử dụng", label: "Ngừng sử dụng" },
+          ]}
+        />
       </Field>
     </div>
   );
@@ -2675,6 +2815,7 @@ function Equipment() {
   };
 
   const handleAddItem = async () => {
+    if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -2703,6 +2844,7 @@ function Equipment() {
   };
 
   const handleEditItem = async () => {
+    if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -2770,10 +2912,15 @@ function Equipment() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên loại hoặc mã…" className="max-w-xs" value={typeQuery} onChange={(e: any) => setTypeQuery(e.target.value)} />
-        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả phân loại</option>
-          {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <SearchableSelect
+          value={catFilter}
+          onChange={(e: any) => setCatFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả phân loại" },
+            ...EQUIPMENT_CATEGORIES.map((c) => ({ value: c, label: c }))
+          ]}
+        />
       </div>
 
       {/* Table at xl+ */}
@@ -2967,7 +3114,7 @@ function EquipmentMaintenance() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
         }
       }).catch(console.error);
   };
@@ -3068,12 +3215,17 @@ function EquipmentMaintenance() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <select value={maintStatus} onChange={(e) => setMaintStatus(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đang xử lý">Đang xử lý</option>
-          <option value="Đã xử lý">Đã xử lý</option>
-        </select>
+        <SearchableSelect
+          value={maintStatus}
+          onChange={(e: any) => setMaintStatus(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Chờ xử lý", label: "Chờ xử lý" },
+            { value: "Đang xử lý", label: "Đang xử lý" },
+            { value: "Đã xử lý", label: "Đã xử lý" },
+          ]}
+        />
       </div>
       <Card padded={false}>
         <DataTable
@@ -3159,7 +3311,7 @@ function MaintenanceOwner() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
         }
       }).catch(console.error);
     fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).then(data => {
@@ -3176,17 +3328,39 @@ function MaintenanceOwner() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAdd = async () => {
+    if (!addForm.equipmentId && items.length === 0) {
+      toast.error("Vui lòng chọn thiết bị");
+      return;
+    }
+    if (!addForm.date) {
+      toast.error("Vui lòng chọn ngày báo");
+      return;
+    }
+    const d = new Date(addForm.date);
+    if (d > new Date()) { toast.error("Ngày báo không được là ngày trong tương lai"); return; }
+    if (isNaN(d.getTime())) {
+      toast.error("Ngày báo sai định dạng");
+      return;
+    }
+    if (!addForm.desc || !addForm.desc.trim()) {
+      toast.error("Vui lòng nhập mô tả lỗi");
+      return;
+    }
+
     setIsSubmitting(true);
+    const currentUser = JSON.parse(localStorage.getItem("gymos_user") || "{}");
+    const reporterName = currentUser.name || "Nhân viên";
+
     try {
       const res = await fetch("http://localhost:5000/api/v1/equipment-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString("en-GB"), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
+        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date, errorDescription: addForm.desc, reporterName, resolveStatus: "Chờ xử lý" })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         toast.success("Thêm yêu cầu thành công");
-        fetchReports(); setAddOpen(false);
+        fetchReports(); setAddOpen(false); setAddForm({});
       } else {
         toast.error(data.message || "Lỗi khi thêm yêu cầu");
       }
@@ -3206,7 +3380,7 @@ function MaintenanceOwner() {
         body: JSON.stringify({ resolveStatus: "Hoàn thành" })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         toast.success("Kết thúc bảo trì thành công");
         fetchReports(); setViewId(null);
       } else {
@@ -3224,7 +3398,7 @@ function MaintenanceOwner() {
     try {
       const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting?.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         toast.success("Xóa yêu cầu thành công");
         fetchReports(); setDeleteId(null);
       } else {
@@ -3257,12 +3431,17 @@ function MaintenanceOwner() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đang xử lý">Đang xử lý</option>
-          <option value="Đã xử lý">Đã xử lý</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Chờ xử lý", label: "Chờ xử lý" },
+            { value: "Đang xử lý", label: "Đang xử lý" },
+            { value: "Đã xử lý", label: "Đã xử lý" },
+          ]}
+        />
       </div>
 
       <Card padded={false}>
@@ -3284,24 +3463,26 @@ function MaintenanceOwner() {
         {filtered.length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Không có yêu cầu nào ở trạng thái "{statusFilter}"</div>}
       </Card>
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm yêu cầu bảo trì" wide
+      <Modal open={addOpen} onClose={() => { setAddOpen(false); setAddForm({}); }} title="Thêm yêu cầu bảo trì" wide
         footer={<>
-          <Button variant="ghost" onClick={() => setAddOpen(false)}>Hủy</Button>
+          <Button variant="ghost" onClick={() => { setAddOpen(false); setAddForm({}); }}>Hủy</Button>
           <Button icon={CheckCircle2} disabled={isSubmitting} onClick={handleAdd}>{isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}</Button>
         </>}>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <Field label={<>Chọn thiết bị<Req /></>}>
-              <select value={addForm.equipmentId || items[0]?.id} onChange={e => setAddForm({ ...addForm, equipmentId: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                {items.map((i) => <option key={i.id} value={i.id}>{i.code} — {i.room}</option>)}
-              </select>
+              <SearchableSelect
+                value={addForm.equipmentId || items[0]?.id}
+                onChange={(e: any) => setAddForm({ ...addForm, equipmentId: e.target.value })}
+                options={items.map((i) => ({ value: i.id, label: i.code + " — " + i.room }))}
+              />
             </Field>
           </div>
           <Field label={<>Ngày báo<Req /></>}><Input type="date" value={addForm.date || ""} onChange={(e: any) => setAddForm({ ...addForm, date: e.target.value })} /></Field>
           <div className="flex flex-col justify-end">
             <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground px-3 py-2.5 rounded-lg bg-muted/40 border border-border/60">
               <span>Người báo:</span>
-              <span className="font-medium text-foreground">Trần Mỹ Linh</span>
+              <span className="font-medium text-foreground">{JSON.parse(localStorage.getItem("gymos_user") || "{}").name || "Nhân viên"}</span>
               <Badge tone="sky">Tự động</Badge>
             </div>
           </div>
@@ -3482,7 +3663,7 @@ function Feedback() {
     }
   };
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+  const fmtDate = (d: string | null) => d ? formatDate(d) : "—";
   const shortId = (id: string) => id.substring(0, 8).toUpperCase();
 
   const typeCounts: Record<string, number> = {};
@@ -3532,11 +3713,16 @@ function Feedback() {
             className="w-full h-10 rounded-lg bg-input-background border border-border pl-9 pr-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition"
           />
         </div>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đã phản hồi">Đã phản hồi</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Chờ xử lý", label: "Chờ xử lý" },
+            { value: "Đã phản hồi", label: "Đã phản hồi" }
+          ]}
+        />
         <div className="flex items-center gap-2">
           {(["Tất cả", ...Object.keys(typeCounts)]).filter((v, i, a) => a.indexOf(v) === i).map((c) => (
             <button key={c} onClick={() => { setTypeFilter(c); setPage(1); }} className={cn(
@@ -3770,7 +3956,7 @@ function ReportsOverview() {
   return (
     <>
       <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
-        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("en-GB")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+        actions={<><Button variant="outline" icon={CalIcon}>{formatDate(new Date())}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
           { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
@@ -4152,12 +4338,18 @@ function StaffReport() {
         sub={`Hiệu suất chấm công ${staffList.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
         actions={
           <div className="flex items-center gap-2">
-            <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {months.map(m => <option key={m} value={m}>Tháng {m}</option>)}
-            </select>
-            <select value={selYear} onChange={e => setSelYear(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <SearchableSelect
+              value={selMonth}
+              onChange={(e: any) => setSelMonth(Number(e.target.value))}
+              className="w-28"
+              options={months.map(m => ({ value: m, label: "Tháng " + m }))}
+            />
+            <SearchableSelect
+              value={selYear}
+              onChange={(e: any) => setSelYear(Number(e.target.value))}
+              className="w-28"
+              options={years.map(y => ({ value: y, label: String(y) }))}
+            />
             <Button icon={FileBarChart}>Xuất báo cáo</Button>
           </div>
         }
@@ -4257,11 +4449,11 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
       <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={data?.phone} /></Field>
       <Field label={<>Email<Req /></>}><Input icon={Mail} type="email" placeholder="email@example.com" /></Field>
       <Field label={<>Gói tập<Req /></>}>
-        <select disabled={disablePackage} defaultValue={data?.pkg ?? PACKAGES[0].name}
-          className={cn("w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]",
-            disablePackage && "opacity-50 cursor-not-allowed")}>
-          {PACKAGES.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-        </select>
+        <SearchableSelect
+          disabled={disablePackage}
+          defaultValue={data?.pkg ?? PACKAGES[0].name}
+          options={PACKAGES.map((p) => ({ value: p.name, label: p.name }))}
+        />
         {disablePackage && <p className="text-[11px] text-muted-foreground/70 mt-1">Dùng chức năng "Gia hạn gói tập" để thay đổi</p>}
       </Field>
       <Field label={<>Hạn / Số buổi còn lại<Req /></>}>
@@ -4271,9 +4463,10 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
         {disablePackage && <p className="text-[11px] text-muted-foreground/70 mt-1">Dùng chức năng "Gia hạn gói tập" để thay đổi</p>}
       </Field>
       <Field label={<>Trạng thái<Req /></>}>
-        <select defaultValue={data?.status ?? "Đang hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          defaultValue={data?.status ?? "Đang hoạt động"}
+          options={MEMBER_STATUSES.map((s) => ({ value: s, label: s }))}
+        />
       </Field>
       <Field label={<>Ngày sinh<Req /></>}><Input type="date" /></Field>
       <div className="col-span-2"><Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận, thành phố" /></Field></div>
@@ -4342,7 +4535,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     if (!plan) return "—";
     if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("en-GB");
+    if (expire) return formatDate(expire);
     return "—";
   };
 
@@ -4442,12 +4635,16 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query}
           onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          <option value="Chưa có gói">Chưa có gói</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            ...MEMBER_STATUSES.map((s) => ({ value: s, label: s })),
+            { value: "Chưa có gói", label: "Chưa có gói" }
+          ]}
+        />
       </div>
       <Card padded={false}>
         <DataTable
@@ -4499,13 +4696,16 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
               <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
             </Field>
             <Field label="Giới tính">
-              <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="">Chưa chọn</option>
-                <option value="male">Nam</option>
-                <option value="female">Nữ</option>
-                <option value="other">Khác</option>
-              </select>
+              <SearchableSelect
+                value={editForm.gender}
+                onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                options={[
+                  { value: "", label: "Chưa chọn" },
+                  { value: "male", label: "Nam" },
+                  { value: "female", label: "Nữ" },
+                  { value: "other", label: "Khác" }
+                ]}
+              />
             </Field>
             <div className="col-span-2">
               <Field label="Nghề nghiệp">
@@ -4545,6 +4745,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   const [sellable, setSellable] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
   const [trainerList, setTrainerList] = useState<any[]>([]);
   const [trainerId, setTrainerId] = useState("");
@@ -4598,7 +4799,9 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive).map((d: any) => ({
+          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive);
+          setPackages(rawList);
+          const list = rawList.map((d: any) => ({
             id: d.packageId, name: d.packageName,
             type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
             price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded
@@ -4611,7 +4814,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          setTrainerList((res.data || []).filter((s: any) => s.role === "Huấn luyện viên"));
+          setTrainerList((res.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm"));
         }
       });
   }, []);
@@ -4712,44 +4915,13 @@ function NewMember({ onBack }: { onBack?: () => void }) {
           <Card>
             <h3 className="font-display mb-4">Chọn gói tập</h3>
             <Field label="Gói tập">
-              <div className="relative">
-                <select value={pkgId} onChange={(e) => { setPkgId(e.target.value); setTrainerId(""); setStep1Errors({}); }}
-                  className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-                  {sellable.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.id} — {p.name} — {p.type} — {p.price.toLocaleString("vi-VN")}₫{p.vip ? " ★VIP" : ""}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-              </div>
+              <PackageDropdown pkgId={pkgId} onChange={(id) => { setPkgId(id); setTrainerId(""); setStep1Errors({}); }} packages={packages} />
             </Field>
-            {pkg && (
-              <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-display font-semibold text-[16px]">{pkg.name}</div>
-                  <div className="text-[12px] text-muted-foreground">{pkg.type}</div>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    {pkg.vip && <Badge tone="amber">★ VIP</Badge>}
-                    {pkg.trainer && <Badge tone="violet">Yêu cầu HLV</Badge>}
-                  </div>
-                </div>
-                <div className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</div>
-              </div>
-            )}
             <div className="mt-5 grid grid-cols-2 gap-4">
               {pkg?.trainer && (
                 <Field label={<>Huấn luyện viên<Req /></>} hint="Bắt buộc khi gói có Trainer">
-                  <div className="relative">
-                    <select value={trainerId} onChange={(e: any) => { setTrainerId(e.target.value); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }} className={cn("w-full h-10 rounded-lg bg-input-background border px-3 text-[13px] appearance-none", step1Errors.trainerId ? "border-red-400" : "border-border")}>
-                      <option value="">— Chọn huấn luyện viên —</option>
-                      {trainerList.map((t: any) => (
-                        <option key={t.staffId || t.code} value={t.staffId || t.code}>{t.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                  {step1Errors.trainerId && <p className="text-[11px] text-red-500 mt-1">{step1Errors.trainerId}</p>}
+                  <TrainerDropdown trainerId={trainerId} onChange={(id) => { setTrainerId(id); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }} trainers={trainerList} error={!!step1Errors.trainerId} />
+                  {step1Errors.trainerId && <p className="text-[11px] text-[#FF5C5C] mt-1">{step1Errors.trainerId}</p>}
                 </Field>
               )}
               <Field label="Phương thức thanh toán">
@@ -4786,7 +4958,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   );
 }
 
-function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplete, mode = "new" }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; trainerId?: string; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew" }) {
+function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplete, mode = "new", memberId }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; trainerId?: string; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew"; memberId?: string }) {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -4906,7 +5078,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             {[
               ["Gói tập", pkg.name],
               ["Hội viên", formData?.memberName || "Bạn"],
-              ["Ngày bắt đầu", new Date().toLocaleDateString("en-GB")]
+              ["Ngày bắt đầu", formatDate(new Date())]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
@@ -4939,7 +5111,9 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                     },
                     body: JSON.stringify({
                       packageId: pkgId,
-                      paymentMethod: methodMap[kind] || "cash"
+                      paymentMethod: methodMap[kind] || "cash",
+                      ...(memberId ? { memberId } : {}),
+                      ...(trainerId ? { trainerId } : {})
                     })
                   });
                   const rData = await rRes.json();
@@ -4968,7 +5142,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                 const mData = await mRes.json();
                 if (!mData.success) throw new Error(mData.message || "Lỗi tạo hội viên");
 
-                const memberId = mData.data.member.memberId;
+                const newMemberId = mData.data.member.memberId;
 
                 // 2. Create Subscription
                 const sRes = await fetch("http://localhost:5000/api/v1/subscriptions", {
@@ -4978,7 +5152,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                     "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
                   },
                   body: JSON.stringify({
-                    memberId,
+                    memberId: newMemberId,
                     packageId: pkgId,
                     ...(trainerId ? { trainerId } : {})
                   })
@@ -5093,6 +5267,10 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
   const handleCheckInOut = () => {
     if (todayLog) {
+      if (todayLog.endTime) {
+        toast.info("Hội viên đã check out hôm nay.");
+        return;
+      }
       fetch(`http://localhost:5000/api/v1/workout-logs/${todayLog.workoutId}/checkout`, {
         method: "PATCH", headers
       }).then(r => r.json()).then(res => {
@@ -5196,7 +5374,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
                 <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
-                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("en-GB")}</span>}
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{formatDate(member.dateOfBirth)}</span>}
               </div>
             </div>
           </div>
@@ -5204,8 +5382,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button variant={todayLog ? "danger" : "secondary"} icon={CheckCircle2} onClick={handleCheckInOut}>
-              {todayLog ? "Check out hôm nay" : "Check in hôm nay"}
+            <Button 
+              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"} 
+              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2} 
+              onClick={handleCheckInOut}
+              disabled={!!(todayLog && todayLog.endTime)}
+            >
+              {todayLog ? (todayLog.endTime ? "Đã check out" : "Check out hôm nay") : "Check in hôm nay"}
             </Button>
           </div>
         </div>
@@ -5214,13 +5397,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
             <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
-            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("en-GB")}</div>}
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {formatDate(plan.startDate)}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             {pkg?.packageType === "session" ? <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{formatDate(expireDate)}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5228,7 +5411,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             </> : <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{formatDate(expireDate)}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5257,7 +5440,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
               rows={logs.map((d, idx) => [
-                new Date(d.workoutDate).toLocaleDateString("en-GB"),
+                formatDate(d.workoutDate),
                 d.startTime?.slice(0, 5) || "—",
                 d.duration ? `${d.duration} phút` : "—",
                 <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
@@ -5273,7 +5456,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
               rows={payments.filter(p => p.Bill).map((p) => [
-                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("en-GB") : "—",
+                p.Bill?.paymentDate ? formatDate(p.Bill.paymentDate) : "—",
                 <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
                 <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
                   {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
@@ -5312,13 +5495,16 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
           </Field>
           <Field label="Giới tính">
-            <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
-              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option value="">Chưa chọn</option>
-              <option value="male">Nam</option>
-              <option value="female">Nữ</option>
-              <option value="other">Khác</option>
-            </select>
+              <SearchableSelect
+                value={editForm.gender}
+                onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                options={[
+                  { value: "", label: "Chưa chọn" },
+                  { value: "male", label: "Nam" },
+                  { value: "female", label: "Nữ" },
+                  { value: "other", label: "Khác" }
+                ]}
+              />
           </Field>
           <div className="col-span-2">
             <Field label="Nghề nghiệp">
@@ -5352,7 +5538,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("en-GB")}</span>?</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{formatDate(logs[delDayIdx].workoutDate)}</span>?</p>
           </div>
         )}
       </Modal>
@@ -5401,7 +5587,7 @@ function MemberHistory() {
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("en-GB");
+    return formatDate(d);
   };
 
   /* ── calendar ── */
@@ -5697,7 +5883,7 @@ function MemberPayments() {
         return {
           code: `PAY-${plan.Bill.billId.split("-")[0].toUpperCase()}`,
           rawDate: d,
-          d: d.toLocaleDateString("en-GB"),
+          d: formatDate(d),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
           method: plan.Bill.paymentMethod || "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
@@ -5715,8 +5901,8 @@ function MemberPayments() {
     
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
-      startDate: new Date(active.startDate).toLocaleDateString("en-GB"),
-      expireDate: new Date(active.expireDate).toLocaleDateString("en-GB"),
+      startDate: formatDate(active.startDate),
+      expireDate: formatDate(active.expireDate),
       daysLeft
     };
   }, [subscriptions]);
@@ -5907,7 +6093,7 @@ function MemberFeedback() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
         {list.map((f) => {
-          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("en-GB") : "";
+          const d = f.feedbackDate ? formatDate(f.feedbackDate) : "";
           const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
           return (
             <Card key={f.feedbackId}>
@@ -5954,20 +6140,26 @@ function MemberFeedback() {
           </Field>
           {fbType === "Thiết bị" && (
             <Field label="Thiết bị liên quan (tùy chọn)">
-              <select value={ref} onChange={(e) => setRef(e.target.value)}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="">— Không chọn —</option>
-                {equipmentList.map((i) => <option key={i.equipmentCode} value={i.equipmentCode}>{i.equipmentCode} — {i.Room?.roomName}</option>)}
-              </select>
+              <SearchableSelect
+                value={ref}
+                onChange={(e: any) => setRef(e.target.value)}
+                options={[
+                  { value: "", label: "— Không chọn —" },
+                  ...equipmentList.map((i) => ({ value: i.equipmentCode, label: `${i.equipmentCode} — ${i.Room?.roomName}` }))
+                ]}
+              />
             </Field>
           )}
           {fbType === "Nhân viên" && (
             <Field label="Nhân viên liên quan (tùy chọn)">
-              <select value={ref} onChange={(e) => setRef(e.target.value)}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="">— Không chọn —</option>
-                {staffList.map((s) => <option key={s.code} value={s.code}>{s.code} — {s.name} ({s.role})</option>)}
-              </select>
+              <SearchableSelect
+                value={ref}
+                onChange={(e: any) => setRef(e.target.value)}
+                options={[
+                  { value: "", label: "— Không chọn —" },
+                  ...staffList.map((s) => ({ value: s.code, label: `${s.code} — ${s.name} (${s.role})` }))
+                ]}
+              />
             </Field>
           )}
           <Field label="Nội dung">
@@ -5982,7 +6174,7 @@ function MemberFeedback() {
           <Button icon={Trash2} disabled={isSubmitting} onClick={deleteFeedback}>{isSubmitting ? "Đang xóa..." : "Xóa phản hồi"}</Button>
         </>}>
         {deleting && (() => {
-          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("en-GB") : "";
+          const d = deleting.feedbackDate ? formatDate(deleting.feedbackDate) : "";
           return (
             <div className="space-y-3">
               <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -5996,11 +6188,10 @@ function MemberFeedback() {
   );
 }
 
-function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChange: (id: string) => void; packages: any[] }) {
+function TrainerDropdown({ trainerId, onChange, trainers, error, readonly }: { trainerId: string; onChange: (id: string) => void; trainers: any[]; error?: boolean; readonly?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const list = packages;
-  const selected = list.find((p) => p.packageId === pkgId);
 
   useEffect(() => {
     if (!open) return;
@@ -6009,7 +6200,69 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const renderRow = (p: typeof list[number], inList: boolean) => {
+  const selected = trainers.find((t) => (t.staffId || t.code) === trainerId);
+  const suggestions = query ? trainers.filter(t => (t.staffName || t.name || "").toLowerCase().includes(query.toLowerCase()) || (t.staffCode || t.code || "").toLowerCase().includes(query.toLowerCase())) : trainers;
+
+  return (
+    <div className="relative" ref={ref}>
+      {!selected ? (
+        <div className="relative">
+          <Input disabled={readonly} icon={Search} placeholder="Gõ tên hoặc mã HLV…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => !readonly && setOpen(true)} className={error ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-[#FF5C5C]/15" : ""} />
+          {open && (
+            <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+               <div className="max-h-[300px] overflow-y-auto">
+                 {suggestions.length > 0 ? suggestions.map(t => {
+                   const id = t.staffId || t.code;
+                   const name = t.staffName || t.name;
+                   const code = t.staffCode || t.code || "Không có mã";
+                   return (
+                     <button key={id} type="button" onClick={() => { onChange(id); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-2.5 border-b border-border/60 last:border-0 hover:bg-muted/60 transition flex items-center gap-3">
+                        <div className="size-8 rounded-lg bg-muted border border-border grid place-items-center text-[10px] font-mono">{name.split(" ").slice(-2).map((n: string) => n[0]).join("")}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium truncate">{name}</div>
+                          <div className="text-[11px] text-muted-foreground font-mono">{code}</div>
+                        </div>
+                     </button>
+                   );
+                 }) : (
+                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy HLV nào.</div>
+                 )}
+               </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={cn("rounded-xl border bg-[#6C63FF]/8 dark:bg-[#6C63FF]/10 p-2 flex items-center gap-3", error ? "border-[#FF5C5C]/60" : "border-[#6C63FF]/40")}>
+          <div className="size-8 rounded-lg bg-gradient-to-br from-[#6C63FF] to-[#3F39C7] grid place-items-center text-white font-display font-semibold text-[11px]">
+            {(selected.staffName || selected.name).split(" ").slice(-2).map((n: string) => n[0]).join("")}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-[13px] font-medium truncate">{selected.staffName || selected.name}</div>
+            <div className="text-[11px] text-muted-foreground font-mono">{selected.staffCode || selected.code || "Không có mã"}</div>
+          </div>
+          {!readonly && <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} className="size-7 rounded-md hover:bg-accent grid place-items-center"><X className="size-3.5" /></button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChange: (id: string) => void; packages: any[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const selected = packages.find((p) => p.packageId === pkgId);
+  const suggestions = query ? packages.filter(p => p.packageName?.toLowerCase().includes(query.toLowerCase()) || p.packageCode?.toLowerCase().includes(query.toLowerCase())) : packages;
+
+  const renderRow = (p: any, inList: boolean) => {
     const isSession = p.packageType === "session";
     const durationLabel = isSession ? `${p.numberOfWorkout || 0} buổi` : `${p.duration || 0} ${p.durationUnit || "tháng"}`;
     const perks = [
@@ -6051,43 +6304,54 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
 
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className={cn("w-full min-h-12 rounded-lg border bg-input-background px-3 py-2 text-left transition flex items-center gap-2",
-          open ? "border-[#6C63FF]" : "border-border hover:border-[#6C63FF]/40")}>
-        <div className="flex-1 min-w-0">
-          {selected ? renderRow(selected, false) : <span className="text-[13px] text-muted-foreground">— Chọn gói gia hạn —</span>}
+      {!selected ? (
+        <div className="relative">
+          <Input icon={Search} placeholder="Gõ tên hoặc mã gói tập…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => setOpen(true)} />
+          {open && (
+            <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+               <div className="max-h-[360px] overflow-y-auto py-1">
+                 {suggestions.length > 0 ? suggestions.map(p => (
+                   <button key={p.packageId} type="button" onClick={() => { onChange(p.packageId); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-3 border-b border-border/60 last:border-0 hover:bg-muted/60 transition">
+                     {renderRow(p, true)}
+                   </button>
+                 )) : (
+                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy gói tập nào.</div>
+                 )}
+               </div>
+            </div>
+          )}
         </div>
-        <ChevronDown className={cn("size-4 text-muted-foreground transition", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="absolute z-30 left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-          <div className="max-h-[360px] overflow-y-auto py-1">
-            {list.map((p) => {
-              const active = p.packageId === pkgId;
-              return (
-                <button key={p.packageId} type="button"
-                  onClick={() => { onChange(p.packageId); setOpen(false); }}
-                  className={cn("w-full text-left px-3 py-3 border-b border-border/60 last:border-0 transition",
-                    active ? "bg-[#6C63FF]/10" : "hover:bg-muted/60")}>
-                  {renderRow(p, true)}
-                </button>
-              );
-            })}
+      ) : (
+        <div className="rounded-xl border border-[#6C63FF]/40 bg-[#6C63FF]/8 dark:bg-[#6C63FF]/10 p-2 pr-3 flex items-start gap-3">
+          <div className="flex-1 min-w-0 text-left">
+            {renderRow(selected, false)}
           </div>
+          <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} className="size-7 rounded-md hover:bg-[#6C63FF]/20 grid place-items-center mt-1"><X className="size-3.5" /></button>
         </div>
       )}
     </div>
   );
 }
 
-function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: string }) {
+function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberName?: string; memberId?: string }) {
   const [pkgId, setPkgId] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [trainerId, setTrainerId] = useState("");
+  const [trainerList, setTrainerList] = useState<any[]>([]);
   const navigate = useNavigate();
+
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("gymos_user") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+  const isTrainer = currentUser.role === "pt" || currentUser.role === "trainer" || currentUser.role === "Huấn luyện viên";
 
   useEffect(() => {
     fetch("http://localhost:5000/api/v1/packages")
@@ -6096,22 +6360,52 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
       });
 
-    fetch("http://localhost:5000/api/v1/subscriptions/me", {
+    fetch("http://localhost:5000/api/v1/staffs", {
       headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.data.subscriptions) {
-          const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-          if (active) setCurrentPlan(active);
+        if (data.success) {
+          const tList = (data.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm");
+          setTrainerList(tList);
+          if (isTrainer) {
+            const me = tList.find((t: any) => t.userId === currentUser.id || t.userId === currentUser.userId || t.email === currentUser.email || t.staffName === currentUser.name);
+            if (me) setTrainerId(me.staffId || me.code);
+          }
         }
       });
+
+    if (memberId) {
+      fetch(`http://localhost:5000/api/v1/members/${memberId}`, {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data.member) {
+             setCurrentPlan(data.data.member.activePlan);
+          }
+        });
+    } else {
+      fetch("http://localhost:5000/api/v1/subscriptions/me", {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data.subscriptions) {
+            const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            if (active) setCurrentPlan(active);
+          }
+        });
+    }
   }, []);
 
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} onBack={() => { setPay(null); setSelected(null); }} onComplete={() => navigate("/history")} />;
+    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); setTrainerId(""); }} onComplete={() => {
+      if (memberId && onBack) onBack();
+      else navigate("/history");
+    }} />;
   }
 
   const calDaysRemain = (expireDate: string) => {
@@ -6133,7 +6427,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
             {currentPlan ? (
               <>
                 <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
-                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("en-GB")}</div>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {formatDate(currentPlan.expireDate)}</div>
               </>
             ) : (
               <>
@@ -6157,10 +6451,17 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         )}
       </Card>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
+      <Modal open={!!selected} onClose={() => { setSelected(null); setTrainerId(""); }} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
-          <Button variant="ghost" onClick={() => setSelected(null)}>Hủy</Button>
-          <Button icon={ArrowRight} onClick={() => setPay(method)}>Tiến hành thanh toán</Button>
+          <Button variant="ghost" onClick={() => { setSelected(null); setTrainerId(""); }}>Hủy</Button>
+          <Button icon={ArrowRight} onClick={() => {
+            const pkg = packages.find((p) => p.packageId === selected);
+            if (pkg?.trainerIncluded && !trainerId) {
+              toast.error("Vui lòng chọn huấn luyện viên cho gói tập này");
+              return;
+            }
+            setPay(method);
+          }}>Tiến hành thanh toán</Button>
         </>}>
         {selected && (() => {
           const pkg = packages.find((p) => p.packageId === selected)!;
@@ -6194,6 +6495,11 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
                   })}
                 </div>
               </Field>
+              {pkg.trainerIncluded && (
+                <Field label="Huấn luyện viên">
+                  <TrainerDropdown trainerId={trainerId} onChange={setTrainerId} trainers={trainerList} error={!trainerId} readonly={isTrainer} />
+                </Field>
+              )}
             </div>
           );
         })()}
@@ -6203,7 +6509,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
 }
 
 /* ── PT students ── */
-function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
+function PtStudents({ onSelect, title, sub }: { onSelect: (id: string) => void; title?: string; sub?: string }) {
   const [list, setList] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
@@ -6224,7 +6530,7 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
   const formatRemain = (plan: any): string => {
     if (!plan) return "—";
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("en-GB");
+    if (expire) return formatDate(expire);
     return "—";
   };
 
@@ -6245,13 +6551,18 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Học viên của tôi" sub={`Bạn đang phụ trách ${list.length} học viên`} />
+      <SectionTitle title={title || "Học viên của tôi"} sub={sub || `Bạn đang phụ trách ${list.length} học viên`} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            ...MEMBER_STATUSES.map((s) => ({ value: s, label: s }))
+          ]}
+        />
       </div>
       <Card padded={false}>
         <DataTable
@@ -6293,11 +6604,23 @@ function MemberDetailWrapper({ disablePackage, readonly }: { disablePackage?: bo
   const { id } = useParams();
   const navigate = useNavigate();
   const base = readonly ? "/students" : "/members";
-  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew")} disablePackage={disablePackage} readonly={readonly} />;
+  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew?memberId=" + id)} disablePackage={disablePackage} readonly={readonly} />;
 }
 function RenewWrapper({ role }: { role: Role }) {
   const navigate = useNavigate();
-  return <Renew onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const memberId = params.get("memberId") || undefined;
+
+  if (role === "trainer" && !memberId) {
+    return <PtStudents 
+      onSelect={(id) => navigate(`/renew?memberId=${id}`)} 
+      title="Chọn hội viên gia hạn" 
+      sub="Vui lòng chọn một học viên để tiếp tục gia hạn gói tập" 
+    />;
+  }
+
+  return <Renew memberId={memberId} onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
 }
 function ReportsWrapper() {
   const location = useLocation();
