@@ -3176,17 +3176,38 @@ function MaintenanceOwner() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAdd = async () => {
+    if (!addForm.equipmentId && items.length === 0) {
+      toast.error("Vui lòng chọn thiết bị");
+      return;
+    }
+    if (!addForm.date) {
+      toast.error("Vui lòng chọn ngày báo");
+      return;
+    }
+    const d = new Date(addForm.date);
+    if (isNaN(d.getTime())) {
+      toast.error("Ngày báo sai định dạng");
+      return;
+    }
+    if (!addForm.desc || !addForm.desc.trim()) {
+      toast.error("Vui lòng nhập mô tả lỗi");
+      return;
+    }
+
     setIsSubmitting(true);
+    const currentUser = JSON.parse(localStorage.getItem("gymos_user") || "{}");
+    const reporterName = currentUser.name || "Nhân viên";
+
     try {
       const res = await fetch("http://localhost:5000/api/v1/equipment-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString("en-GB"), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
+        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date, errorDescription: addForm.desc, reporterName, resolveStatus: "Chờ xử lý" })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         toast.success("Thêm yêu cầu thành công");
-        fetchReports(); setAddOpen(false);
+        fetchReports(); setAddOpen(false); setAddForm({});
       } else {
         toast.error(data.message || "Lỗi khi thêm yêu cầu");
       }
@@ -3206,7 +3227,7 @@ function MaintenanceOwner() {
         body: JSON.stringify({ resolveStatus: "Hoàn thành" })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         toast.success("Kết thúc bảo trì thành công");
         fetchReports(); setViewId(null);
       } else {
@@ -3224,7 +3245,7 @@ function MaintenanceOwner() {
     try {
       const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting?.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         toast.success("Xóa yêu cầu thành công");
         fetchReports(); setDeleteId(null);
       } else {
@@ -3284,9 +3305,9 @@ function MaintenanceOwner() {
         {filtered.length === 0 && <div className="text-center text-muted-foreground py-10 text-[13px]">Không có yêu cầu nào ở trạng thái "{statusFilter}"</div>}
       </Card>
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm yêu cầu bảo trì" wide
+      <Modal open={addOpen} onClose={() => { setAddOpen(false); setAddForm({}); }} title="Thêm yêu cầu bảo trì" wide
         footer={<>
-          <Button variant="ghost" onClick={() => setAddOpen(false)}>Hủy</Button>
+          <Button variant="ghost" onClick={() => { setAddOpen(false); setAddForm({}); }}>Hủy</Button>
           <Button icon={CheckCircle2} disabled={isSubmitting} onClick={handleAdd}>{isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}</Button>
         </>}>
         <div className="grid grid-cols-2 gap-4">
@@ -3301,7 +3322,7 @@ function MaintenanceOwner() {
           <div className="flex flex-col justify-end">
             <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground px-3 py-2.5 rounded-lg bg-muted/40 border border-border/60">
               <span>Người báo:</span>
-              <span className="font-medium text-foreground">Trần Mỹ Linh</span>
+              <span className="font-medium text-foreground">{JSON.parse(localStorage.getItem("gymos_user") || "{}").name || "Nhân viên"}</span>
               <Badge tone="sky">Tự động</Badge>
             </div>
           </div>
