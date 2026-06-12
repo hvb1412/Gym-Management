@@ -1981,11 +1981,6 @@ function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e:
             {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
-        <div className="col-span-2">
-          <Field label="Ghi chú">
-            <textarea placeholder="Mô tả khu vực, lưu ý vận hành…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
-          </Field>
-        </div>
       </div>
     </form>
   );
@@ -2039,6 +2034,14 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : (s === "Bảo trì" ? "maintenance" : "inactive");
 
   const handleAdd = async (e: React.FormEvent, data: any) => {
+    if (!data.code?.trim() || !data.name?.trim() || !data.type || !data.status) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (list.some((r) => r.code.toLowerCase() === data.code.trim().toLowerCase())) {
+      toast.error("Mã phòng đã tồn tại");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch("http://localhost:5000/api/v1/rooms", {
@@ -2062,6 +2065,14 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   };
 
   const handleEdit = async (e: React.FormEvent, data: any) => {
+    if (!data.code?.trim() || !data.name?.trim() || !data.type || !data.status) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (list.some((r) => r.id !== editId && r.code.toLowerCase() === data.code.trim().toLowerCase())) {
+      toast.error("Mã phòng đã tồn tại");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`http://localhost:5000/api/v1/rooms/${editId}`, {
@@ -2215,6 +2226,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [room, setRoom] = useState<any>(null);
   const [devices, setDevices] = useState<any[]>([]);
   const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
+  const [allRooms, setAllRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = () => {
@@ -2223,6 +2235,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
       fetch("http://localhost:5000/api/v1/equipments").then(r => r.json()).catch(() => []),
       fetch("http://localhost:5000/api/v1/equipment-types").then(r => r.json()).catch(() => []),
     ]).then(([roomsRes, equipmentsRes, typesRes]) => {
+      if (Array.isArray(roomsRes)) setAllRooms(roomsRes);
       const found = Array.isArray(roomsRes) ? roomsRes.find((r: any) => r.roomId === id) : null;
       if (found) {
         setRoom({
@@ -2269,6 +2282,14 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const handleEditRoom = (e: React.FormEvent, data: any) => {
     e.preventDefault();
+    if (!data.code?.trim() || !data.name?.trim() || !data.type || !data.status) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (allRooms.some((r) => r.roomId !== id && (r.roomCode || `RM-${r.roomId.split('-')[0].toUpperCase()}`).toLowerCase() === data.code.trim().toLowerCase())) {
+      toast.error("Mã phòng đã tồn tại");
+      return;
+    }
     fetch(`http://localhost:5000/api/v1/rooms/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
