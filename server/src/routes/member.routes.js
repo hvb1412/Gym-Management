@@ -4,12 +4,14 @@ import { verifyToken, restrictTo } from '../middlewares/auth.middleware.js';
 import { createMemberSchema, getMembersSchema } from '../validations/member.validation.js';
 import {
   createMember, getMembers, getMemberById,
-  updateMember, deleteMember, getMemberWorkoutLogs, getMemberPayments
+  updateMember, deleteMember, getMemberWorkoutLogs, getMemberPayments,
+  checkDuplicate
 } from '../controllers/member.controller.js';
 import { getMyStudents, getTrainerDashboardStats } from '../controllers/subscription.controller.js';
 
 const router = express.Router();
 
+router.post('/check-duplicate', verifyToken, restrictTo('manager', 'owner'), checkDuplicate);
 router.post('/', verifyToken, restrictTo('manager', 'owner'), validate(createMemberSchema), createMember);
 router.get('/', verifyToken, restrictTo('manager', 'owner', 'pt'), validate(getMembersSchema), getMembers);
 // Route /my-students/stats phải đứng trước /my-students để không bị nhầm
