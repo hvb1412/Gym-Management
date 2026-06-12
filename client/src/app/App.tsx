@@ -1246,6 +1246,28 @@ function Pagination({ total = 32, page = 1, pageSize = 6, onPageChange }: { tota
   );
 }
 
+/* ── Schedule Settings Helper ── */
+const defaultScheduleConfig = {
+  1: { in: "06:30", out: "21:00" }, // T2
+  2: { in: "06:30", out: "21:00" }, // T3
+  3: { in: "06:30", out: "21:00" }, // T4
+  4: { in: "06:30", out: "21:00" }, // T5
+  5: { in: "06:30", out: "21:00" }, // T6
+  6: { in: "08:00", out: "20:00" }, // T7
+  0: { in: "08:00", out: "12:00" }, // CN
+};
+
+const getScheduleConfig = () => {
+  try {
+    const s = localStorage.getItem("gym_work_schedule");
+    return s ? JSON.parse(s) : defaultScheduleConfig;
+  } catch { return defaultScheduleConfig; }
+};
+
+const saveScheduleConfig = (s: any) => {
+  localStorage.setItem("gym_work_schedule", JSON.stringify(s));
+};
+
 /* ── Staff Detail ── */
 function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: string; staffs: StaffRecord[]; refresh: () => void; onBack: () => void; onEdit?: (code: string) => void }) {
   const s = staffs.find((x) => x.code === id);
@@ -1299,10 +1321,10 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
               const [hours, minutes] = log.checkInTime.split(':').map(Number);
               const timeInMinutes = hours * 60 + minutes;
 
-              let limitMinutes = 8 * 60; // 08:00 for Sat, Sun
-              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                limitMinutes = 6 * 60 + 30; // 06:30 for Mon-Fri
-              }
+              const schedule = getScheduleConfig();
+              const dayConfig = schedule[dayOfWeek] || { in: "06:30" };
+              const [limitH, limitM] = dayConfig.in.split(':').map(Number);
+              const limitMinutes = limitH * 60 + limitM;
 
               if (timeInMinutes > limitMinutes) {
                 isLate = true;
@@ -1440,6 +1462,9 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
 function Attendance({ staffs }: { staffs: StaffRecord[] }) {
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
+  const [inTime, setInTime] = useState("06:30");
+  const [outTime, setOutTime] = useState("21:00");
+  const [schedule, setSchedule] = useState<any>(getScheduleConfig());
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<StaffRecord | null>(null);
   const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>([]);
@@ -1574,9 +1599,9 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
               <p className="text-[12.5px] text-muted-foreground mt-1">Cấu hình hiện tại áp dụng cho toàn bộ nhân sự.</p>
               <div className="mt-4 space-y-2">
                 {[
-                  { d: "T2 → T6", in: "06:30", out: "21:00" },
-                  { d: "Thứ 7", in: "08:00", out: "20:00" },
-                  { d: "Chủ Nhật", in: "08:00", out: "12:00" },
+                  { d: "T2 → T6", in: schedule[1].in, out: schedule[1].out },
+                  { d: "Thứ 7", in: schedule[6].in, out: schedule[6].out },
+                  { d: "Chủ Nhật", in: schedule[0].in, out: schedule[0].out },
                 ].map((r) => (
                   <div key={r.d} className="flex items-center justify-between rounded-lg bg-muted/40 border border-border/70 px-3 py-2.5">
                     <span className="text-[13px]">{r.d}</span>
@@ -1614,7 +1639,19 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thiết lập giờ làm việc" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button onClick={() => {
+          const mapUIToDayOfWeek = [1, 2, 3, 4, 5, 6, 0]; // T2..CN
+          const newSchedule = { ...schedule };
+          days.forEach((selected, i) => {
+            if (selected) {
+              newSchedule[mapUIToDayOfWeek[i]] = { in: inTime, out: outTime };
+            }
+          });
+          setSchedule(newSchedule);
+          saveScheduleConfig(newSchedule);
+          toast.success("Cập nhật giờ làm việc thành công");
+          setOpen(false);
+        }}>Lưu thay đổi</Button></>}>
         <div className="space-y-4">
           <Field label="Chọn các ngày làm việc">
             <div className="flex flex-wrap gap-2">
@@ -1629,8 +1666,8 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
             </div>
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Giờ vào ca"><Input type="time" value="06:30" /></Field>
-            <Field label="Giờ tan ca"><Input type="time" value="21:00" /></Field>
+            <Field label="Giờ vào ca"><Input type="time" value={inTime} onChange={(e: any) => setInTime(e.target.value)} /></Field>
+            <Field label="Giờ tan ca"><Input type="time" value={outTime} onChange={(e: any) => setOutTime(e.target.value)} /></Field>
           </div>
         </div>
       </Modal>
@@ -5920,7 +5957,7 @@ function MemberPayments() {
           rawDate: d,
           d: formatDate(d),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
-          method: plan.Bill.paymentMethod || "Tiền mặt",
+          method: plan.Bill.paymentMethod === "card" ? "Thẻ NH" : plan.Bill.paymentMethod === "qr" ? "QR Code" : "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
           status: "Thành công"
         };
