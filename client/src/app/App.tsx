@@ -165,12 +165,12 @@ function IconBtn({ icon: Icon, tone = "default", onClick }: { icon: any; tone?: 
   );
 }
 
-function Input({ icon: Icon, placeholder, type = "text", className, value, onChange }: any) {
+function Input({ icon: Icon, placeholder, type = "text", className, value, onChange, ...rest }: any) {
   const controlled = onChange !== undefined;
   return (
     <div className={cn("relative", className)}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground stroke-[1.75]" />}
-      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} className={cn(
+      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...rest} className={cn(
         "w-full h-10 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60",
         "focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3",
         Icon && "pl-9"
@@ -850,6 +850,10 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const validate = () => {
+    if (formData.name.trim().length < 2) {
+      toast.error("Họ tên phải có ít nhất 2 ký tự");
+      return false;
+    }
     if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(formData.name.trim())) {
       toast.error("Họ tên không hợp lệ (chỉ chứa chữ cái)");
       return false;
@@ -898,10 +902,10 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       {needsAccount && (
         <>
           <Field label={<>Email đăng nhập<Req /></>}>
-            <Input icon={Mail} type="email" placeholder="email@gymos.vn" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
+            <Input icon={Mail} type="email" placeholder="email@gymos.vn" autoComplete="new-password" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
           </Field>
           <Field label={<>{isEdit ? "Đặt lại mật khẩu" : "Mật khẩu"}</>} hint={isEdit ? "Để trống nếu không đổi" : "Mặc định 123456 nếu để trống"}>
-            <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => handleChange("password", e.target.value)} />
+            <Input icon={Lock} type="password" placeholder="••••••••" autoComplete="new-password" value={formData.password} onChange={(e: any) => handleChange("password", e.target.value)} />
           </Field>
         </>
       )}
@@ -1003,7 +1007,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
                   </div>
                   <span className="font-medium">{s.name}</span>
                 </button>,
-                <Badge tone={s.role.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
+                <Badge tone={s.role.includes("Chủ") ? "violet" : s.role.includes("Nhân") ? "emerald" : s.role.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
                 <span className="text-muted-foreground">{s.email}</span>,
                 <span className="font-mono text-[12.5px]">{s.phone}</span>,
                 s.join,
@@ -1171,7 +1175,20 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
           const isPastMonth = calYear < now.getFullYear() || (calYear === now.getFullYear() && calMonth < now.getMonth());
           const maxDayToCheck = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
 
-          for (let i = 0; i < maxDayToCheck; i++) {
+          let startDayToCheck = 0;
+          if (s && s.join && s.join !== "Chưa cập nhật") {
+            const [d, m, y] = s.join.split("/");
+            const joinY = Number(y);
+            const joinM = Number(m) - 1;
+            const joinD = Number(d);
+            if (calYear < joinY || (calYear === joinY && calMonth < joinM)) {
+              startDayToCheck = daysInMonth;
+            } else if (calYear === joinY && calMonth === joinM) {
+              startDayToCheck = joinD - 1;
+            }
+          }
+
+          for (let i = startDayToCheck; i < maxDayToCheck; i++) {
             newDays[i] = "absent";
           }
 
@@ -1201,7 +1218,7 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
           setDays(newDays);
         }
       });
-  }, [id, calMonth, calYear, daysInMonth]);
+  }, [id, calMonth, calYear, daysInMonth, s]);
 
   const okCount = days.filter((d) => d === "ok").length;
   const lateCount = days.filter((d) => d === "late").length;
@@ -1422,7 +1439,7 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
                           <div className="text-[13px] font-medium truncate">{s.name}</div>
                           <div className="text-[11px] text-muted-foreground font-mono">{s.code} · {s.role}</div>
                         </div>
-                        <Badge tone={s.role === "Huấn luyện viên" ? "amber" : "sky"}>{s.role}</Badge>
+                        <Badge tone={s.role.includes("Chủ") ? "violet" : s.role.includes("Nhân") ? "emerald" : s.role.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>
                       </button>
                     ))}
                   </div>
@@ -1540,7 +1557,7 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
   const initialUnit = data ? (data.type.includes("tháng") ? "month" : data.type.includes("tuần") ? "week" : data.type.includes("ngày") ? "day" : "month") : "month";
   const [unit, setUnit] = useState(initialUnit);
 
-  const [price, setPrice] = useState(data ? data.price.toString() : "");
+  const [price, setPrice] = useState(data ? data.price.toLocaleString("vi-VN") : "");
   const [vip, setVip] = useState(data?.vip ?? false);
   const [trainer, setTrainer] = useState(data?.trainer ?? false);
   const [status, setStatus] = useState(data?.status ?? "Đang kinh doanh");
@@ -1592,11 +1609,11 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
           <Input placeholder={pkgType === "session" ? "VD: Gym Pro 24 buổi" : "VD: Gym Pro 6 tháng"} value={name} onChange={(e: any) => setName(e.target.value)} required />
         </Field>
         {pkgType === "session" ? (
-          <Field label={<>Số buổi<Req /></>}><Input placeholder="VD: 24" type="number" value={num} onChange={(e: any) => setNum(e.target.value)} required /></Field>
+          <Field label={<>Số buổi<Req /></>}><Input placeholder="VD: 24" type="text" inputMode="numeric" value={num} onChange={(e: any) => setNum(e.target.value.replace(/\D/g, ""))} required /></Field>
         ) : (
           <Field label={<>Thời hạn<Req /></>}>
             <div className="grid grid-cols-[1fr_auto] gap-2">
-              <Input placeholder="VD: 6" type="number" value={num} onChange={(e: any) => setNum(e.target.value)} required />
+              <Input placeholder="VD: 6" type="text" inputMode="numeric" value={num} onChange={(e: any) => setNum(e.target.value.replace(/\D/g, ""))} required />
               <select value={unit} onChange={(e: any) => setUnit(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
                 <option value="month">Tháng</option>
                 <option value="week">Tuần</option>
@@ -1605,7 +1622,10 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
             </div>
           </Field>
         )}
-        <Field label={<>Giá (VND)<Req /></>}><Input placeholder="VD: 2.400.000" value={price} onChange={(e: any) => setPrice(e.target.value)} required /></Field>
+        <Field label={<>Giá (VND)<Req /></>}><Input placeholder="VD: 2.400.000" value={price} onChange={(e: any) => {
+          const raw = e.target.value.replace(/\D/g, "");
+          setPrice(raw ? parseInt(raw, 10).toLocaleString("vi-VN") : "");
+        }} required /></Field>
         <Field label="Tùy chọn">
           <div className="space-y-2 pt-1">
             {([["VIP", vip, setVip], ["Kèm Huấn luyện viên", trainer, setTrainer], ["Đang kinh doanh", status === "Đang kinh doanh", (v: boolean) => setStatus(v ? "Đang kinh doanh" : "Ngừng kinh doanh")]] as const).map(([n, on, setter]) => (
@@ -1981,11 +2001,6 @@ function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e:
             {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </Field>
-        <div className="col-span-2">
-          <Field label="Ghi chú">
-            <textarea placeholder="Mô tả khu vực, lưu ý vận hành…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
-          </Field>
-        </div>
       </div>
     </form>
   );
@@ -2007,6 +2022,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
           name: r.roomName,
           type: r.roomType || "Gym",
           status: r.operatingStatus === "active" ? "Hoạt động" : (r.operatingStatus === "maintenance" ? "Bảo trì" : "Tạm đóng"),
+          createdAt: r.createdAt || new Date().toISOString(),
         })));
       }
       if (Array.isArray(equipmentsRes)) {
@@ -2027,11 +2043,24 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const statusOrder = {
+    "Hoạt động": 1,
+    "Bảo trì": 2,
+    "Tạm đóng": 3
+  };
+
   const filtered = list.filter((r) =>
     (typeFilter === "Tất cả" || r.type === typeFilter) &&
     (statusFilter === "Tất cả" || r.status === statusFilter) &&
     (r.name.toLowerCase().includes(query.toLowerCase()) || r.code.toLowerCase().includes(query.toLowerCase()))
-  );
+  ).sort((a, b) => {
+    const diff = (statusOrder[a.status as keyof typeof statusOrder] || 99) - (statusOrder[b.status as keyof typeof statusOrder] || 99);
+    if (diff !== 0) return diff;
+    if (a.status === "Hoạt động") {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    return 0;
+  });
   const editing = editId ? list.find((r) => r.id === editId) : null;
   const deleting = deleteId ? list.find((r) => r.id === deleteId) : null;
   const totalDevices = equipments.length;
@@ -2039,6 +2068,14 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : (s === "Bảo trì" ? "maintenance" : "inactive");
 
   const handleAdd = async (e: React.FormEvent, data: any) => {
+    if (!data.code?.trim() || !data.name?.trim() || !data.type || !data.status) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (list.some((r) => r.code.toLowerCase() === data.code.trim().toLowerCase())) {
+      toast.error("Mã phòng đã tồn tại");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch("http://localhost:5000/api/v1/rooms", {
@@ -2062,6 +2099,14 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   };
 
   const handleEdit = async (e: React.FormEvent, data: any) => {
+    if (!data.code?.trim() || !data.name?.trim() || !data.type || !data.status) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (list.some((r) => r.id !== editId && r.code.toLowerCase() === data.code.trim().toLowerCase())) {
+      toast.error("Mã phòng đã tồn tại");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`http://localhost:5000/api/v1/rooms/${editId}`, {
@@ -2215,6 +2260,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [room, setRoom] = useState<any>(null);
   const [devices, setDevices] = useState<any[]>([]);
   const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
+  const [allRooms, setAllRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = () => {
@@ -2223,6 +2269,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
       fetch("http://localhost:5000/api/v1/equipments").then(r => r.json()).catch(() => []),
       fetch("http://localhost:5000/api/v1/equipment-types").then(r => r.json()).catch(() => []),
     ]).then(([roomsRes, equipmentsRes, typesRes]) => {
+      if (Array.isArray(roomsRes)) setAllRooms(roomsRes);
       const found = Array.isArray(roomsRes) ? roomsRes.find((r: any) => r.roomId === id) : null;
       if (found) {
         setRoom({
@@ -2242,7 +2289,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           typeName: e.EquipmentType?.equipmentName || "—",
           typeId: e.equipmentTypeId,
           pos: e.position || `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`,
-          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("vi-VN") : "—",
+          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("en-GB") : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
               : e.usageStatus || "Hoạt động",
@@ -2269,6 +2316,14 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const handleEditRoom = (e: React.FormEvent, data: any) => {
     e.preventDefault();
+    if (!data.code?.trim() || !data.name?.trim() || !data.type || !data.status) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (allRooms.some((r) => r.roomId !== id && (r.roomCode || `RM-${r.roomId.split('-')[0].toUpperCase()}`).toLowerCase() === data.code.trim().toLowerCase())) {
+      toast.error("Mã phòng đã tồn tại");
+      return;
+    }
     fetch(`http://localhost:5000/api/v1/rooms/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -2481,7 +2536,7 @@ function EquipmentTypeForm({ data, onChange }: { data?: Partial<EquipmentType>; 
         </select>
       </Field>
       <Field label={<>Hãng / Nhà sản xuất<Req /></>}><Input placeholder="VD: Matrix" value={data?.brand || ""} onChange={(e: any) => onChange({ ...data, brand: e.target.value })} /></Field>
-      <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="number" value={data?.warranty?.toString() || ""} onChange={(e: any) => onChange({ ...data, warranty: parseInt(e.target.value) || 0 })} /></Field>
+      <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="text" inputMode="numeric" value={data?.warranty?.toString() || ""} onChange={(e: any) => { const raw = e.target.value.replace(/\D/g, ""); onChange({ ...data, warranty: raw ? parseInt(raw, 10) : 0 }) }} /></Field>
       <div className="col-span-2">
         <Field label={<>Mô tả<Req /></>}>
           <textarea value={data?.desc || ""} onChange={(e) => onChange({ ...data, desc: e.target.value })} placeholder="Mô tả chi tiết loại thiết bị…" className="w-full min-h-[88px] rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3 py-2 text-[13px]" />
@@ -2547,12 +2602,16 @@ function Equipment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddType = async () => {
+    if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch("http://localhost:5000/api/v1/equipment-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ typeCode: typeForm.code || `ET-${Date.now().toString().slice(-4)}`, equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
+        body: JSON.stringify({ typeCode: typeForm.code, equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
       });
       const data = await res.json();
       if (data.success) {
@@ -2570,6 +2629,10 @@ function Equipment() {
   };
 
   const handleEditType = async () => {
+    if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
@@ -2612,13 +2675,17 @@ function Equipment() {
   };
 
   const handleAddItem = async () => {
+    if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const rId = rooms.find(r => r.name === (itemForm.room || rooms[0]?.name))?.id;
       const res = await fetch("http://localhost:5000/api/v1/equipments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equipmentCode: itemForm.code || `TB-${Date.now().toString().slice(-4)}`, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased || new Date().toLocaleDateString('vi-VN'), usageStatus: itemForm.status || "Hoạt động" })
+        body: JSON.stringify({ equipmentCode: itemForm.code, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased, usageStatus: itemForm.status || "Hoạt động" })
       });
       const data = await res.json();
       if (data.success) {
@@ -2636,6 +2703,10 @@ function Equipment() {
   };
 
   const handleEditItem = async () => {
+    if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const target = items.find(i => i.code === editItemCode);
@@ -3110,7 +3181,7 @@ function MaintenanceOwner() {
       const res = await fetch("http://localhost:5000/api/v1/equipment-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString('vi-VN'), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
+        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString("en-GB"), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
       });
       const data = await res.json();
       if (data.success) {
@@ -3411,7 +3482,7 @@ function Feedback() {
     }
   };
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
   const shortId = (id: string) => id.substring(0, 8).toUpperCase();
 
   const typeCounts: Record<string, number> = {};
@@ -3699,7 +3770,7 @@ function ReportsOverview() {
   return (
     <>
       <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
-        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("vi-VN")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("en-GB")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
           { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
@@ -4271,7 +4342,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     if (!plan) return "—";
     if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("vi-VN");
+    if (expire) return expire.toLocaleDateString("en-GB");
     return "—";
   };
 
@@ -4471,6 +4542,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [step0Errors, setStep0Errors] = useState<Record<string, string>>({});
   const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   const [sellable, setSellable] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
@@ -4495,6 +4567,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const validateStep0 = () => {
     const errs: Record<string, string> = {};
     if (!formData.memberName.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    else if (formData.memberName.trim().length < 2) errs.memberName = "Họ tên phải có ít nhất 2 ký tự";
     else if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(formData.memberName.trim())) errs.memberName = "Họ tên chỉ được chứa chữ cái";
     if (!formData.dateOfBirth) errs.dateOfBirth = "Vui lòng chọn ngày sinh";
     else if (new Date(formData.dateOfBirth) > new Date()) errs.dateOfBirth = "Ngày sinh không được ở tương lai";
@@ -4596,18 +4669,40 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               {step0Errors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{step0Errors.phoneNumber}</p>}
             </Field>
             <Field label={<>Email<Req /></>}>
-              <Input icon={Mail} type="email" placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
+              <Input icon={Mail} type="email" placeholder="email@example.com" autoComplete="new-password" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
               {step0Errors.email && <p className="text-[11px] text-red-500 mt-1">{step0Errors.email}</p>}
             </Field>
             <Field label={<>Mật khẩu đăng nhập<Req /></>}>
-              <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} className={step0Errors.password ? "border-red-400" : ""} />
+              <Input icon={Lock} type="password" placeholder="••••••••" autoComplete="new-password" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} className={step0Errors.password ? "border-red-400" : ""} />
               {step0Errors.password && <p className="text-[11px] text-red-500 mt-1">{step0Errors.password}</p>}
             </Field>
             <div className="col-span-2"><Field label={<>Địa chỉ</>}><Input placeholder="Số nhà, đường, quận, thành phố" value={formData.address} onChange={(e: any) => updateForm("address", e.target.value)} /></Field></div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
             <Button variant="ghost">Hủy</Button>
-            <Button icon={ArrowRight} onClick={() => { if (validateStep0()) setStep(1); }}>Tiếp tục</Button>
+            <Button icon={ArrowRight} disabled={isCheckingDuplicate} onClick={async () => {
+              if (!validateStep0()) return;
+              setIsCheckingDuplicate(true);
+              try {
+                const res = await fetch("http://localhost:5000/api/v1/members/check-duplicate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                  body: JSON.stringify({ email: formData.email, phoneNumber: formData.phoneNumber })
+                });
+                const data = await res.json();
+                if (data.data?.isDuplicate) {
+                  toast.error(data.data.message);
+                } else {
+                  setStep(1);
+                }
+              } catch {
+                toast.error("Lỗi kết nối kiểm tra trùng lặp");
+              } finally {
+                setIsCheckingDuplicate(false);
+              }
+            }}>
+              {isCheckingDuplicate ? "Đang kiểm tra..." : "Tiếp tục"}
+            </Button>
           </div>
         </Card>
       )}
@@ -4698,6 +4793,12 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
   const TOTAL = 300;
   const [remain, setRemain] = useState(TOTAL);
   const [qrKey, setQrKey] = useState(0);
+
+  const [cashGivenStr, setCashGivenStr] = useState("");
+  const cashGiven = parseInt(cashGivenStr.replace(/\D/g, "")) || 0;
+  const change = Math.max(0, cashGiven - pkg.price);
+  const isCashInsufficient = kind === "cash" && cashGiven < pkg.price;
+
   useEffect(() => {
     if (kind !== "qr") return;
     setRemain(TOTAL);
@@ -4779,11 +4880,23 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
           {kind === "cash" && (
             <div className="space-y-4">
               <Field label="Số tiền cần thu"><Input value={`${pkg.price.toLocaleString("vi-VN")} ₫`} readOnly /></Field>
-              <Field label="Khách đưa"><Input placeholder="VD: 3.000.000 ₫" /></Field>
+              <Field label="Khách đưa">
+                <Input 
+                  placeholder="VD: 3000000" 
+                  value={cashGivenStr} 
+                  onChange={(e: any) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setCashGivenStr(val ? parseInt(val).toString() : "");
+                  }} 
+                />
+              </Field>
               <div className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 p-4 flex items-center justify-between">
                 <span className="text-[13px] text-[#00866F] dark:text-[#5FE6CB]">Tiền thối khách</span>
-                <span className="font-display font-bold text-[22px] text-[#00866F] dark:text-[#5FE6CB]">0 ₫</span>
+                <span className="font-display font-bold text-[22px] text-[#00866F] dark:text-[#5FE6CB]">{change > 0 ? change.toLocaleString("vi-VN") : "0"} ₫</span>
               </div>
+              {isCashInsufficient && cashGivenStr && (
+                <p className="text-[12.5px] text-[#FF5C5C]">Số tiền khách đưa chưa đủ để thanh toán.</p>
+              )}
             </div>
           )}
         </Card>
@@ -4793,7 +4906,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             {[
               ["Gói tập", pkg.name],
               ["Hội viên", formData?.memberName || "Bạn"],
-              ["Ngày bắt đầu", new Date().toLocaleDateString("vi-VN")]
+              ["Ngày bắt đầu", new Date().toLocaleDateString("en-GB")]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
@@ -4811,7 +4924,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
           <Button
             className="w-full justify-center mt-5 h-11"
             icon={CheckCircle2}
-            disabled={loading}
+            disabled={loading || isCashInsufficient}
             onClick={async () => {
               setLoading(true);
               setError(null);
@@ -5083,7 +5196,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
                 <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
-                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("vi-VN")}</span>}
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("en-GB")}</span>}
               </div>
             </div>
           </div>
@@ -5101,13 +5214,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
             <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
-            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("vi-VN")}</div>}
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("en-GB")}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             {pkg?.packageType === "session" ? <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5115,7 +5228,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             </> : <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("vi-VN")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5144,7 +5257,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
               rows={logs.map((d, idx) => [
-                new Date(d.workoutDate).toLocaleDateString("vi-VN"),
+                new Date(d.workoutDate).toLocaleDateString("en-GB"),
                 d.startTime?.slice(0, 5) || "—",
                 d.duration ? `${d.duration} phút` : "—",
                 <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
@@ -5160,7 +5273,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
               rows={payments.filter(p => p.Bill).map((p) => [
-                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("vi-VN") : "—",
+                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("en-GB") : "—",
                 <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
                 <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
                   {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
@@ -5239,7 +5352,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("vi-VN")}</span>?</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("en-GB")}</span>?</p>
           </div>
         )}
       </Modal>
@@ -5288,7 +5401,7 @@ function MemberHistory() {
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("vi-VN");
+    return new Date(d).toLocaleDateString("en-GB");
   };
 
   /* ── calendar ── */
@@ -5584,7 +5697,7 @@ function MemberPayments() {
         return {
           code: `PAY-${plan.Bill.billId.split("-")[0].toUpperCase()}`,
           rawDate: d,
-          d: d.toLocaleDateString("vi-VN"),
+          d: d.toLocaleDateString("en-GB"),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
           method: plan.Bill.paymentMethod || "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
@@ -5602,8 +5715,8 @@ function MemberPayments() {
     
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
-      startDate: new Date(active.startDate).toLocaleDateString("vi-VN"),
-      expireDate: new Date(active.expireDate).toLocaleDateString("vi-VN"),
+      startDate: new Date(active.startDate).toLocaleDateString("en-GB"),
+      expireDate: new Date(active.expireDate).toLocaleDateString("en-GB"),
       daysLeft
     };
   }, [subscriptions]);
@@ -5794,7 +5907,7 @@ function MemberFeedback() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
         {list.map((f) => {
-          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("vi-VN") : "";
+          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("en-GB") : "";
           const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
           return (
             <Card key={f.feedbackId}>
@@ -5869,7 +5982,7 @@ function MemberFeedback() {
           <Button icon={Trash2} disabled={isSubmitting} onClick={deleteFeedback}>{isSubmitting ? "Đang xóa..." : "Xóa phản hồi"}</Button>
         </>}>
         {deleting && (() => {
-          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("vi-VN") : "";
+          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("en-GB") : "";
           return (
             <div className="space-y-3">
               <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -6020,7 +6133,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
             {currentPlan ? (
               <>
                 <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
-                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("vi-VN")}</div>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("en-GB")}</div>
               </>
             ) : (
               <>
@@ -6111,7 +6224,7 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
   const formatRemain = (plan: any): string => {
     if (!plan) return "—";
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("vi-VN");
+    if (expire) return expire.toLocaleDateString("en-GB");
     return "—";
   };
 
