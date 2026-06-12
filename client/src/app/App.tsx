@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from "react-router";
-
+import { toast } from "sonner";
 import {
   Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Bell, Building2, Calendar as CalIcon,
   CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CreditCard, Dumbbell, Eye, EyeOff, FileBarChart,
@@ -337,6 +337,8 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
   const [showCur, setShowCur] = useState(false);
   const [showNw, setShowNw] = useState(false);
   const [showCf, setShowCf] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
   const mismatch = nw.length > 0 && cf.length > 0 && nw !== cf;
   const rules = [
     { id: "len", label: "Tối thiểu 8 ký tự", ok: nw.length >= 8 },
@@ -348,9 +350,32 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
   const score = rules.filter((r) => r.ok).length;
   const strengthLabel = nw.length === 0 ? "" : score <= 2 ? "Yếu" : score === 3 ? "Trung bình" : score === 4 ? "Khá mạnh" : "Mạnh";
   const strengthTone = score <= 2 ? "bg-[#FF5C5C]" : score === 3 ? "bg-[#FFB547]" : score === 4 ? "bg-sky-500" : "bg-[#00C9A7]";
-  const canSubmit = cur.length > 0 && rules.every((r) => r.ok) && nw === cf;
+  const canSubmit = cur.length > 0 && rules.every((r) => r.ok) && nw === cf && !pwSubmitting;
   const [saved, setSaved] = useState(false);
-  const resetForm = () => { setCur(""); setNw(""); setCf(""); setSaved(false); setShowCur(false); setShowNw(false); setShowCf(false); };
+  const resetForm = () => { setCur(""); setNw(""); setCf(""); setSaved(false); setPwError(null); setPwSubmitting(false); setShowCur(false); setShowNw(false); setShowCf(false); };
+  const handleChangePassword = async () => {
+    if (!canSubmit) return;
+    setPwSubmitting(true);
+    setPwError(null);
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/auth/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("gymos_token")}` },
+        body: JSON.stringify({ oldPassword: cur, newPassword: nw }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPwError(data.message || "Đổi mật khẩu thất bại. Vui lòng kiểm tra lại.");
+        setPwSubmitting(false);
+        return;
+      }
+      setSaved(true);
+      setPwSubmitting(false);
+    } catch {
+      setPwError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+      setPwSubmitting(false);
+    }
+  };
   return (
     <header className="h-16 px-7 flex items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-30">
       <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
@@ -404,8 +429,8 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
         footer={saved ? <Button icon={CheckCircle2} onClick={() => { setPwOpen(false); resetForm(); }}>Đóng</Button>
           : <>
             <Button variant="ghost" onClick={() => { setPwOpen(false); resetForm(); }}>Hủy</Button>
-            <Button icon={CheckCircle2} className={cn(!canSubmit && "opacity-50 cursor-not-allowed pointer-events-none")}
-              onClick={() => canSubmit && setSaved(true)}>Lưu thay đổi</Button>
+            <Button icon={CheckCircle2} disabled={!canSubmit || pwSubmitting}
+              onClick={handleChangePassword}>{pwSubmitting ? "Đang lưu…" : "Lưu thay đổi"}</Button>
           </>}>
         {saved ? (
           <div className="text-center py-6">
@@ -469,6 +494,11 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
                 <AlertTriangle className="size-3.5" /> Mật khẩu xác nhận không khớp với mật khẩu mới.
               </div>
             )}
+            {pwError && (
+              <div className="text-[12px] text-[#991B1B] dark:text-[#FFA0A0] flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF5C5C]/10 border border-[#FF5C5C]/30">
+                <AlertTriangle className="size-3.5" /> {pwError}
+              </div>
+            )}
           </div>
         )}
       </Modal>
@@ -494,8 +524,10 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
   const [password, setPassword] = useState("");
   const [showLoginPw, setShowLoginPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const submit = async () => {
     try {
+      setLoading(true);
       setError(null);
       const res = await fetch("http://localhost:5000/api/v1/auth/login", {
         method: "POST",
@@ -505,6 +537,7 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.message || "Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.");
+        setLoading(false);
         return;
       }
       const rawRole = data.data.user.role;
@@ -514,6 +547,7 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
       onEnter(normalizedRole, data.data.user);
     } catch (err) {
       setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+      setLoading(false);
     }
   };
   const quickFill = (a: typeof ACCOUNTS[number]) => { setEmail(a.email); setPassword(a.password); setError(null); };
@@ -576,7 +610,7 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
               </div>
             </Field>
             {error && <div className="text-[12.5px] text-[#FF7B7B] flex items-start gap-1.5"><AlertTriangle className="size-3.5 mt-0.5 shrink-0" />{error}</div>}
-            <Button className="w-full h-11 justify-center" onClick={submit} icon={ArrowRight}>Đăng nhập</Button>
+            <Button className="w-full h-11 justify-center" disabled={loading} onClick={submit} icon={ArrowRight}>{loading ? "Đang xử lý..." : "Đăng nhập"}</Button>
           </div>
         </div>
       </div>
@@ -589,17 +623,44 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
   
   const [memberStats, setMemberStats] = useState<any>(null);
-  const [loading, setLoading] = useState(role === "member");
+  const [trainerStats, setTrainerStats] = useState<any>(null);
+  const [ownerStats, setOwnerStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
+    const token = localStorage.getItem("gymos_token");
     if (role === "member") {
       fetch("http://localhost:5000/api/v1/workout-logs/summary", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("gymos_token")}` }
+        headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           setMemberStats(data.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    } else if (role === "trainer") {
+      fetch("http://localhost:5000/api/v1/members/my-students/stats", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTrainerStats(data.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    } else {
+      fetch("http://localhost:5000/api/v1/reports/dashboard", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setOwnerStats(data.data);
         }
         setLoading(false);
       })
@@ -625,7 +686,6 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
     trainer: [
       { icon: Users, title: "Học viên của tôi", desc: "Xem và quản lý danh sách học viên", view: "students", tone: "from-[#FFB547]/20 to-transparent" },
       { icon: CreditCard, title: "Gia hạn gói tập", desc: "Gia hạn gói tập cho học viên", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
-      { icon: KeyRound, title: "Đổi mật khẩu", desc: "Cập nhật mật khẩu tài khoản", view: "changepw", tone: "from-[#00C9A7]/20 to-transparent" },
     ],
     member: [
       { icon: CreditCard, title: "Gia hạn gói tập", desc: "Đăng ký hoặc gia hạn gói hiện tại", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
@@ -648,12 +708,44 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: TrendingUp, label: "Chuỗi tập liên tiếp", value: `${memberStats?.streak ?? 0} ngày`, tone: "amber" }
       ];
     }
-    return [
-      { icon: Activity, label: "Check in hôm nay", value: "128", tone: "emerald" },
-      { icon: TrendingUp, label: "Doanh thu hôm nay", value: "12.4 tr", tone: "violet" },
-      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "4", tone: "amber" },
+    if (role === "trainer") {
+      if (loading) return [
+        { icon: Users, label: "Tổng học viên", value: "...", tone: "violet" },
+        { icon: CheckCircle2, label: "Đang hoạt động", value: "...", tone: "emerald" },
+        { icon: AlertTriangle, label: "Sắp hết hạn", value: "...", tone: "amber" }
+      ];
+      return [
+        { icon: Users, label: "Tổng học viên", value: trainerStats?.totalStudents ?? 0, tone: "violet" },
+        { icon: CheckCircle2, label: "Đang hoạt động", value: trainerStats?.activeStudents ?? 0, tone: "emerald" },
+        { icon: AlertTriangle, label: "Sắp hết hạn", value: trainerStats?.expiringSoon ?? 0, tone: "amber" },
+      ];
+    }
+    
+    if (role === "staff") {
+      if (loading) return [
+        { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
+        { icon: MessageSquare, label: "Phản hồi chờ xử lý", value: "...", tone: "violet" },
+        { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "...", tone: "amber" },
+      ];
+      return [
+        { icon: Activity, label: "Check in hôm nay", value: ownerStats?.checkInCount ?? 0, tone: "emerald" },
+        { icon: MessageSquare, label: "Phản hồi chờ xử lý", value: ownerStats?.pendingFeedbackCount ?? 0, tone: "violet" },
+        { icon: Wrench, label: "Yêu cầu bảo trì mở", value: ownerStats?.openMaintenanceCount ?? 0, tone: "amber" },
+      ];
+    }
+    
+    if (loading) return [
+      { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
+      { icon: TrendingUp, label: "Doanh thu hôm nay", value: "...", tone: "violet" },
+      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "...", tone: "amber" },
     ];
-  }, [role, memberStats, loading]);
+    
+    return [
+      { icon: Activity, label: "Check in hôm nay", value: ownerStats?.checkInCount ?? 0, tone: "emerald" },
+      { icon: TrendingUp, label: "Doanh thu hôm nay", value: ownerStats?.todayRevenue ?? "0", tone: "violet" },
+      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: ownerStats?.openMaintenanceCount ?? 0, tone: "amber" },
+    ];
+  }, [role, memberStats, trainerStats, ownerStats, loading]);
 
   const me = ROLE_META[role] || ROLE_META["member"];
   const personName = user?.name || me.person;
@@ -740,7 +832,7 @@ export type StaffRecord = {
 
 const Req = () => <span className="text-[#FF5C5C] ml-0.5">*</span>;
 
-function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?: (data: any) => void; onCancel?: () => void }) {
+function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; onSubmit?: (data: any) => void; onCancel?: () => void; loading?: boolean }) {
   const isEdit = !!data;
   const [formData, setFormData] = useState({
     code: "",
@@ -811,7 +903,7 @@ function StaffForm({ data, onSubmit, onCancel }: { data?: StaffRecord; onSubmit?
       {/* Footer actions built into form */}
       <div className="col-span-2 flex items-center justify-end gap-2 pt-4 mt-2 border-t border-border">
         <Button variant="ghost" type="button" onClick={onCancel}>Hủy</Button>
-        <Button icon={CheckCircle2} type="submit">{isEdit ? "Lưu thay đổi" : "Lưu nhân sự"}</Button>
+        <Button icon={CheckCircle2} type="submit" disabled={loading}>{loading ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Lưu nhân sự"}</Button>
       </div>
     </form>
   );
@@ -824,6 +916,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"Tất cả" | "Nhân viên quản lý" | "Huấn luyện viên">("Tất cả");
   const [page, setPage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const pageSize = 6;
 
   const activeStaffs = staffs.filter((s) => s.status !== "Đã vô hiệu hóa");
@@ -914,26 +1007,53 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
       <Modal open={modal === "new"} onClose={() => setModal(null)} title="Thêm nhân sự mới" wide>
         <StaffForm
           onCancel={() => setModal(null)}
-          onSubmit={(data) => {
-            fetch("http://localhost:5000/api/v1/staffs", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            }).then(res => res.json()).then(() => {
-              refresh();
-              setModal(null);
-            });
+          loading={isSubmitting}
+          onSubmit={async (data) => {
+            setIsSubmitting(true);
+            try {
+              const res = await fetch("http://localhost:5000/api/v1/staffs", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+              });
+              const resData = await res.json();
+              if (resData.success) {
+                toast.success("Thêm nhân sự thành công");
+                refresh();
+                setModal(null);
+              } else {
+                toast.error(resData.message || "Lỗi khi thêm nhân sự");
+              }
+            } catch (e) {
+              toast.error("Lỗi kết nối máy chủ");
+            } finally {
+              setIsSubmitting(false);
+            }
           }}
         />
       </Modal>
 
       <Modal open={modal === "del"} onClose={() => setModal(null)} title="Xác nhận xóa"
-        footer={<><Button variant="ghost" onClick={() => setModal(null)}>Hủy</Button><Button variant="danger" icon={Trash2} onClick={() => {
+        footer={<><Button variant="ghost" onClick={() => setModal(null)}>Hủy</Button><Button variant="danger" icon={Trash2} disabled={isSubmitting} onClick={async () => {
           if (delTarget) {
-            fetch(`http://localhost:5000/api/v1/staffs/${delTarget.code}`, { method: "DELETE" })
-              .then(res => res.json()).then(() => { refresh(); setModal(null); });
+            setIsSubmitting(true);
+            try {
+              const res = await fetch(`http://localhost:5000/api/v1/staffs/${delTarget.code}`, { method: "DELETE" });
+              const resData = await res.json();
+              if (resData.success) {
+                toast.success("Xóa nhân sự thành công");
+                refresh();
+                setModal(null);
+              } else {
+                toast.error(resData.message || "Lỗi khi xóa nhân sự");
+              }
+            } catch {
+              toast.error("Lỗi kết nối máy chủ");
+            } finally {
+              setIsSubmitting(false);
+            }
           }
-        }}>Xác nhận xóa</Button></>}>
+        }}>{isSubmitting ? "Đang xóa..." : "Xác nhận xóa"}</Button></>}>
         <div className="flex items-start gap-3">
           <div className="size-10 rounded-full bg-[#FF5C5C]/15 grid place-items-center text-[#B91C1C] dark:text-[#FFA0A0]"><Trash2 className="size-5" /></div>
           <div>
@@ -1252,10 +1372,10 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
         fetchRecent();
         setPicked(null); setQuery("");
       } else {
-        alert(data.message || "Có lỗi xảy ra");
+        toast.error(data.message || "Có lỗi xảy ra");
       }
     } catch (e) {
-      alert("Lỗi kết nối máy chủ");
+      toast.error("Lỗi kết nối máy chủ");
     }
   };
   return (
@@ -1526,6 +1646,7 @@ function Packages() {
   const [viewId, setViewId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getPackageCode = (p: any) => p.code || `PKG-${p.id.split('-')[0].toUpperCase()}`;
   const filtered = list.filter((p) => {
@@ -1540,7 +1661,8 @@ function Packages() {
   const editing = editId ? list.find((p) => p.id === editId) : null;
   const deleting = deleteId ? list.find((p) => p.id === deleteId) : null;
 
-  const handleAdd = (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+  const handleAdd = async (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+    setIsSubmitting(true);
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
     let durationUnit = "tháng";
@@ -1560,18 +1682,30 @@ function Packages() {
       price: data.price,
       status: data.status
     };
-    fetch("http://localhost:5000/api/v1/packages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(() => {
-      fetchPackages();
-      setOpen(false);
-    });
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/packages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        toast.success("Thêm gói tập thành công");
+        fetchPackages();
+        setOpen(false);
+      } else {
+        toast.error(resData.message || "Lỗi khi thêm gói tập");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleEdit = (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+  const handleEdit = async (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
     if (!editId) return;
+    setIsSubmitting(true);
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
     let durationUnit = "tháng";
@@ -1591,24 +1725,47 @@ function Packages() {
       price: data.price,
       status: data.status
     };
-    fetch(`http://localhost:5000/api/v1/packages/${editId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(() => {
-      fetchPackages();
-      setEditId(null);
-    });
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/packages/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        toast.success("Cập nhật gói tập thành công");
+        fetchPackages();
+        setEditId(null);
+      } else {
+        toast.error(resData.message || "Lỗi khi cập nhật");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
-    fetch(`http://localhost:5000/api/v1/packages/${deleteId}`, {
-      method: "DELETE"
-    }).then(() => {
-      fetchPackages();
-      setDeleteId(null);
-    });
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/packages/${deleteId}`, {
+        method: "DELETE"
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        toast.success("Xóa gói tập thành công");
+        fetchPackages();
+        setDeleteId(null);
+      } else {
+        toast.error(resData.message || "Lỗi khi xóa gói tập");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1717,12 +1874,12 @@ function Packages() {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm gói tập mới" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-pkg-form">Lưu gói tập</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-pkg-form" disabled={isSubmitting}>{isSubmitting ? "Đang lưu..." : "Lưu gói tập"}</Button></>}>
         <PackageForm formId="add-pkg-form" onSubmit={handleAdd} />
       </Modal>
 
       <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa gói — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-pkg-form" icon={CheckCircle2}>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-pkg-form" icon={CheckCircle2} disabled={isSubmitting}>{isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}</Button></>}>
         {editing && <PackageForm formId="edit-pkg-form" data={editing} onSubmit={handleEdit} />}
       </Modal>
 
@@ -1852,6 +2009,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = list.filter((r) =>
     (typeFilter === "Tất cả" || r.type === typeFilter) &&
@@ -1864,27 +2022,72 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
 
   const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : (s === "Bảo trì" ? "maintenance" : "inactive");
 
-  const handleAdd = (e: React.FormEvent, data: any) => {
-    fetch("http://localhost:5000/api/v1/rooms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
-    }).then(() => { fetchRooms(); setOpen(false); });
+  const handleAdd = async (e: React.FormEvent, data: any) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        toast.success("Thêm phòng tập thành công");
+        fetchRooms();
+        setOpen(false);
+      } else {
+        toast.error(resData.message || "Lỗi khi thêm phòng tập");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleEdit = (e: React.FormEvent, data: any) => {
-    fetch(`http://localhost:5000/api/v1/rooms/${editId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
-    }).then(() => { fetchRooms(); setEditId(null); });
+  const handleEdit = async (e: React.FormEvent, data: any) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/rooms/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomCode: data.code, roomName: data.name, roomType: data.type, operatingStatus: mapStatusToBackend(data.status) })
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        toast.success("Cập nhật phòng tập thành công");
+        fetchRooms();
+        setEditId(null);
+      } else {
+        toast.error(resData.message || "Lỗi khi cập nhật");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
-    fetch(`http://localhost:5000/api/v1/rooms/${deleteId}`, {
-      method: "DELETE"
-    }).then(() => { fetchRooms(); setDeleteId(null); });
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/rooms/${deleteId}`, {
+        method: "DELETE"
+      });
+      const resData = await res.json();
+      if (resData.success) {
+        toast.success("Xóa phòng tập thành công");
+        fetchRooms();
+        setDeleteId(null);
+      } else {
+        toast.error(resData.message || "Lỗi khi xóa phòng tập");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1944,19 +2147,19 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thêm phòng tập mới" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-room-form">Lưu phòng tập</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button type="submit" form="add-room-form" disabled={isSubmitting}>{isSubmitting ? "Đang lưu..." : "Lưu phòng tập"}</Button></>}>
         <RoomForm formId="add-room-form" onSubmit={handleAdd} />
       </Modal>
 
       <Modal open={!!editing} onClose={() => setEditId(null)} title={`Chỉnh sửa phòng — ${editing?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-room-form" icon={CheckCircle2}>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button><Button type="submit" form="edit-room-form" icon={CheckCircle2} disabled={isSubmitting}>{isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}</Button></>}>
         {editing && <RoomForm formId="edit-room-form" data={editing} onSubmit={handleEdit} />}
       </Modal>
 
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phòng tập"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={handleDelete}>Xóa phòng</Button>
+          <Button icon={Trash2} disabled={isSubmitting} onClick={handleDelete}>{isSubmitting ? "Đang xóa..." : "Xóa phòng"}</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
@@ -2325,6 +2528,141 @@ function Equipment() {
   const [deleteItemCode, setDeleteItemCode] = useState<string | null>(null);
   const [typeForm, setTypeForm] = useState<Partial<EquipmentType>>({});
   const [itemForm, setItemForm] = useState<Partial<EquipmentItem>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAddType = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/equipment-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typeCode: typeForm.code || `ET-${Date.now().toString().slice(-4)}`, equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Thêm loại thiết bị thành công");
+        fetchEquipmentsData();
+        setAddType(false);
+      } else {
+        toast.error(data.message || "Lỗi khi thêm loại thiết bị");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditType = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typeCode: typeForm.code, equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Cập nhật loại thiết bị thành công");
+        fetchEquipmentsData();
+        setEditTypeId(null);
+      } else {
+        toast.error(data.message || "Lỗi khi cập nhật");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteType = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-types/${deleteTypeId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Xóa loại thiết bị thành công");
+        fetchEquipmentsData();
+        setDeleteTypeId(null);
+      } else {
+        toast.error(data.message || "Lỗi khi xóa");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddItem = async () => {
+    setIsSubmitting(true);
+    try {
+      const rId = rooms.find(r => r.name === (itemForm.room || rooms[0]?.name))?.id;
+      const res = await fetch("http://localhost:5000/api/v1/equipments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equipmentCode: itemForm.code || `TB-${Date.now().toString().slice(-4)}`, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased || new Date().toLocaleDateString('vi-VN'), usageStatus: itemForm.status || "Hoạt động" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Thêm thiết bị thành công");
+        fetchEquipmentsData();
+        setAddItemForType(null);
+      } else {
+        toast.error(data.message || "Lỗi khi thêm thiết bị");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditItem = async () => {
+    setIsSubmitting(true);
+    try {
+      const target = items.find(i => i.code === editItemCode);
+      const rId = rooms.find(r => r.name === (itemForm.room || target?.room))?.id;
+      const res = await fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equipmentCode: itemForm.code, roomId: rId, importDate: itemForm.purchased, usageStatus: itemForm.status })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Cập nhật thiết bị thành công");
+        fetchEquipmentsData();
+        setEditItemCode(null);
+      } else {
+        toast.error(data.message || "Lỗi khi cập nhật");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    setIsSubmitting(true);
+    try {
+      const target = items.find(i => i.code === deleteItemCode);
+      const res = await fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Xóa thiết bị thành công");
+        fetchEquipmentsData();
+        setDeleteItemCode(null);
+      } else {
+        toast.error(data.message || "Lỗi khi xóa");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const filteredTypes = types.filter((t) =>
     (catFilter === "Tất cả" || t.category === catFilter) &&
@@ -2441,39 +2779,16 @@ function Equipment() {
 
       {/* ── Type modals ── */}
       <Modal open={addType} onClose={() => setAddType(false)} title="Thêm loại thiết bị mới" wide
-        footer={<><Button variant="ghost" onClick={() => setAddType(false)}>Hủy</Button><Button onClick={() => {
-          fetch("http://localhost:5000/api/v1/equipment-types", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ typeCode: typeForm.code || `ET-${Date.now().toString().slice(-4)}`, equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
-          }).then(() => {
-            fetchEquipmentsData();
-            setAddType(false);
-          });
-        }}>Lưu loại thiết bị</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setAddType(false)}>Hủy</Button><Button disabled={isSubmitting} onClick={handleAddType}>{isSubmitting ? "Đang lưu..." : "Lưu loại thiết bị"}</Button></>}>
         <EquipmentTypeForm data={typeForm} onChange={setTypeForm} />
       </Modal>
       <Modal open={!!editingType} onClose={() => setEditTypeId(null)} title={`Chỉnh sửa loại — ${editingType?.name ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditTypeId(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => {
-          fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ typeCode: typeForm.code, equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
-          }).then(() => {
-            fetchEquipmentsData();
-            setEditTypeId(null);
-          });
-        }}>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setEditTypeId(null)}>Hủy</Button><Button icon={CheckCircle2} disabled={isSubmitting} onClick={handleEditType}>{isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}</Button></>}>
         {editingType && <EquipmentTypeForm data={typeForm} onChange={setTypeForm} />}
       </Modal>
       <Modal open={!!deletingType} onClose={() => setDeleteTypeId(null)} title="Xóa loại thiết bị"
         footer={<><Button variant="ghost" onClick={() => setDeleteTypeId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => {
-            fetch(`http://localhost:5000/api/v1/equipment-types/${deleteTypeId}`, { method: "DELETE" }).then(() => {
-              fetchEquipmentsData();
-              setDeleteTypeId(null);
-            });
-          }}>Xóa loại</Button></>}>
+          <Button icon={Trash2} disabled={isSubmitting} onClick={handleDeleteType}>{isSubmitting ? "Đang xóa..." : "Xóa loại"}</Button></>}>
         {deletingType && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -2531,43 +2846,16 @@ function Equipment() {
         )}
       </Modal>
       <Modal open={!!addItemForType} onClose={() => setAddItemForType(null)} title="Thêm thiết bị mới" wide
-        footer={<><Button variant="ghost" onClick={() => setAddItemForType(null)}>Hủy</Button><Button onClick={() => {
-          const rId = rooms.find(r => r.name === (itemForm.room || rooms[0]?.name))?.id;
-          fetch("http://localhost:5000/api/v1/equipments", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ equipmentCode: itemForm.code || `TB-${Date.now().toString().slice(-4)}`, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased || new Date().toLocaleDateString('vi-VN'), usageStatus: itemForm.status || "Hoạt động" })
-          }).then(() => {
-            fetchEquipmentsData();
-            setAddItemForType(null);
-          });
-        }}>Lưu thiết bị</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setAddItemForType(null)}>Hủy</Button><Button disabled={isSubmitting} onClick={handleAddItem}>{isSubmitting ? "Đang lưu..." : "Lưu thiết bị"}</Button></>}>
         <EquipmentItemForm data={itemForm} onChange={setItemForm} roomList={rooms} />
       </Modal>
       <Modal open={!!editingItem} onClose={() => setEditItemCode(null)} title={`Chỉnh sửa thiết bị — ${editingItem?.code ?? ""}`} wide
-        footer={<><Button variant="ghost" onClick={() => setEditItemCode(null)}>Hủy</Button><Button icon={CheckCircle2} onClick={() => {
-          const target = items.find(i => i.code === editItemCode);
-          const rId = rooms.find(r => r.name === (itemForm.room || target?.room))?.id;
-          fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ equipmentCode: itemForm.code, roomId: rId, importDate: itemForm.purchased, usageStatus: itemForm.status })
-          }).then(() => {
-            fetchEquipmentsData();
-            setEditItemCode(null);
-          });
-        }}>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setEditItemCode(null)}>Hủy</Button><Button icon={CheckCircle2} disabled={isSubmitting} onClick={handleEditItem}>{isSubmitting ? "Đang lưu..." : "Lưu thay đổi"}</Button></>}>
         {editingItem && <EquipmentItemForm data={itemForm} onChange={setItemForm} roomList={rooms} />}
       </Modal>
       <Modal open={!!deletingItem} onClose={() => setDeleteItemCode(null)} title="Xóa thiết bị"
         footer={<><Button variant="ghost" onClick={() => setDeleteItemCode(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => {
-            const target = items.find(i => i.code === deleteItemCode);
-            fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, { method: "DELETE" }).then(() => {
-              fetchEquipmentsData();
-              setDeleteItemCode(null);
-            });
-          }}>Xóa thiết bị</Button></>}>
+          <Button icon={Trash2} disabled={isSubmitting} onClick={handleDeleteItem}>{isSubmitting ? "Đang xóa..." : "Xóa thiết bị"}</Button></>}>
         {deletingItem && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -2605,23 +2893,74 @@ function EquipmentMaintenance() {
   const viewing = viewId ? maintList.find((m) => m.code === viewId) : null;
   const deletingMaint = deleteMaint ? maintList.find((m) => m.code === deleteMaint) : null;
 
-  const handleMaintenance = (code: string) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleMaintenance = async (code: string) => {
     const report = maintList.find(m => m.code === code);
     if (!report) return;
-    fetch(`http://localhost:5000/api/v1/equipment-reports/${report.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resolveStatus: "Đang xử lý" })
-    }).then(() => { fetchReports(); setViewId(null); });
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${report.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolveStatus: "Đang xử lý" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Bảo trì thiết bị thành công");
+        fetchReports(); setViewId(null);
+      } else {
+        toast.error(data.message || "Lỗi cập nhật trạng thái");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  const handleComplete = (code: string) => {
+
+  const handleComplete = async (code: string) => {
     const report = maintList.find(m => m.code === code);
     if (!report) return;
-    fetch(`http://localhost:5000/api/v1/equipment-reports/${report.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resolveStatus: "Đã xử lý" })
-    }).then(() => { fetchReports(); setViewId(null); });
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${report.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolveStatus: "Đã xử lý" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Hoàn thành bảo trì thành công");
+        fetchReports(); setViewId(null);
+      } else {
+        toast.error(data.message || "Lỗi cập nhật trạng thái");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const target = maintList.find(m => m.code === deleteMaint);
+    if (!target) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${target.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Xóa yêu cầu thành công");
+        fetchReports(); setDeleteMaint(null);
+      } else {
+        toast.error(data.message || "Lỗi khi xóa");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -2672,10 +3011,10 @@ function EquipmentMaintenance() {
         footer={<>
           <Button variant="ghost" onClick={() => setViewId(null)}>Đóng</Button>
           {viewing?.status === "Chờ xử lý" && (
-            <Button icon={ShieldCheck} onClick={() => handleMaintenance(viewing.code)}>Bảo trì thiết bị</Button>
+            <Button icon={ShieldCheck} disabled={isSubmitting} onClick={() => handleMaintenance(viewing.code)}>{isSubmitting ? "Đang xử lý..." : "Bảo trì thiết bị"}</Button>
           )}
           {viewing?.status === "Đang xử lý" && (
-            <Button icon={CheckCircle2} onClick={() => handleComplete(viewing.code)}>Hoàn thành bảo trì</Button>
+            <Button icon={CheckCircle2} disabled={isSubmitting} onClick={() => handleComplete(viewing.code)}>{isSubmitting ? "Đang hoàn thành..." : "Hoàn thành bảo trì"}</Button>
           )}
         </>}>
         {viewing && (
@@ -2705,13 +3044,7 @@ function EquipmentMaintenance() {
 
       <Modal open={!!deletingMaint} onClose={() => setDeleteMaint(null)} title="Xóa yêu cầu bảo trì"
         footer={<><Button variant="ghost" onClick={() => setDeleteMaint(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => {
-            const target = maintList.find(m => m.code === deleteMaint);
-            fetch(`http://localhost:5000/api/v1/equipment-reports/${target?.id}`, { method: "DELETE" }).then(() => {
-              fetchReports();
-              setDeleteMaint(null);
-            });
-          }}>Xóa yêu cầu</Button></>}>
+          <Button icon={Trash2} disabled={isSubmitting} onClick={handleDelete}>{isSubmitting ? "Đang xóa..." : "Xóa yêu cầu"}</Button></>}>
         {deletingMaint && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -2752,6 +3085,70 @@ function MaintenanceOwner() {
   const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter);
   const viewing = viewId ? list.find((m) => m.code === viewId) : null;
   const deleting = deleteId ? list.find((m) => m.code === deleteId) : null;
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAdd = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/equipment-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString('vi-VN'), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Thêm yêu cầu thành công");
+        fetchReports(); setAddOpen(false);
+      } else {
+        toast.error(data.message || "Lỗi khi thêm yêu cầu");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${viewing?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolveStatus: "Hoàn thành" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Kết thúc bảo trì thành công");
+        fetchReports(); setViewId(null);
+      } else {
+        toast.error(data.message || "Lỗi cập nhật trạng thái");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting?.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Xóa yêu cầu thành công");
+        fetchReports(); setDeleteId(null);
+      } else {
+        toast.error(data.message || "Lỗi khi xóa yêu cầu");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -2803,13 +3200,7 @@ function MaintenanceOwner() {
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm yêu cầu bảo trì" wide
         footer={<>
           <Button variant="ghost" onClick={() => setAddOpen(false)}>Hủy</Button>
-          <Button icon={CheckCircle2} onClick={() => {
-            fetch("http://localhost:5000/api/v1/equipment-reports", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ equipmentId: addForm.equipmentId || items[0]?.id, reportDate: addForm.date || new Date().toLocaleDateString('vi-VN'), errorDescription: addForm.desc || "", reporterName: "Trần Mỹ Linh", resolveStatus: "Chờ xử lý" })
-            }).then(() => { fetchReports(); setAddOpen(false); });
-          }}>Gửi yêu cầu</Button>
+          <Button icon={CheckCircle2} disabled={isSubmitting} onClick={handleAdd}>{isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}</Button>
         </>}>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -2839,13 +3230,7 @@ function MaintenanceOwner() {
         footer={<>
           <Button variant="ghost" onClick={() => setViewId(null)}>Đóng</Button>
           {viewing?.status === "Đã xử lý" && (
-            <Button icon={CheckCircle2} onClick={() => {
-              fetch(`http://localhost:5000/api/v1/equipment-reports/${viewing.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ resolveStatus: "Hoàn thành" })
-              }).then(() => { fetchReports(); setViewId(null); });
-            }}>Kết thúc bảo trì</Button>
+            <Button icon={CheckCircle2} disabled={isSubmitting} onClick={handleComplete}>{isSubmitting ? "Đang kết thúc..." : "Kết thúc bảo trì"}</Button>
           )}
         </>}>
         {viewing && (
@@ -2876,9 +3261,7 @@ function MaintenanceOwner() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa yêu cầu bảo trì"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={() => {
-            fetch(`http://localhost:5000/api/v1/equipment-reports/${deleting.id}`, { method: "DELETE" }).then(() => { fetchReports(); setDeleteId(null); });
-          }}>Xóa yêu cầu</Button>
+          <Button icon={Trash2} disabled={isSubmitting} onClick={handleDelete}>{isSubmitting ? "Đang xóa..." : "Xóa yêu cầu"}</Button>
         </>}>
         {deleting && (
           <div className="space-y-3">
@@ -2981,10 +3364,10 @@ function Feedback() {
         setReplyId(null);
         setReplyText("");
       } else {
-        alert(data.message || "Lỗi khi gửi phản hồi");
+        toast.error(data.message || "Lỗi khi gửi phản hồi");
       }
     } catch {
-      alert("Lỗi kết nối máy chủ");
+      toast.error("Lỗi kết nối máy chủ");
     } finally {
       setReplySending(false);
     }
@@ -3003,10 +3386,10 @@ function Feedback() {
         fetchFeedbacks();
         setDeleteId(null);
       } else {
-        alert(data.message || "Lỗi khi xóa");
+        toast.error(data.message || "Lỗi khi xóa");
       }
     } catch {
-      alert("Lỗi kết nối máy chủ");
+      toast.error("Lỗi kết nối máy chủ");
     } finally {
       setDeleting(false);
     }
@@ -3198,7 +3581,7 @@ function Feedback() {
         footer={<>
           <Button variant="ghost" onClick={() => { setReplyId(null); setReplyText(""); }}>Hủy</Button>
           <Button icon={CheckCircle2}
-            className={cn(!replyText.trim() || replySending ? "opacity-50 cursor-not-allowed pointer-events-none" : "")}
+            disabled={!replyText.trim() || replySending}
             onClick={doReply}>
             {replySending ? "Đang gửi…" : "Gửi phản hồi"}
           </Button>
@@ -3234,7 +3617,7 @@ function Feedback() {
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
           <Button variant="danger" icon={Trash2}
-            className={cn(deleting ? "opacity-50 cursor-not-allowed pointer-events-none" : "")}
+            disabled={deleting}
             onClick={doDelete}>
             {deleting ? "Đang xóa…" : "Xóa phản hồi"}
           </Button>
@@ -3922,31 +4305,47 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     });
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editId) return;
     setSaving(true);
-    fetch(`http://localhost:5000/api/v1/members/${editId}`, {
-      method: "PUT", headers,
-      body: JSON.stringify(editForm),
-    })
-      .then((r) => r.json())
-      .then((res) => {
-        setSaving(false);
-        if (res.success) { setEditId(null); fetchMembers(); }
-      })
-      .catch(() => setSaving(false));
+    try {
+      const r = await fetch(`http://localhost:5000/api/v1/members/${editId}`, {
+        method: "PUT", headers,
+        body: JSON.stringify(editForm),
+      });
+      const res = await r.json();
+      if (res.success) {
+        toast.success("Cập nhật hội viên thành công");
+        setEditId(null);
+        fetchMembers();
+      } else {
+        toast.error(res.message || "Lỗi khi cập nhật hội viên");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
     setDeleting(true);
-    fetch(`http://localhost:5000/api/v1/members/${deleteId}`, { method: "DELETE", headers })
-      .then((r) => r.json())
-      .then((res) => {
-        setDeleting(false);
-        if (res.success) { setDeleteId(null); fetchMembers(); }
-      })
-      .catch(() => setDeleting(false));
+    try {
+      const r = await fetch(`http://localhost:5000/api/v1/members/${deleteId}`, { method: "DELETE", headers });
+      const res = await r.json();
+      if (res.success) {
+        toast.success("Xóa hội viên thành công");
+        setDeleteId(null);
+        fetchMembers();
+      } else {
+        toast.error(res.message || "Lỗi khi xóa hội viên");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -3997,7 +4396,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       <Modal open={!!editingMember} onClose={() => setEditId(null)} title={`Chỉnh sửa hội viên — ${editingMember?.name ?? ""}`} wide
         footer={<>
           <Button variant="ghost" onClick={() => setEditId(null)}>Hủy</Button>
-          <Button icon={CheckCircle2} className={cn(saving && "opacity-50 pointer-events-none")} onClick={handleEditSave}>
+          <Button icon={CheckCircle2} disabled={saving} onClick={handleEditSave}>
             {saving ? "Đang lưu…" : "Lưu thay đổi"}
           </Button>
         </>}>
@@ -4034,7 +4433,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       <Modal open={!!deletingMember} onClose={() => setDeleteId(null)} title="Xóa hội viên"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button variant="danger" icon={Trash2} className={cn(deleting && "opacity-50 pointer-events-none")} onClick={handleDelete}>
+          <Button variant="danger" icon={Trash2} disabled={deleting} onClick={handleDelete}>
             {deleting ? "Đang xóa…" : "Xóa hội viên"}
           </Button>
         </>}>
@@ -4569,9 +4968,9 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         if (res.success) {
           fetchTodayLog();
           fetchLogs();
-          alert("Check out thành công!");
+          toast.success("Check out thành công!");
         } else {
-          alert(res.message);
+          toast.error(res.message);
         }
       });
     } else {
@@ -4583,37 +4982,54 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           fetchTodayLog();
           fetchLogs();
           fetchMember();
-          alert("Check in thành công!");
+          toast.success("Check in thành công!");
         } else {
-          alert(res.message);
+          toast.error(res.message);
         }
       });
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    fetch(`http://localhost:5000/api/v1/members/${id}`, {
-      method: "PUT", headers,
-      body: JSON.stringify(editForm),
-    })
-      .then(r => r.json())
-      .then(res => {
-        setSaving(false);
-        if (res.success) { setEdit(false); fetchMember(); }
-      })
-      .catch(() => setSaving(false));
+    try {
+      const r = await fetch(`http://localhost:5000/api/v1/members/${id}`, {
+        method: "PUT", headers,
+        body: JSON.stringify(editForm),
+      });
+      const res = await r.json();
+      if (res.success) {
+        toast.success("Cập nhật hội viên thành công");
+        setEdit(false);
+        fetchMember();
+      } else {
+        toast.error(res.message || "Lỗi khi cập nhật");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     setDeletingMember(true);
-    fetch(`http://localhost:5000/api/v1/members/${id}`, { method: "DELETE", headers })
-      .then(r => r.json())
-      .then(res => {
-        setDeletingMember(false);
-        if (res.success) { setDel(false); onDeleted?.(); onBack(); }
-      })
-      .catch(() => setDeletingMember(false));
+    try {
+      const r = await fetch(`http://localhost:5000/api/v1/members/${id}`, { method: "DELETE", headers });
+      const res = await r.json();
+      if (res.success) {
+        toast.success("Xóa hội viên thành công");
+        setDel(false);
+        onDeleted?.();
+        onBack();
+      } else {
+        toast.error(res.message || "Lỗi khi xóa hội viên");
+      }
+    } catch {
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setDeletingMember(false);
+    }
   };
 
   if (!member) return <div className="text-muted-foreground text-[13px] py-10 text-center">Đang tải...</div>;
@@ -4744,7 +5160,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
       <Modal open={edit} onClose={() => setEdit(false)} title={`Chỉnh sửa — ${member.memberName}`} wide
         footer={<>
           <Button variant="ghost" onClick={() => setEdit(false)}>Hủy</Button>
-          <Button icon={CheckCircle2} className={cn(saving && "opacity-50 pointer-events-none")} onClick={handleSave}>
+          <Button icon={CheckCircle2} disabled={saving} onClick={handleSave}>
             {saving ? "Đang lưu…" : "Lưu thay đổi"}
           </Button>
         </>}>
@@ -4779,7 +5195,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
       <Modal open={del} onClose={() => setDel(false)} title="Xóa hội viên"
         footer={<>
           <Button variant="ghost" onClick={() => setDel(false)}>Hủy</Button>
-          <Button variant="danger" icon={Trash2} className={cn(deletingMember && "opacity-50 pointer-events-none")} onClick={handleDelete}>
+          <Button variant="danger" icon={Trash2} disabled={deletingMember} onClick={handleDelete}>
             {deletingMember ? "Đang xóa…" : "Xóa hội viên"}
           </Button>
         </>}>
@@ -5282,10 +5698,12 @@ function MemberFeedback() {
   const [fbType, setFbType] = useState<"Thiết bị" | "Nhân viên">("Thiết bị");
   const [ref, setRef] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const deleting = deleteId ? list.find((f) => f.feedbackId === deleteId) : null;
 
   const submit = async () => {
     if (!content.trim()) return;
+    setIsSubmitting(true);
 
     let finalContent = content.trim();
     if (ref) {
@@ -5308,19 +5726,23 @@ function MemberFeedback() {
       if (res.ok) {
         setContent(""); setRef(""); setOpen(false);
         fetchFeedbacks();
+        toast.success("Gửi phản hồi thành công");
       } else {
         const errorData = await res.json();
         console.error("API Error:", errorData);
-        alert(errorData.message || "Có lỗi xảy ra khi gửi phản hồi!");
+        toast.error(errorData.message || "Có lỗi xảy ra khi gửi phản hồi!");
       }
     } catch (e) {
       console.error(e);
-      alert("Không thể kết nối đến máy chủ.");
+      toast.error("Không thể kết nối đến máy chủ.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const deleteFeedback = async () => {
     if (!deleteId) return;
+    setIsSubmitting(true);
     try {
       const res = await fetch(`http://localhost:5000/api/v1/feedbacks/${deleteId}`, {
         method: "DELETE",
@@ -5329,9 +5751,16 @@ function MemberFeedback() {
       if (res.ok) {
         setDeleteId(null);
         fetchFeedbacks();
+        toast.success("Xóa phản hồi thành công");
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Lỗi khi xóa phản hồi");
       }
     } catch (e) {
       console.error(e);
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -5373,7 +5802,7 @@ function MemberFeedback() {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Tạo phản hồi mới"
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button icon={ArrowRight} onClick={submit}>Gửi phản hồi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button icon={ArrowRight} disabled={isSubmitting} onClick={submit}>{isSubmitting ? "Đang gửi..." : "Gửi phản hồi"}</Button></>}>
         <div className="space-y-4">
           <Field label="Loại phản hồi">
             <div className="flex gap-2">
@@ -5413,7 +5842,7 @@ function MemberFeedback() {
       <Modal open={!!deleting} onClose={() => setDeleteId(null)} title="Xóa phản hồi"
         footer={<>
           <Button variant="ghost" onClick={() => setDeleteId(null)}>Hủy</Button>
-          <Button icon={Trash2} onClick={deleteFeedback}>Xóa phản hồi</Button>
+          <Button icon={Trash2} disabled={isSubmitting} onClick={deleteFeedback}>{isSubmitting ? "Đang xóa..." : "Xóa phản hồi"}</Button>
         </>}>
         {deleting && (() => {
           const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("vi-VN") : "";
@@ -5780,7 +6209,7 @@ export default function App() {
   }, [authed, role]);
 
   const editingStaff = editStaff ? staffData.find((x) => x.code === editStaff) : null;
-
+  const [submittingEdit, setSubmittingEdit] = useState(false);
   const breadcrumb = useMemo(() => {
     const path = location.pathname;
     if (path === "/") return ["GymOS", "Trang chủ"];
@@ -5894,16 +6323,29 @@ export default function App() {
               {editingStaff && (
                 <StaffForm
                   data={editingStaff}
+                  loading={submittingEdit}
                   onCancel={() => setEditStaff(null)}
-                  onSubmit={(data) => {
-                    fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(data),
-                    }).then(res => res.json()).then(() => {
-                      fetchStaffs();
-                      setEditStaff(null);
-                    });
+                  onSubmit={async (data) => {
+                    setSubmittingEdit(true);
+                    try {
+                      const res = await fetch(`http://localhost:5000/api/v1/staffs/${editingStaff.code}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(data),
+                      });
+                      const resData = await res.json();
+                      if (resData.success) {
+                        toast.success("Cập nhật thông tin thành công");
+                        fetchStaffs();
+                        setEditStaff(null);
+                      } else {
+                        toast.error(resData.message || "Lỗi khi cập nhật");
+                      }
+                    } catch {
+                      toast.error("Lỗi kết nối máy chủ");
+                    } finally {
+                      setSubmittingEdit(false);
+                    }
                   }}
                 />
               )}
