@@ -27,20 +27,20 @@ router.post(
   createSubscription,
 );
 
-// Process payment (manager/owner only)
+// Process payment (manager/owner/pt only)
 router.post(
   '/:id/pay',
   verifyToken,
-  restrictTo('manager', 'owner'),
+  restrictTo('manager', 'owner', 'pt'),
   validate(paySubscriptionSchema),
   processSubscriptionPayment,
 );
 
-// Renew subscription (member only)
+// Renew subscription (member, manager, owner, pt)
 router.post(
   '/renew',
   verifyToken,
-  restrictTo('member'),
+  restrictTo('member', 'manager', 'owner', 'pt'),
   validate(renewSubscriptionSchema),
   renewSubscription,
 );

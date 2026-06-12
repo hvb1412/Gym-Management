@@ -4939,7 +4939,8 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                     },
                     body: JSON.stringify({
                       packageId: pkgId,
-                      paymentMethod: methodMap[kind] || "cash"
+                      paymentMethod: methodMap[kind] || "cash",
+                      memberId: formData?.memberId || undefined
                     })
                   });
                   const rData = await rRes.json();
@@ -6080,14 +6081,20 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
   );
 }
 
-function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: string }) {
+function Renew({ onBack, memberName, memberId, role }: { onBack?: () => void; memberName?: string; memberId?: string; role?: string }) {
   const [pkgId, setPkgId] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [students, setStudents] = useState<any[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as any;
+  const mId = memberId || state?.memberId || selectedStudentId;
+  const mName = memberName || state?.memberName || students.find(s => s.memberId === mId)?.memberName;
 
   useEffect(() => {
     fetch("http://localhost:5000/api/v1/packages")
@@ -6096,22 +6103,43 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
       });
 
-    fetch("http://localhost:5000/api/v1/subscriptions/me", {
-      headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data.subscriptions) {
-          const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-          if (active) setCurrentPlan(active);
-        }
-      });
-  }, []);
+    if (!memberId && !state?.memberId && (role === "trainer" || role === "staff")) {
+      const url = role === "trainer" ? "http://localhost:5000/api/v1/members/my-students" : "http://localhost:5000/api/v1/members";
+      fetch(url, { headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` } })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setStudents(data.data.members || data.data.data || []);
+          }
+        });
+    } else if (mId) {
+      // Fetch member's current subscription
+      fetch(`http://localhost:5000/api/v1/members/${mId}/payments`, { headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.data.plans) {
+            const active = data.data.plans.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            setCurrentPlan(active || null);
+          }
+        });
+    } else {
+      fetch("http://localhost:5000/api/v1/subscriptions/me", {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data.subscriptions) {
+            const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            setCurrentPlan(active || null);
+          }
+        });
+    }
+  }, [memberId, state?.memberId, mId, role]);
 
-  const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
+  const sub = mName ? `Chọn gói tập cho học viên ${mName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} onBack={() => { setPay(null); setSelected(null); }} onComplete={() => navigate("/history")} />;
+    return <Payment kind={pay} mode="renew" formData={{ memberName: mName, memberId: mId }} pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} onBack={() => { setPay(null); setSelected(null); }} onComplete={() => navigate("/history")} />;
   }
 
   const calDaysRemain = (expireDate: string) => {
@@ -6126,6 +6154,27 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         </button>
       )}
       <SectionTitle title="Gia hạn gói tập" sub={sub} />
+
+      {!memberId && !state?.memberId && (role === "trainer" || role === "staff") && (
+        <Card>
+          <Field label="Chọn hội viên cần gia hạn">
+            <div className="relative">
+              <select value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)}
+                className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
+                <option value="">— Chọn hội viên —</option>
+                {students.map((s) => (
+                  <option key={s.memberId} value={s.memberId}>
+                    {s.memberName} ({s.phoneNumber || "Không có SĐT"})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            </div>
+          </Field>
+        </Card>
+      )}
+
+      {mId && (
       <Card>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -6145,6 +6194,8 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
           <Badge tone={currentPlan ? "emerald" : "zinc"}>{currentPlan ? "Đang hoạt động" : "Không có gói"}</Badge>
         </div>
       </Card>
+      )}
+      {mId && (
       <Card>
         <h3 className="font-display mb-4">Chọn gói gia hạn</h3>
         <Field label="Gói tập">
@@ -6156,6 +6207,7 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
           </div>
         )}
       </Card>
+      )}
 
       <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
@@ -6293,11 +6345,11 @@ function MemberDetailWrapper({ disablePackage, readonly }: { disablePackage?: bo
   const { id } = useParams();
   const navigate = useNavigate();
   const base = readonly ? "/students" : "/members";
-  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew")} disablePackage={disablePackage} readonly={readonly} />;
+  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew", { state: { memberId: id } })} disablePackage={disablePackage} readonly={readonly} />;
 }
 function RenewWrapper({ role }: { role: Role }) {
   const navigate = useNavigate();
-  return <Renew onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
+  return <Renew onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} role={role} />;
 }
 function ReportsWrapper() {
   const location = useLocation();

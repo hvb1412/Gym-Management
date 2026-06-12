@@ -343,9 +343,16 @@ export const processSubscriptionPayment = catchAsync(async (req, res, next) => {
 
 export const renewSubscription = catchAsync(async (req, res, next) => {
   const accountId = req.user.accountId;
-  const { packageId, paymentMethod } = req.body;
+  const role = req.user.role;
+  const { packageId, paymentMethod, memberId } = req.body;
 
-  const member = await Member.findOne({ where: { accountId } });
+  let member;
+  if (memberId && ['manager', 'owner', 'pt'].includes(role)) {
+    member = await Member.findByPk(memberId);
+  } else {
+    member = await Member.findOne({ where: { accountId } });
+  }
+
   if (!member) {
     return next(new AppError('Không tìm thấy thông tin hội viên!', 404));
   }
