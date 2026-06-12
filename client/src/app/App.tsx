@@ -849,10 +849,26 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
+  const validate = () => {
+    if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(formData.name.trim())) {
+      toast.error("Họ tên không hợp lệ (chỉ chứa chữ cái)");
+      return false;
+    }
+    if (new Date(formData.dateOfBirth) > new Date()) {
+      toast.error("Ngày sinh không thể là ngày trong tương lai");
+      return false;
+    }
+    if (!/^0\d{9}$/.test(formData.phone.trim())) {
+      toast.error("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0");
+      return false;
+    }
+    return true;
+  };
+
   const needsAccount = true;
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit?.(formData); }} className="grid grid-cols-2 gap-4">
+    <form onSubmit={(e) => { e.preventDefault(); if (validate()) onSubmit?.(formData); }} className="grid grid-cols-2 gap-4">
       {isEdit ? (
         <Field label="Mã nhân sự">
           <Input value={data!.code} readOnly className="bg-muted opacity-70" />
@@ -882,7 +898,7 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       {needsAccount && (
         <>
           <Field label={<>Email đăng nhập<Req /></>}>
-            <Input icon={Mail} placeholder="email@gymos.vn" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
+            <Input icon={Mail} type="email" placeholder="email@gymos.vn" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
           </Field>
           <Field label={<>{isEdit ? "Đặt lại mật khẩu" : "Mật khẩu"}</>} hint={isEdit ? "Để trống nếu không đổi" : "Mặc định 123456 nếu để trống"}>
             <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => handleChange("password", e.target.value)} />
@@ -4168,7 +4184,7 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
       <Field label={<>Mã hội viên<Req /></>}><Input placeholder="VD: HV0242" value={data?.code} /></Field>
       <Field label={<>Họ và tên<Req /></>}><Input placeholder="VD: Nguyễn Văn A" value={data?.name} /></Field>
       <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={data?.phone} /></Field>
-      <Field label={<>Email<Req /></>}><Input icon={Mail} placeholder="email@example.com" /></Field>
+      <Field label={<>Email<Req /></>}><Input icon={Mail} type="email" placeholder="email@example.com" /></Field>
       <Field label={<>Gói tập<Req /></>}>
         <select disabled={disablePackage} defaultValue={data?.pkg ?? PACKAGES[0].name}
           className={cn("w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]",
@@ -4479,9 +4495,11 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const validateStep0 = () => {
     const errs: Record<string, string> = {};
     if (!formData.memberName.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    else if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(formData.memberName.trim())) errs.memberName = "Họ tên chỉ được chứa chữ cái";
     if (!formData.dateOfBirth) errs.dateOfBirth = "Vui lòng chọn ngày sinh";
+    else if (new Date(formData.dateOfBirth) > new Date()) errs.dateOfBirth = "Ngày sinh không được ở tương lai";
     if (!formData.phoneNumber.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
-    else if (!/^(0|\+84)[0-9]{8,10}$/.test(formData.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại không hợp lệ";
+    else if (!/^0\d{9}$/.test(formData.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại gồm 10 số và bắt đầu bằng 0";
     if (!formData.email.trim()) errs.email = "Vui lòng nhập email";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errs.email = "Email không hợp lệ";
     if (!formData.password) errs.password = "Vui lòng nhập mật khẩu";
@@ -4578,7 +4596,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               {step0Errors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{step0Errors.phoneNumber}</p>}
             </Field>
             <Field label={<>Email<Req /></>}>
-              <Input icon={Mail} placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
+              <Input icon={Mail} type="email" placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
               {step0Errors.email && <p className="text-[11px] text-red-500 mt-1">{step0Errors.email}</p>}
             </Field>
             <Field label={<>Mật khẩu đăng nhập<Req /></>}>
@@ -4991,6 +5009,12 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
   };
 
   const handleSave = async () => {
+    if (!editForm.memberName?.trim()) return toast.error("Vui lòng nhập họ và tên");
+    if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(editForm.memberName.trim())) return toast.error("Họ tên chỉ được chứa chữ cái");
+    if (editForm.dateOfBirth && new Date(editForm.dateOfBirth) > new Date()) return toast.error("Ngày sinh không được ở tương lai");
+    if (!editForm.phoneNumber?.trim()) return toast.error("Vui lòng nhập số điện thoại");
+    if (!/^0\d{9}$/.test(editForm.phoneNumber.trim())) return toast.error("Số điện thoại gồm 10 số và bắt đầu bằng 0");
+
     setSaving(true);
     try {
       const r = await fetch(`http://localhost:5000/api/v1/members/${id}`, {
