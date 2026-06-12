@@ -5250,6 +5250,10 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
   const handleCheckInOut = () => {
     if (todayLog) {
+      if (todayLog.endTime) {
+        toast.info("Hội viên đã check out hôm nay.");
+        return;
+      }
       fetch(`http://localhost:5000/api/v1/workout-logs/${todayLog.workoutId}/checkout`, {
         method: "PATCH", headers
       }).then(r => r.json()).then(res => {
@@ -5361,8 +5365,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button variant={todayLog ? "danger" : "secondary"} icon={CheckCircle2} onClick={handleCheckInOut}>
-              {todayLog ? "Check out hôm nay" : "Check in hôm nay"}
+            <Button 
+              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"} 
+              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2} 
+              onClick={handleCheckInOut}
+              disabled={!!(todayLog && todayLog.endTime)}
+            >
+              {todayLog ? (todayLog.endTime ? "Đã check out" : "Check out hôm nay") : "Check in hôm nay"}
             </Button>
           </div>
         </div>
