@@ -1007,7 +1007,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
                   </div>
                   <span className="font-medium">{s.name}</span>
                 </button>,
-                <Badge tone={s.role.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
+                <Badge tone={s.role.includes("Chủ") ? "violet" : s.role.includes("Nhân") ? "emerald" : s.role.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
                 <span className="text-muted-foreground">{s.email}</span>,
                 <span className="font-mono text-[12.5px]">{s.phone}</span>,
                 s.join,
@@ -1175,7 +1175,20 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
           const isPastMonth = calYear < now.getFullYear() || (calYear === now.getFullYear() && calMonth < now.getMonth());
           const maxDayToCheck = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
 
-          for (let i = 0; i < maxDayToCheck; i++) {
+          let startDayToCheck = 0;
+          if (s && s.join && s.join !== "Chưa cập nhật") {
+            const [d, m, y] = s.join.split("/");
+            const joinY = Number(y);
+            const joinM = Number(m) - 1;
+            const joinD = Number(d);
+            if (calYear < joinY || (calYear === joinY && calMonth < joinM)) {
+              startDayToCheck = daysInMonth;
+            } else if (calYear === joinY && calMonth === joinM) {
+              startDayToCheck = joinD - 1;
+            }
+          }
+
+          for (let i = startDayToCheck; i < maxDayToCheck; i++) {
             newDays[i] = "absent";
           }
 
@@ -1205,7 +1218,7 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
           setDays(newDays);
         }
       });
-  }, [id, calMonth, calYear, daysInMonth]);
+  }, [id, calMonth, calYear, daysInMonth, s]);
 
   const okCount = days.filter((d) => d === "ok").length;
   const lateCount = days.filter((d) => d === "late").length;
@@ -1426,7 +1439,7 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
                           <div className="text-[13px] font-medium truncate">{s.name}</div>
                           <div className="text-[11px] text-muted-foreground font-mono">{s.code} · {s.role}</div>
                         </div>
-                        <Badge tone={s.role === "Huấn luyện viên" ? "amber" : "sky"}>{s.role}</Badge>
+                        <Badge tone={s.role.includes("Chủ") ? "violet" : s.role.includes("Nhân") ? "emerald" : s.role.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>
                       </button>
                     ))}
                   </div>
