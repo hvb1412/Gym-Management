@@ -179,6 +179,82 @@ function Input({ icon: Icon, placeholder, type = "text", className, value, onCha
   );
 }
 
+function SearchableSelect({ options, value, onChange, placeholder = "Chọn...", disabled, className, defaultValue }: any) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const isControlled = value !== undefined;
+  const currentValue = isControlled ? value : internalValue;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleChange = (val: string) => {
+    if (!isControlled) setInternalValue(val);
+    if (onChange) onChange({ target: { value: val } } as any);
+    setOpen(false);
+    setSearch("");
+  };
+
+  const selected = options.find((o: any) => o.value == currentValue);
+  const filtered = options.filter((o: any) => String(o.label).toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className={cn("relative", className)} ref={ref}>
+      <button type="button" disabled={disabled} onClick={() => setOpen(!open)}
+        className={cn("w-full h-10 flex items-center justify-between rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none transition", open ? "border-[#6C63FF] ring-2 ring-[#6C63FF]/15" : "", disabled && "opacity-50 cursor-not-allowed")}
+      >
+        <span className="truncate">{selected ? selected.label : placeholder}</span>
+        <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+      </button>
+      
+      {open && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 flex flex-col rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+          <div className="bg-popover p-1 border-b border-border shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input 
+                type="text" 
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                placeholder="Tìm kiếm..." 
+                className="w-full h-8 bg-muted/50 rounded-md border-none pl-7 pr-3 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#6C63FF]"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          </div>
+          <div className="overflow-y-auto flex-1 p-1 space-y-0.5">
+            {filtered.length === 0 ? (
+              <div className="p-3 text-center text-[12.5px] text-muted-foreground">Không tìm thấy kết quả</div>
+            ) : (
+              filtered.map((o: any) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => handleChange(o.value)}
+                  className={cn("w-full flex items-center justify-between px-2.5 py-2 text-[13px] rounded-md text-left transition hover:bg-accent hover:text-foreground", currentValue == o.value && "bg-accent/60 text-foreground font-medium")}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {currentValue == o.value && <CheckCircle2 className="size-3.5 text-[#6C63FF]" />}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Card({ children, className, padded = true }: { children: React.ReactNode; className?: string; padded?: boolean }) {
   return (
     <div className={cn(
@@ -892,12 +968,15 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={formData.phone} onChange={(e: any) => handleChange("phone", e.target.value)} required /></Field>
       <Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận…" value={formData.address} onChange={(e: any) => handleChange("address", e.target.value)} required /></Field>
       <Field label={<>Role<Req /></>}>
-        <div className="relative">
-          <select value={formData.role} onChange={(e) => handleChange("role", e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-            <option>Nhân viên quản lý</option><option>Huấn luyện viên</option><option>Chủ phòng tập</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-        </div>
+        <SearchableSelect
+          value={formData.role}
+          onChange={(e: any) => handleChange("role", e.target.value)}
+          options={[
+            { value: "Nhân viên quản lý", label: "Nhân viên quản lý" },
+            { value: "Huấn luyện viên", label: "Huấn luyện viên" },
+            { value: "Chủ phòng tập", label: "Chủ phòng tập" },
+          ]}
+        />
       </Field>
       {needsAccount && (
         <>
@@ -911,12 +990,16 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       )}
       {isEdit && (
         <Field label={<>Trạng thái<Req /></>}>
-          <div className="relative">
-            <select value={formData.status} onChange={(e) => handleChange("status", e.target.value)} className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-              <option>Đang làm</option><option>Nghỉ phép</option><option>Đã thôi việc</option><option>Đã vô hiệu hóa</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-          </div>
+          <SearchableSelect
+            value={formData.status}
+            onChange={(e: any) => handleChange("status", e.target.value)}
+            options={[
+              { value: "Đang làm", label: "Đang làm" },
+              { value: "Nghỉ phép", label: "Nghỉ phép" },
+              { value: "Đã thôi việc", label: "Đã thôi việc" },
+              { value: "Đã vô hiệu hóa", label: "Đã vô hiệu hóa" },
+            ]}
+          />
         </Field>
       )}
 
@@ -1614,11 +1697,15 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
           <Field label={<>Thời hạn<Req /></>}>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <Input placeholder="VD: 6" type="text" inputMode="numeric" value={num} onChange={(e: any) => setNum(e.target.value.replace(/\D/g, ""))} required />
-              <select value={unit} onChange={(e: any) => setUnit(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="month">Tháng</option>
-                <option value="week">Tuần</option>
-                <option value="day">Ngày</option>
-              </select>
+              <SearchableSelect
+                value={unit}
+                onChange={(e: any) => setUnit(e.target.value)}
+                options={[
+                  { value: "month", label: "Tháng" },
+                  { value: "week", label: "Tuần" },
+                  { value: "day", label: "Ngày" },
+                ]}
+              />
             </div>
           </Field>
         )}
@@ -1810,16 +1897,26 @@ function Packages() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Thêm gói tập</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên gói…" className="max-w-xs" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Đang kinh doanh">Đang kinh doanh</option>
-          <option value="Ngừng kinh doanh">Ngừng kinh doanh</option>
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả loại</option>
-          <option value="session">Theo số buổi</option>
-          <option value="duration">Theo thời gian</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Đang kinh doanh", label: "Đang kinh doanh" },
+            { value: "Ngừng kinh doanh", label: "Ngừng kinh doanh" },
+          ]}
+        />
+        <SearchableSelect
+          value={typeFilter}
+          onChange={(e: any) => setTypeFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả loại" },
+            { value: "session", label: "Theo số buổi" },
+            { value: "duration", label: "Theo thời gian" },
+          ]}
+        />
         <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none">
           <input type="checkbox" checked={filterVip} onChange={(e) => setFilterVip(e.target.checked)} className="size-4 rounded accent-[#6C63FF]" />
           VIP
@@ -1992,14 +2089,18 @@ function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e:
         <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={code} onChange={(e: any) => setCode(e.target.value)} required /></Field>
         <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={name} onChange={(e: any) => setName(e.target.value)} required /></Field>
         <Field label={<>Loại phòng<Req /></>}>
-          <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-            {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <SearchableSelect
+            value={type}
+            onChange={(e: any) => setType(e.target.value)}
+            options={ROOM_TYPES.map((t) => ({ value: t, label: t }))}
+          />
         </Field>
         <Field label={<>Trạng thái<Req /></>}>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-            {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <SearchableSelect
+            value={status}
+            onChange={(e: any) => setStatus(e.target.value)}
+            options={ROOM_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
         </Field>
       </div>
     </form>
@@ -2157,14 +2258,24 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Thêm phòng tập</Button>} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên hoặc mã phòng…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả loại phòng</option>
-          {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          {ROOM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          value={typeFilter}
+          onChange={(e: any) => setTypeFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả loại phòng" },
+            ...ROOM_TYPES.map((t) => ({ value: t, label: t }))
+          ]}
+        />
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            ...ROOM_STATUSES.map((s) => ({ value: s, label: s }))
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -2239,16 +2350,18 @@ function RoomDeviceForm({ data }: { data?: { code?: string; typeId?: string; pos
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label={<>Loại thiết bị<Req /></>}>
-        <select defaultValue={data?.typeId ?? EQUIPMENT_TYPES[0].id} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {EQUIPMENT_TYPES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+        <SearchableSelect
+          defaultValue={data?.typeId ?? EQUIPMENT_TYPES[0].id}
+          options={EQUIPMENT_TYPES.map((t) => ({ value: t.id, label: t.name }))}
+        />
       </Field>
       <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code} /></Field>
       <Field label={<>Vị trí trong phòng<Req /></>}><Input placeholder="VD: Hàng 2 — Slot 5" value={data?.pos} /></Field>
       <Field label={<>Tình trạng<Req /></>}>
-        <select defaultValue={data?.status ?? "Hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          defaultValue={data?.status ?? "Hoạt động"}
+          options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+        />
       </Field>
     </div>
   );
@@ -2468,19 +2581,23 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         footer={<><Button variant="ghost" onClick={() => setAddDev(false)}>Hủy</Button><Button icon={CheckCircle2} onClick={handleAddDevice}>Thêm thiết bị</Button></>}>
         <div className="grid grid-cols-2 gap-4">
           <Field label={<>Loại thiết bị<Req /></>}>
-            <select value={newDev.typeId} onChange={(e) => setNewDev({ ...newDev, typeId: e.target.value })}
-              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option value="">-- Chọn loại thiết bị --</option>
-              {equipmentTypes.map((t: any) => <option key={t.equipmentTypeId} value={t.equipmentTypeId}>{t.equipmentName}</option>)}
-            </select>
+            <SearchableSelect
+              value={newDev.typeId}
+              onChange={(e: any) => setNewDev({ ...newDev, typeId: e.target.value })}
+              options={[
+                { value: "", label: "-- Chọn loại thiết bị --" },
+                ...equipmentTypes.map((t: any) => ({ value: t.equipmentTypeId, label: t.equipmentName }))
+              ]}
+            />
           </Field>
           <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={newDev.code} onChange={(e: any) => setNewDev({ ...newDev, code: e.target.value })} /></Field>
           <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={newDev.pos} onChange={(e: any) => setNewDev({ ...newDev, pos: e.target.value })} /></Field>
           <Field label={<>Tình trạng<Req /></>}>
-            <select value={newDev.status} onChange={(e) => setNewDev({ ...newDev, status: e.target.value })}
-              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <SearchableSelect
+              value={newDev.status}
+              onChange={(e: any) => setNewDev({ ...newDev, status: e.target.value })}
+              options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+            />
           </Field>
         </div>
       </Modal>
@@ -2494,10 +2611,11 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <Field label={<>Tên loại thiết bị</>}><Input value={editDev.typeName} readOnly /></Field>
             <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={editDev.pos} onChange={(e: any) => setEditDev({ ...editDev, pos: e.target.value })} /></Field>
             <Field label={<>Tình trạng<Req /></>}>
-              <select value={editDev.status} onChange={(e) => setEditDev({ ...editDev, status: e.target.value })}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                {["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <SearchableSelect
+                value={editDev.status}
+                onChange={(e: any) => setEditDev({ ...editDev, status: e.target.value })}
+                options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+              />
             </Field>
             <Field label={<>Ngày mua</>}><Input value={editDev.purchaseDate} readOnly /></Field>
           </div>
@@ -2531,9 +2649,11 @@ function EquipmentTypeForm({ data, onChange }: { data?: Partial<EquipmentType>; 
       <Field label={<>Mã loại<Req /></>}><Input placeholder="VD: ET07" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
       <Field label={<>Tên loại thiết bị<Req /></>}><Input placeholder="VD: Máy tập đẩy ngực" value={data?.name || ""} onChange={(e: any) => onChange({ ...data, name: e.target.value })} /></Field>
       <Field label={<>Phân loại<Req /></>}>
-        <select value={data?.category || "Cardio"} onChange={(e) => onChange({ ...data, category: e.target.value as any })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <SearchableSelect
+          value={data?.category || "Cardio"}
+          onChange={(e: any) => onChange({ ...data, category: e.target.value as any })}
+          options={EQUIPMENT_CATEGORIES.map((c) => ({ value: c, label: c }))}
+        />
       </Field>
       <Field label={<>Hãng / Nhà sản xuất<Req /></>}><Input placeholder="VD: Matrix" value={data?.brand || ""} onChange={(e: any) => onChange({ ...data, brand: e.target.value })} /></Field>
       <Field label={<>Bảo hành (tháng)<Req /></>}><Input placeholder="VD: 24" type="text" inputMode="numeric" value={data?.warranty?.toString() || ""} onChange={(e: any) => { const raw = e.target.value.replace(/\D/g, ""); onChange({ ...data, warranty: raw ? parseInt(raw, 10) : 0 }) }} /></Field>
@@ -2552,17 +2672,23 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
     <div className="grid grid-cols-2 gap-4">
       <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
       <Field label={<>Phòng / Khu vực<Req /></>}>
-        <select value={data?.room || rooms[0]?.name} onChange={(e) => onChange({ ...data, room: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {rooms.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
-        </select>
+        <SearchableSelect
+          value={data?.room || rooms[0]?.name}
+          onChange={(e: any) => onChange({ ...data, room: e.target.value })}
+          options={rooms.map((r) => ({ value: r.name, label: r.name }))}
+        />
       </Field>
       <Field label={<>Ngày mua<Req /></>}><Input type="date" placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
       <Field label={<>Trạng thái<Req /></>}>
-        <select value={data?.status || "Hoạt động"} onChange={(e) => onChange({ ...data, status: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Hoạt động">Hoạt động</option>
-          <option value="Đang bảo trì">Đang bảo trì</option>
-          <option value="Ngừng sử dụng">Ngừng sử dụng</option>
-        </select>
+        <SearchableSelect
+          value={data?.status || "Hoạt động"}
+          onChange={(e: any) => onChange({ ...data, status: e.target.value })}
+          options={[
+            { value: "Hoạt động", label: "Hoạt động" },
+            { value: "Đang bảo trì", label: "Đang bảo trì" },
+            { value: "Ngừng sử dụng", label: "Ngừng sử dụng" },
+          ]}
+        />
       </Field>
     </div>
   );
@@ -2770,10 +2896,15 @@ function Equipment() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên loại hoặc mã…" className="max-w-xs" value={typeQuery} onChange={(e: any) => setTypeQuery(e.target.value)} />
-        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả phân loại</option>
-          {EQUIPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <SearchableSelect
+          value={catFilter}
+          onChange={(e: any) => setCatFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả phân loại" },
+            ...EQUIPMENT_CATEGORIES.map((c) => ({ value: c, label: c }))
+          ]}
+        />
       </div>
 
       {/* Table at xl+ */}
@@ -3068,12 +3199,17 @@ function EquipmentMaintenance() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <select value={maintStatus} onChange={(e) => setMaintStatus(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đang xử lý">Đang xử lý</option>
-          <option value="Đã xử lý">Đã xử lý</option>
-        </select>
+        <SearchableSelect
+          value={maintStatus}
+          onChange={(e: any) => setMaintStatus(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Chờ xử lý", label: "Chờ xử lý" },
+            { value: "Đang xử lý", label: "Đang xử lý" },
+            { value: "Đã xử lý", label: "Đã xử lý" },
+          ]}
+        />
       </div>
       <Card padded={false}>
         <DataTable
@@ -3278,12 +3414,17 @@ function MaintenanceOwner() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đang xử lý">Đang xử lý</option>
-          <option value="Đã xử lý">Đã xử lý</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Chờ xử lý", label: "Chờ xử lý" },
+            { value: "Đang xử lý", label: "Đang xử lý" },
+            { value: "Đã xử lý", label: "Đã xử lý" },
+          ]}
+        />
       </div>
 
       <Card padded={false}>
@@ -3313,9 +3454,11 @@ function MaintenanceOwner() {
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <Field label={<>Chọn thiết bị<Req /></>}>
-              <select value={addForm.equipmentId || items[0]?.id} onChange={e => setAddForm({ ...addForm, equipmentId: e.target.value })} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                {items.map((i) => <option key={i.id} value={i.id}>{i.code} — {i.room}</option>)}
-              </select>
+              <SearchableSelect
+                value={addForm.equipmentId || items[0]?.id}
+                onChange={(e: any) => setAddForm({ ...addForm, equipmentId: e.target.value })}
+                options={items.map((i) => ({ value: i.id, label: i.code + " — " + i.room }))}
+              />
             </Field>
           </div>
           <Field label={<>Ngày báo<Req /></>}><Input type="date" value={addForm.date || ""} onChange={(e: any) => setAddForm({ ...addForm, date: e.target.value })} /></Field>
@@ -3553,11 +3696,16 @@ function Feedback() {
             className="w-full h-10 rounded-lg bg-input-background border border-border pl-9 pr-3 text-[13.5px] focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition"
           />
         </div>
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đã phản hồi">Đã phản hồi</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            { value: "Chờ xử lý", label: "Chờ xử lý" },
+            { value: "Đã phản hồi", label: "Đã phản hồi" }
+          ]}
+        />
         <div className="flex items-center gap-2">
           {(["Tất cả", ...Object.keys(typeCounts)]).filter((v, i, a) => a.indexOf(v) === i).map((c) => (
             <button key={c} onClick={() => { setTypeFilter(c); setPage(1); }} className={cn(
@@ -4173,12 +4321,18 @@ function StaffReport() {
         sub={`Hiệu suất chấm công ${staffList.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
         actions={
           <div className="flex items-center gap-2">
-            <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {months.map(m => <option key={m} value={m}>Tháng {m}</option>)}
-            </select>
-            <select value={selYear} onChange={e => setSelYear(Number(e.target.value))} className="h-9 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <SearchableSelect
+              value={selMonth}
+              onChange={(e: any) => setSelMonth(Number(e.target.value))}
+              className="w-28"
+              options={months.map(m => ({ value: m, label: "Tháng " + m }))}
+            />
+            <SearchableSelect
+              value={selYear}
+              onChange={(e: any) => setSelYear(Number(e.target.value))}
+              className="w-28"
+              options={years.map(y => ({ value: y, label: String(y) }))}
+            />
             <Button icon={FileBarChart}>Xuất báo cáo</Button>
           </div>
         }
@@ -4278,11 +4432,11 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
       <Field label={<>Số điện thoại<Req /></>}><Input icon={Phone} placeholder="09xx xxx xxx" value={data?.phone} /></Field>
       <Field label={<>Email<Req /></>}><Input icon={Mail} type="email" placeholder="email@example.com" /></Field>
       <Field label={<>Gói tập<Req /></>}>
-        <select disabled={disablePackage} defaultValue={data?.pkg ?? PACKAGES[0].name}
-          className={cn("w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]",
-            disablePackage && "opacity-50 cursor-not-allowed")}>
-          {PACKAGES.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-        </select>
+        <SearchableSelect
+          disabled={disablePackage}
+          defaultValue={data?.pkg ?? PACKAGES[0].name}
+          options={PACKAGES.map((p) => ({ value: p.name, label: p.name }))}
+        />
         {disablePackage && <p className="text-[11px] text-muted-foreground/70 mt-1">Dùng chức năng "Gia hạn gói tập" để thay đổi</p>}
       </Field>
       <Field label={<>Hạn / Số buổi còn lại<Req /></>}>
@@ -4292,9 +4446,10 @@ function MemberForm({ data, disablePackage }: { data?: MemberRecord; disablePack
         {disablePackage && <p className="text-[11px] text-muted-foreground/70 mt-1">Dùng chức năng "Gia hạn gói tập" để thay đổi</p>}
       </Field>
       <Field label={<>Trạng thái<Req /></>}>
-        <select defaultValue={data?.status ?? "Đang hoạt động"} className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          defaultValue={data?.status ?? "Đang hoạt động"}
+          options={MEMBER_STATUSES.map((s) => ({ value: s, label: s }))}
+        />
       </Field>
       <Field label={<>Ngày sinh<Req /></>}><Input type="date" /></Field>
       <div className="col-span-2"><Field label={<>Địa chỉ<Req /></>}><Input placeholder="Số nhà, đường, quận, thành phố" /></Field></div>
@@ -4463,12 +4618,16 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query}
           onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          <option value="Chưa có gói">Chưa có gói</option>
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            ...MEMBER_STATUSES.map((s) => ({ value: s, label: s })),
+            { value: "Chưa có gói", label: "Chưa có gói" }
+          ]}
+        />
       </div>
       <Card padded={false}>
         <DataTable
@@ -4520,13 +4679,16 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
               <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
             </Field>
             <Field label="Giới tính">
-              <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="">Chưa chọn</option>
-                <option value="male">Nam</option>
-                <option value="female">Nữ</option>
-                <option value="other">Khác</option>
-              </select>
+              <SearchableSelect
+                value={editForm.gender}
+                onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                options={[
+                  { value: "", label: "Chưa chọn" },
+                  { value: "male", label: "Nam" },
+                  { value: "female", label: "Nữ" },
+                  { value: "other", label: "Khác" }
+                ]}
+              />
             </Field>
             <div className="col-span-2">
               <Field label="Nghề nghiệp">
@@ -4734,14 +4896,14 @@ function NewMember({ onBack }: { onBack?: () => void }) {
             <h3 className="font-display mb-4">Chọn gói tập</h3>
             <Field label="Gói tập">
               <div className="relative">
-                <select value={pkgId} onChange={(e) => { setPkgId(e.target.value); setTrainerId(""); setStep1Errors({}); }}
-                  className="w-full h-10 rounded-lg bg-input-background border border-border px-3 text-[13px] appearance-none">
-                  {sellable.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.id} — {p.name} — {p.type} — {p.price.toLocaleString("vi-VN")}₫{p.vip ? " ★VIP" : ""}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={pkgId}
+                  onChange={(e: any) => { setPkgId(e.target.value); setTrainerId(""); setStep1Errors({}); }}
+                  options={sellable.map((p) => ({
+                    value: p.id,
+                    label: `${p.id} — ${p.name} — ${p.type} — ${p.price.toLocaleString("vi-VN")}₫${p.vip ? " ★VIP" : ""}`
+                  }))}
+                />
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
               </div>
             </Field>
@@ -4762,12 +4924,15 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               {pkg?.trainer && (
                 <Field label={<>Huấn luyện viên<Req /></>} hint="Bắt buộc khi gói có Trainer">
                   <div className="relative">
-                    <select value={trainerId} onChange={(e: any) => { setTrainerId(e.target.value); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }} className={cn("w-full h-10 rounded-lg bg-input-background border px-3 text-[13px] appearance-none", step1Errors.trainerId ? "border-red-400" : "border-border")}>
-                      <option value="">— Chọn huấn luyện viên —</option>
-                      {trainerList.map((t: any) => (
-                        <option key={t.staffId || t.code} value={t.staffId || t.code}>{t.name}</option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      value={trainerId}
+                      onChange={(e: any) => { setTrainerId(e.target.value); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }}
+                      options={[
+                        { value: "", label: "— Chọn huấn luyện viên —" },
+                        ...trainerList.map((t: any) => ({ value: t.staffId || t.code, label: t.name }))
+                      ]}
+                      className={step1Errors.trainerId ? "border-red-400" : ""}
+                    />
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
                   </div>
                   {step1Errors.trainerId && <p className="text-[11px] text-red-500 mt-1">{step1Errors.trainerId}</p>}
@@ -5333,13 +5498,16 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
           </Field>
           <Field label="Giới tính">
-            <select value={editForm.gender} onChange={(e) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
-              className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-              <option value="">Chưa chọn</option>
-              <option value="male">Nam</option>
-              <option value="female">Nữ</option>
-              <option value="other">Khác</option>
-            </select>
+              <SearchableSelect
+                value={editForm.gender}
+                onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+                options={[
+                  { value: "", label: "Chưa chọn" },
+                  { value: "male", label: "Nam" },
+                  { value: "female", label: "Nữ" },
+                  { value: "other", label: "Khác" }
+                ]}
+              />
           </Field>
           <div className="col-span-2">
             <Field label="Nghề nghiệp">
@@ -5975,20 +6143,26 @@ function MemberFeedback() {
           </Field>
           {fbType === "Thiết bị" && (
             <Field label="Thiết bị liên quan (tùy chọn)">
-              <select value={ref} onChange={(e) => setRef(e.target.value)}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="">— Không chọn —</option>
-                {equipmentList.map((i) => <option key={i.equipmentCode} value={i.equipmentCode}>{i.equipmentCode} — {i.Room?.roomName}</option>)}
-              </select>
+              <SearchableSelect
+                value={ref}
+                onChange={(e: any) => setRef(e.target.value)}
+                options={[
+                  { value: "", label: "— Không chọn —" },
+                  ...equipmentList.map((i) => ({ value: i.equipmentCode, label: `${i.equipmentCode} — ${i.Room?.roomName}` }))
+                ]}
+              />
             </Field>
           )}
           {fbType === "Nhân viên" && (
             <Field label="Nhân viên liên quan (tùy chọn)">
-              <select value={ref} onChange={(e) => setRef(e.target.value)}
-                className="w-full h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-                <option value="">— Không chọn —</option>
-                {staffList.map((s) => <option key={s.code} value={s.code}>{s.code} — {s.name} ({s.role})</option>)}
-              </select>
+              <SearchableSelect
+                value={ref}
+                onChange={(e: any) => setRef(e.target.value)}
+                options={[
+                  { value: "", label: "— Không chọn —" },
+                  ...staffList.map((s) => ({ value: s.code, label: `${s.code} — ${s.name} (${s.role})` }))
+                ]}
+              />
             </Field>
           )}
           <Field label="Nội dung">
@@ -6269,10 +6443,15 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
       <SectionTitle title="Học viên của tôi" sub={`Bạn đang phụ trách ${list.length} học viên`} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-input-background px-3 text-[13px] text-foreground outline-none focus:border-[#6C63FF]">
-          <option value="Tất cả">Tất cả trạng thái</option>
-          {MEMBER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <SearchableSelect
+          value={statusFilter}
+          onChange={(e: any) => setStatusFilter(e.target.value)}
+          className="w-[180px]"
+          options={[
+            { value: "Tất cả", label: "Tất cả trạng thái" },
+            ...MEMBER_STATUSES.map((s) => ({ value: s, label: s }))
+          ]}
+        />
       </div>
       <Card padded={false}>
         <DataTable
