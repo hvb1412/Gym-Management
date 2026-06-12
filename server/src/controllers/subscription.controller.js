@@ -174,6 +174,112 @@ export const getMyStudents = catchAsync(async (req, res, next) => {
   return successResponse(res, 200, 'Lấy danh sách học viên thành công!', { members: result });
 });
 
+// Thống kê dashboard cho Huấn luyện viên
+export const getTrainerDashboardStats = catchAsync(async (req, res, next) => {
+  const accountId = req.user.accountId;
+
+  const staff = await Staff.findOne({ where: { accountId } });
+  if (!staff) {
+    return next(new AppError('Không tìm thấy thông tin huấn luyện viên!', 404));
+  }
+
+  const { Op } = await import('sequelize');
+
+  // Lấy tất cả plans mà trainer này phụ trách
+  const plans = await SubscriptionPlan.findAll({
+    where: { trainerId: staff.staffId },
+    include: [
+      {
+        model: SubscriptionPackage,
+        attributes: ['packageType', 'duration', 'durationUnit', 'numberOfWorkout'],
+      },
+    ],
+  });
+
+  // Tính toán số học viên unique
+  const memberIds = [...new Set(plans.map((p) => p.memberId))];
+  const totalStudents = memberIds.length;
+
+  // Phân loại từng plan theo trạng thái
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const in14Days = new Date(today);
+  in14Days.setDate(in14Days.getDate() + 14);
+
+  // Tính ngày hết hạn cho một plan
+  const calcExpire = (plan) => {
+    const pkg = plan.SubscriptionPackage;
+    if (!plan.startDate) return plan.expireDate ? new Date(plan.expireDate) : null;
+
+    const start = new Date(plan.startDate);
+    if (pkg?.packageType === 'session' && pkg?.numberOfWorkout) {
+      start.setDate(start.getDate() + pkg.numberOfWorkout);
+      return start;
+    }
+    if (pkg?.duration) {
+      const unit = (pkg.durationUnit || '').toLowerCase();
+      if (unit === 'ngày' || unit === 'day' || unit === 'days') start.setDate(start.getDate() + pkg.duration);
+      else if (unit === 'tuần' || unit === 'week' || unit === 'weeks') start.setDate(start.getDate() + pkg.duration * 7);
+      else if (unit === 'năm' || unit === 'year' || unit === 'years') start.setFullYear(start.getFullYear() + pkg.duration);
+      else start.setMonth(start.getMonth() + pkg.duration);
+      return start;
+    }
+    return plan.expireDate ? new Date(plan.expireDate) : null;
+  };
+
+  // Xác định trạng thái cho mỗi member dựa trên plan tốt nhất
+  // Group plans by memberId, lấy plan active mới nhất cho mỗi member
+  const memberStatusMap = {};
+  for (const plan of plans) {
+    if (plan.status !== 'active') continue;
+    const mid = plan.memberId;
+    if (!memberStatusMap[mid]) {
+      memberStatusMap[mid] = plan;
+    } else {
+      // Lấy plan mới nhất
+      if (new Date(plan.createdAt) > new Date(memberStatusMap[mid].createdAt)) {
+        memberStatusMap[mid] = plan;
+      }
+    }
+  }
+
+  let activeStudents = 0;
+  let expiringSoon = 0;
+  let expiredStudents = 0;
+
+  for (const mid of memberIds) {
+    const plan = memberStatusMap[mid];
+    if (!plan) {
+      expiredStudents++;
+      continue;
+    }
+    const expire = calcExpire(plan);
+    if (!expire) {
+      activeStudents++;
+      continue;
+    }
+
+    const expireNorm = new Date(expire);
+    expireNorm.setHours(0, 0, 0, 0);
+
+    if (expireNorm < today) {
+      expiredStudents++;
+    } else if (expireNorm <= in14Days) {
+      expiringSoon++;
+    } else {
+      activeStudents++;
+    }
+  }
+
+  return successResponse(res, 200, 'Lấy thống kê dashboard thành công!', {
+    totalStudents,
+    activeStudents,
+    expiringSoon,
+    expiredStudents,
+  });
+});
+
 export const processSubscriptionPayment = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   const { paymentMethod } = req.body;

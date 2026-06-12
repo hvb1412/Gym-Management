@@ -337,6 +337,8 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
   const [showCur, setShowCur] = useState(false);
   const [showNw, setShowNw] = useState(false);
   const [showCf, setShowCf] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
   const mismatch = nw.length > 0 && cf.length > 0 && nw !== cf;
   const rules = [
     { id: "len", label: "Tối thiểu 8 ký tự", ok: nw.length >= 8 },
@@ -348,9 +350,32 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
   const score = rules.filter((r) => r.ok).length;
   const strengthLabel = nw.length === 0 ? "" : score <= 2 ? "Yếu" : score === 3 ? "Trung bình" : score === 4 ? "Khá mạnh" : "Mạnh";
   const strengthTone = score <= 2 ? "bg-[#FF5C5C]" : score === 3 ? "bg-[#FFB547]" : score === 4 ? "bg-sky-500" : "bg-[#00C9A7]";
-  const canSubmit = cur.length > 0 && rules.every((r) => r.ok) && nw === cf;
+  const canSubmit = cur.length > 0 && rules.every((r) => r.ok) && nw === cf && !pwSubmitting;
   const [saved, setSaved] = useState(false);
-  const resetForm = () => { setCur(""); setNw(""); setCf(""); setSaved(false); setShowCur(false); setShowNw(false); setShowCf(false); };
+  const resetForm = () => { setCur(""); setNw(""); setCf(""); setSaved(false); setPwError(null); setPwSubmitting(false); setShowCur(false); setShowNw(false); setShowCf(false); };
+  const handleChangePassword = async () => {
+    if (!canSubmit) return;
+    setPwSubmitting(true);
+    setPwError(null);
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/auth/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("gymos_token")}` },
+        body: JSON.stringify({ oldPassword: cur, newPassword: nw }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPwError(data.message || "Đổi mật khẩu thất bại. Vui lòng kiểm tra lại.");
+        setPwSubmitting(false);
+        return;
+      }
+      setSaved(true);
+      setPwSubmitting(false);
+    } catch {
+      setPwError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+      setPwSubmitting(false);
+    }
+  };
   return (
     <header className="h-16 px-7 flex items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-30">
       <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
@@ -405,7 +430,7 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
           : <>
             <Button variant="ghost" onClick={() => { setPwOpen(false); resetForm(); }}>Hủy</Button>
             <Button icon={CheckCircle2} className={cn(!canSubmit && "opacity-50 cursor-not-allowed pointer-events-none")}
-              onClick={() => canSubmit && setSaved(true)}>Lưu thay đổi</Button>
+              onClick={handleChangePassword}>{pwSubmitting ? "Đang lưu…" : "Lưu thay đổi"}</Button>
           </>}>
         {saved ? (
           <div className="text-center py-6">
@@ -467,6 +492,11 @@ function Header({ role, user, breadcrumb, onLogout }: { role: Role; user?: any; 
             {mismatch && (
               <div className="text-[12px] text-[#991B1B] dark:text-[#FFA0A0] flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF5C5C]/10 border border-[#FF5C5C]/30">
                 <AlertTriangle className="size-3.5" /> Mật khẩu xác nhận không khớp với mật khẩu mới.
+              </div>
+            )}
+            {pwError && (
+              <div className="text-[12px] text-[#991B1B] dark:text-[#FFA0A0] flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FF5C5C]/10 border border-[#FF5C5C]/30">
+                <AlertTriangle className="size-3.5" /> {pwError}
               </div>
             )}
           </div>
@@ -589,17 +619,32 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
   
   const [memberStats, setMemberStats] = useState<any>(null);
-  const [loading, setLoading] = useState(role === "member");
+  const [trainerStats, setTrainerStats] = useState<any>(null);
+  const [loading, setLoading] = useState(role === "member" || role === "trainer");
   
   useEffect(() => {
+    const token = localStorage.getItem("gymos_token");
     if (role === "member") {
       fetch("http://localhost:5000/api/v1/workout-logs/summary", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("gymos_token")}` }
+        headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           setMemberStats(data.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    }
+    if (role === "trainer") {
+      fetch("http://localhost:5000/api/v1/members/my-students/stats", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setTrainerStats(data.data);
         }
         setLoading(false);
       })
@@ -625,7 +670,6 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
     trainer: [
       { icon: Users, title: "Học viên của tôi", desc: "Xem và quản lý danh sách học viên", view: "students", tone: "from-[#FFB547]/20 to-transparent" },
       { icon: CreditCard, title: "Gia hạn gói tập", desc: "Gia hạn gói tập cho học viên", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
-      { icon: KeyRound, title: "Đổi mật khẩu", desc: "Cập nhật mật khẩu tài khoản", view: "changepw", tone: "from-[#00C9A7]/20 to-transparent" },
     ],
     member: [
       { icon: CreditCard, title: "Gia hạn gói tập", desc: "Đăng ký hoặc gia hạn gói hiện tại", view: "renew", tone: "from-[#6C63FF]/20 to-transparent" },
@@ -648,12 +692,24 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: TrendingUp, label: "Chuỗi tập liên tiếp", value: `${memberStats?.streak ?? 0} ngày`, tone: "amber" }
       ];
     }
+    if (role === "trainer") {
+      if (loading) return [
+        { icon: Users, label: "Tổng học viên", value: "...", tone: "violet" },
+        { icon: CheckCircle2, label: "Đang hoạt động", value: "...", tone: "emerald" },
+        { icon: AlertTriangle, label: "Sắp hết hạn", value: "...", tone: "amber" }
+      ];
+      return [
+        { icon: Users, label: "Tổng học viên", value: trainerStats?.totalStudents ?? 0, tone: "violet" },
+        { icon: CheckCircle2, label: "Đang hoạt động", value: trainerStats?.activeStudents ?? 0, tone: "emerald" },
+        { icon: AlertTriangle, label: "Sắp hết hạn", value: trainerStats?.expiringSoon ?? 0, tone: "amber" },
+      ];
+    }
     return [
       { icon: Activity, label: "Check in hôm nay", value: "128", tone: "emerald" },
       { icon: TrendingUp, label: "Doanh thu hôm nay", value: "12.4 tr", tone: "violet" },
       { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "4", tone: "amber" },
     ];
-  }, [role, memberStats, loading]);
+  }, [role, memberStats, trainerStats, loading]);
 
   const me = ROLE_META[role] || ROLE_META["member"];
   const personName = user?.name || me.person;
