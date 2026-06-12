@@ -2002,6 +2002,7 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
           name: r.roomName,
           type: r.roomType || "Gym",
           status: r.operatingStatus === "active" ? "Hoạt động" : (r.operatingStatus === "maintenance" ? "Bảo trì" : "Tạm đóng"),
+          createdAt: r.createdAt || new Date().toISOString(),
         })));
       }
       if (Array.isArray(equipmentsRes)) {
@@ -2022,11 +2023,24 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const statusOrder = {
+    "Hoạt động": 1,
+    "Bảo trì": 2,
+    "Tạm đóng": 3
+  };
+
   const filtered = list.filter((r) =>
     (typeFilter === "Tất cả" || r.type === typeFilter) &&
     (statusFilter === "Tất cả" || r.status === statusFilter) &&
     (r.name.toLowerCase().includes(query.toLowerCase()) || r.code.toLowerCase().includes(query.toLowerCase()))
-  );
+  ).sort((a, b) => {
+    const diff = (statusOrder[a.status as keyof typeof statusOrder] || 99) - (statusOrder[b.status as keyof typeof statusOrder] || 99);
+    if (diff !== 0) return diff;
+    if (a.status === "Hoạt động") {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    return 0;
+  });
   const editing = editId ? list.find((r) => r.id === editId) : null;
   const deleting = deleteId ? list.find((r) => r.id === deleteId) : null;
   const totalDevices = equipments.length;
