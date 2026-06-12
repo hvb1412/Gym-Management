@@ -6385,7 +6385,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); setTrainerId(""); }} onComplete={() => {
+    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); if (!isTrainer) setTrainerId(""); }} onComplete={() => {
       if (memberId && onBack) onBack();
       else navigate("/history");
     }} />;
@@ -6434,9 +6434,9 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
         )}
       </Card>
 
-      <Modal open={!!selected} onClose={() => { setSelected(null); setTrainerId(""); }} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
+      <Modal open={!!selected} onClose={() => { setSelected(null); if (!isTrainer) setTrainerId(""); }} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
-          <Button variant="ghost" onClick={() => { setSelected(null); setTrainerId(""); }}>Hủy</Button>
+          <Button variant="ghost" onClick={() => { setSelected(null); if (!isTrainer) setTrainerId(""); }}>Hủy</Button>
           <Button icon={ArrowRight} onClick={() => {
             const pkg = packages.find((p) => p.packageId === selected);
             if (pkg?.trainerIncluded && !trainerId) {
