@@ -4780,6 +4780,12 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
   const TOTAL = 300;
   const [remain, setRemain] = useState(TOTAL);
   const [qrKey, setQrKey] = useState(0);
+
+  const [cashGivenStr, setCashGivenStr] = useState("");
+  const cashGiven = parseInt(cashGivenStr.replace(/\D/g, "")) || 0;
+  const change = Math.max(0, cashGiven - pkg.price);
+  const isCashInsufficient = kind === "cash" && cashGiven < pkg.price;
+
   useEffect(() => {
     if (kind !== "qr") return;
     setRemain(TOTAL);
@@ -4861,11 +4867,23 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
           {kind === "cash" && (
             <div className="space-y-4">
               <Field label="Số tiền cần thu"><Input value={`${pkg.price.toLocaleString("vi-VN")} ₫`} readOnly /></Field>
-              <Field label="Khách đưa"><Input placeholder="VD: 3.000.000 ₫" /></Field>
+              <Field label="Khách đưa">
+                <Input 
+                  placeholder="VD: 3000000" 
+                  value={cashGivenStr} 
+                  onChange={(e: any) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setCashGivenStr(val ? parseInt(val).toString() : "");
+                  }} 
+                />
+              </Field>
               <div className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 p-4 flex items-center justify-between">
                 <span className="text-[13px] text-[#00866F] dark:text-[#5FE6CB]">Tiền thối khách</span>
-                <span className="font-display font-bold text-[22px] text-[#00866F] dark:text-[#5FE6CB]">0 ₫</span>
+                <span className="font-display font-bold text-[22px] text-[#00866F] dark:text-[#5FE6CB]">{change > 0 ? change.toLocaleString("vi-VN") : "0"} ₫</span>
               </div>
+              {isCashInsufficient && cashGivenStr && (
+                <p className="text-[12.5px] text-[#FF5C5C]">Số tiền khách đưa chưa đủ để thanh toán.</p>
+              )}
             </div>
           )}
         </Card>
@@ -4893,7 +4911,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
           <Button
             className="w-full justify-center mt-5 h-11"
             icon={CheckCircle2}
-            disabled={loading}
+            disabled={loading || isCashInsufficient}
             onClick={async () => {
               setLoading(true);
               setError(null);
