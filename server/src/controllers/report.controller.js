@@ -1,7 +1,65 @@
 import { Op } from 'sequelize';
 import catchAsync from '../utils/catchAsync.js';
 import { successResponse } from '../utils/response.js';
-import { Bill, Member, SubscriptionPlan, SubscriptionPackage } from '../models/index.js';
+import { Bill, Member, SubscriptionPlan, SubscriptionPackage, WorkoutLog, EquipmentReport, Feedback } from '../models/index.js';
+
+export const getDashboardStats = catchAsync(async (req, res, next) => {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  const todayStr = startOfDay.toISOString().split('T')[0];
+
+  const checkInCount = await WorkoutLog.count({
+    where: {
+      workoutDate: todayStr
+    }
+  });
+
+  const todayBills = await Bill.findAll({
+    where: {
+      createdAt: {
+        [Op.gte]: startOfDay,
+        [Op.lte]: endOfDay
+      }
+    }
+  });
+  const todayRevenue = todayBills.reduce((acc, bill) => acc + Number(bill.amount), 0);
+  
+  let todayRevenueStr = "0";
+  if (todayRevenue > 0) {
+    if (todayRevenue >= 1000000) {
+      todayRevenueStr = `${(todayRevenue / 1000000).toFixed(1).replace(/\\.0$/, '')} tr`;
+    } else if (todayRevenue >= 1000) {
+      todayRevenueStr = `${(todayRevenue / 1000).toFixed(0)} k`;
+    } else {
+      todayRevenueStr = todayRevenue.toString();
+    }
+  }
+
+  const openMaintenanceCount = await EquipmentReport.count({
+    where: {
+      status: {
+        [Op.in]: ['pending', 'processing']
+      }
+    }
+  });
+
+  const pendingFeedbackCount = await Feedback.count({
+    where: {
+      answerContent: null
+    }
+  });
+
+  return successResponse(res, 200, "Lấy dữ liệu dashboard thành công", {
+    checkInCount,
+    todayRevenue: todayRevenueStr,
+    openMaintenanceCount,
+    pendingFeedbackCount
+  });
+});
 
 export const getReportStats = catchAsync(async (req, res, next) => {
   const now = new Date();

@@ -620,7 +620,8 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   
   const [memberStats, setMemberStats] = useState<any>(null);
   const [trainerStats, setTrainerStats] = useState<any>(null);
-  const [loading, setLoading] = useState(role === "member" || role === "trainer");
+  const [ownerStats, setOwnerStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     const token = localStorage.getItem("gymos_token");
@@ -636,8 +637,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-    }
-    if (role === "trainer") {
+    } else if (role === "trainer") {
       fetch("http://localhost:5000/api/v1/members/my-students/stats", {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -645,6 +645,18 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
       .then(data => {
         if (data.success) {
           setTrainerStats(data.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+    } else {
+      fetch("http://localhost:5000/api/v1/reports/dashboard", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setOwnerStats(data.data);
         }
         setLoading(false);
       })
@@ -704,12 +716,32 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: AlertTriangle, label: "Sắp hết hạn", value: trainerStats?.expiringSoon ?? 0, tone: "amber" },
       ];
     }
-    return [
-      { icon: Activity, label: "Check in hôm nay", value: "128", tone: "emerald" },
-      { icon: TrendingUp, label: "Doanh thu hôm nay", value: "12.4 tr", tone: "violet" },
-      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "4", tone: "amber" },
+    
+    if (role === "staff") {
+      if (loading) return [
+        { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
+        { icon: MessageSquare, label: "Phản hồi chờ xử lý", value: "...", tone: "violet" },
+        { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "...", tone: "amber" },
+      ];
+      return [
+        { icon: Activity, label: "Check in hôm nay", value: ownerStats?.checkInCount ?? 0, tone: "emerald" },
+        { icon: MessageSquare, label: "Phản hồi chờ xử lý", value: ownerStats?.pendingFeedbackCount ?? 0, tone: "violet" },
+        { icon: Wrench, label: "Yêu cầu bảo trì mở", value: ownerStats?.openMaintenanceCount ?? 0, tone: "amber" },
+      ];
+    }
+    
+    if (loading) return [
+      { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
+      { icon: TrendingUp, label: "Doanh thu hôm nay", value: "...", tone: "violet" },
+      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "...", tone: "amber" },
     ];
-  }, [role, memberStats, trainerStats, loading]);
+    
+    return [
+      { icon: Activity, label: "Check in hôm nay", value: ownerStats?.checkInCount ?? 0, tone: "emerald" },
+      { icon: TrendingUp, label: "Doanh thu hôm nay", value: ownerStats?.todayRevenue ?? "0", tone: "violet" },
+      { icon: Wrench, label: "Yêu cầu bảo trì mở", value: ownerStats?.openMaintenanceCount ?? 0, tone: "amber" },
+    ];
+  }, [role, memberStats, trainerStats, ownerStats, loading]);
 
   const me = ROLE_META[role] || ROLE_META["member"];
   const personName = user?.name || me.person;
