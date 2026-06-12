@@ -2547,12 +2547,16 @@ function Equipment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddType = async () => {
+    if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch("http://localhost:5000/api/v1/equipment-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ typeCode: typeForm.code || `ET-${Date.now().toString().slice(-4)}`, equipmentName: typeForm.name || "Loại mới", category: typeForm.category || "Cardio", brand: typeForm.brand || "", warrantyDuration: typeForm.warranty || 0, description: typeForm.desc || "" })
+        body: JSON.stringify({ typeCode: typeForm.code, equipmentName: typeForm.name, category: typeForm.category, brand: typeForm.brand, warrantyDuration: typeForm.warranty, description: typeForm.desc })
       });
       const data = await res.json();
       if (data.success) {
@@ -2570,6 +2574,10 @@ function Equipment() {
   };
 
   const handleEditType = async () => {
+    if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`http://localhost:5000/api/v1/equipment-types/${editTypeId}`, {
@@ -2612,13 +2620,17 @@ function Equipment() {
   };
 
   const handleAddItem = async () => {
+    if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const rId = rooms.find(r => r.name === (itemForm.room || rooms[0]?.name))?.id;
       const res = await fetch("http://localhost:5000/api/v1/equipments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ equipmentCode: itemForm.code || `TB-${Date.now().toString().slice(-4)}`, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased || new Date().toLocaleDateString('vi-VN'), usageStatus: itemForm.status || "Hoạt động" })
+        body: JSON.stringify({ equipmentCode: itemForm.code, typeId: addItemForType, roomId: rId, importDate: itemForm.purchased, usageStatus: itemForm.status || "Hoạt động" })
       });
       const data = await res.json();
       if (data.success) {
@@ -2636,6 +2648,10 @@ function Equipment() {
   };
 
   const handleEditItem = async () => {
+    if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
+      toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const target = items.find(i => i.code === editItemCode);
