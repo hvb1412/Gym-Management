@@ -4728,6 +4728,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   const [sellable, setSellable] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
   const [trainerList, setTrainerList] = useState<any[]>([]);
   const [trainerId, setTrainerId] = useState("");
@@ -4781,7 +4782,9 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const list = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive).map((d: any) => ({
+          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive);
+          setPackages(rawList);
+          const list = rawList.map((d: any) => ({
             id: d.packageId, name: d.packageName,
             type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
             price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded
@@ -4794,7 +4797,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          setTrainerList((res.data || []).filter((s: any) => s.role === "Huấn luyện viên"));
+          setTrainerList((res.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm"));
         }
       });
   }, []);
@@ -4895,47 +4898,13 @@ function NewMember({ onBack }: { onBack?: () => void }) {
           <Card>
             <h3 className="font-display mb-4">Chọn gói tập</h3>
             <Field label="Gói tập">
-              <div className="relative">
-                <SearchableSelect
-                  value={pkgId}
-                  onChange={(e: any) => { setPkgId(e.target.value); setTrainerId(""); setStep1Errors({}); }}
-                  options={sellable.map((p) => ({
-                    value: p.id,
-                    label: `${p.id} — ${p.name} — ${p.type} — ${p.price.toLocaleString("vi-VN")}₫${p.vip ? " ★VIP" : ""}`
-                  }))}
-                />
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-              </div>
+              <PackageDropdown pkgId={pkgId} onChange={(id) => { setPkgId(id); setTrainerId(""); setStep1Errors({}); }} packages={packages} />
             </Field>
-            {pkg && (
-              <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-display font-semibold text-[16px]">{pkg.name}</div>
-                  <div className="text-[12px] text-muted-foreground">{pkg.type}</div>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    {pkg.vip && <Badge tone="amber">★ VIP</Badge>}
-                    {pkg.trainer && <Badge tone="violet">Yêu cầu HLV</Badge>}
-                  </div>
-                </div>
-                <div className="font-display font-bold text-[22px]">{pkg.price.toLocaleString("vi-VN")} ₫</div>
-              </div>
-            )}
             <div className="mt-5 grid grid-cols-2 gap-4">
               {pkg?.trainer && (
                 <Field label={<>Huấn luyện viên<Req /></>} hint="Bắt buộc khi gói có Trainer">
-                  <div className="relative">
-                    <SearchableSelect
-                      value={trainerId}
-                      onChange={(e: any) => { setTrainerId(e.target.value); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }}
-                      options={[
-                        { value: "", label: "— Chọn huấn luyện viên —" },
-                        ...trainerList.map((t: any) => ({ value: t.staffId || t.code, label: t.name }))
-                      ]}
-                      className={step1Errors.trainerId ? "border-red-400" : ""}
-                    />
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                  {step1Errors.trainerId && <p className="text-[11px] text-red-500 mt-1">{step1Errors.trainerId}</p>}
+                  <TrainerDropdown trainerId={trainerId} onChange={(id) => { setTrainerId(id); if (step1Errors.trainerId) setStep1Errors(prev => { const n = { ...prev }; delete n.trainerId; return n; }); }} trainers={trainerList} error={!!step1Errors.trainerId} />
+                  {step1Errors.trainerId && <p className="text-[11px] text-[#FF5C5C] mt-1">{step1Errors.trainerId}</p>}
                 </Field>
               )}
               <Field label="Phương thức thanh toán">
@@ -4972,7 +4941,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   );
 }
 
-function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplete, mode = "new" }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; trainerId?: string; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew" }) {
+function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplete, mode = "new", memberId }: { kind: "card" | "qr" | "cash"; formData?: any; pkgId: string; pkg: any; trainerId?: string; onBack: () => void; onComplete?: () => void; mode?: "new" | "renew"; memberId?: string }) {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -5125,7 +5094,9 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                     },
                     body: JSON.stringify({
                       packageId: pkgId,
-                      paymentMethod: methodMap[kind] || "cash"
+                      paymentMethod: methodMap[kind] || "cash",
+                      ...(memberId ? { memberId } : {}),
+                      ...(trainerId ? { trainerId } : {})
                     })
                   });
                   const rData = await rRes.json();
@@ -5154,7 +5125,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                 const mData = await mRes.json();
                 if (!mData.success) throw new Error(mData.message || "Lỗi tạo hội viên");
 
-                const memberId = mData.data.member.memberId;
+                const newMemberId = mData.data.member.memberId;
 
                 // 2. Create Subscription
                 const sRes = await fetch("http://localhost:5000/api/v1/subscriptions", {
@@ -5164,7 +5135,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                     "Authorization": `Bearer ${localStorage.getItem("gymos_token")}`
                   },
                   body: JSON.stringify({
-                    memberId,
+                    memberId: newMemberId,
                     packageId: pkgId,
                     ...(trainerId ? { trainerId } : {})
                   })
@@ -6191,11 +6162,10 @@ function MemberFeedback() {
   );
 }
 
-function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChange: (id: string) => void; packages: any[] }) {
+function TrainerDropdown({ trainerId, onChange, trainers, error }: { trainerId: string; onChange: (id: string) => void; trainers: any[]; error?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const list = packages;
-  const selected = list.find((p) => p.packageId === pkgId);
 
   useEffect(() => {
     if (!open) return;
@@ -6204,7 +6174,69 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const renderRow = (p: typeof list[number], inList: boolean) => {
+  const selected = trainers.find((t) => (t.staffId || t.code) === trainerId);
+  const suggestions = query ? trainers.filter(t => (t.staffName || t.name || "").toLowerCase().includes(query.toLowerCase()) || (t.staffCode || t.code || "").toLowerCase().includes(query.toLowerCase())) : trainers;
+
+  return (
+    <div className="relative" ref={ref}>
+      {!selected ? (
+        <div className="relative">
+          <Input icon={Search} placeholder="Gõ tên hoặc mã HLV…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => setOpen(true)} className={error ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-[#FF5C5C]/15" : ""} />
+          {open && (
+            <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+               <div className="max-h-[300px] overflow-y-auto">
+                 {suggestions.length > 0 ? suggestions.map(t => {
+                   const id = t.staffId || t.code;
+                   const name = t.staffName || t.name;
+                   const code = t.staffCode || t.code || "Không có mã";
+                   return (
+                     <button key={id} type="button" onClick={() => { onChange(id); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-2.5 border-b border-border/60 last:border-0 hover:bg-muted/60 transition flex items-center gap-3">
+                        <div className="size-8 rounded-lg bg-muted border border-border grid place-items-center text-[10px] font-mono">{name.split(" ").slice(-2).map((n: string) => n[0]).join("")}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium truncate">{name}</div>
+                          <div className="text-[11px] text-muted-foreground font-mono">{code}</div>
+                        </div>
+                     </button>
+                   );
+                 }) : (
+                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy HLV nào.</div>
+                 )}
+               </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={cn("rounded-xl border bg-[#6C63FF]/8 dark:bg-[#6C63FF]/10 p-2 flex items-center gap-3", error ? "border-[#FF5C5C]/60" : "border-[#6C63FF]/40")}>
+          <div className="size-8 rounded-lg bg-gradient-to-br from-[#6C63FF] to-[#3F39C7] grid place-items-center text-white font-display font-semibold text-[11px]">
+            {(selected.staffName || selected.name).split(" ").slice(-2).map((n: string) => n[0]).join("")}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="text-[13px] font-medium truncate">{selected.staffName || selected.name}</div>
+            <div className="text-[11px] text-muted-foreground font-mono">{selected.staffCode || selected.code || "Không có mã"}</div>
+          </div>
+          <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} className="size-7 rounded-md hover:bg-accent grid place-items-center"><X className="size-3.5" /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChange: (id: string) => void; packages: any[] }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const selected = packages.find((p) => p.packageId === pkgId);
+  const suggestions = query ? packages.filter(p => p.packageName?.toLowerCase().includes(query.toLowerCase()) || p.packageCode?.toLowerCase().includes(query.toLowerCase())) : packages;
+
+  const renderRow = (p: any, inList: boolean) => {
     const isSession = p.packageType === "session";
     const durationLabel = isSession ? `${p.numberOfWorkout || 0} buổi` : `${p.duration || 0} ${p.durationUnit || "tháng"}`;
     const perks = [
@@ -6246,42 +6278,44 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
 
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className={cn("w-full min-h-12 rounded-lg border bg-input-background px-3 py-2 text-left transition flex items-center gap-2",
-          open ? "border-[#6C63FF]" : "border-border hover:border-[#6C63FF]/40")}>
-        <div className="flex-1 min-w-0">
-          {selected ? renderRow(selected, false) : <span className="text-[13px] text-muted-foreground">— Chọn gói gia hạn —</span>}
+      {!selected ? (
+        <div className="relative">
+          <Input icon={Search} placeholder="Gõ tên hoặc mã gói tập…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => setOpen(true)} />
+          {open && (
+            <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
+               <div className="max-h-[360px] overflow-y-auto py-1">
+                 {suggestions.length > 0 ? suggestions.map(p => (
+                   <button key={p.packageId} type="button" onClick={() => { onChange(p.packageId); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-3 border-b border-border/60 last:border-0 hover:bg-muted/60 transition">
+                     {renderRow(p, true)}
+                   </button>
+                 )) : (
+                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy gói tập nào.</div>
+                 )}
+               </div>
+            </div>
+          )}
         </div>
-        <ChevronDown className={cn("size-4 text-muted-foreground transition", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="absolute z-30 left-0 right-0 mt-2 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-          <div className="max-h-[360px] overflow-y-auto py-1">
-            {list.map((p) => {
-              const active = p.packageId === pkgId;
-              return (
-                <button key={p.packageId} type="button"
-                  onClick={() => { onChange(p.packageId); setOpen(false); }}
-                  className={cn("w-full text-left px-3 py-3 border-b border-border/60 last:border-0 transition",
-                    active ? "bg-[#6C63FF]/10" : "hover:bg-muted/60")}>
-                  {renderRow(p, true)}
-                </button>
-              );
-            })}
+      ) : (
+        <div className="rounded-xl border border-[#6C63FF]/40 bg-[#6C63FF]/8 dark:bg-[#6C63FF]/10 p-2 pr-3 flex items-start gap-3">
+          <div className="flex-1 min-w-0 text-left">
+            {renderRow(selected, false)}
           </div>
+          <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} className="size-7 rounded-md hover:bg-[#6C63FF]/20 grid place-items-center mt-1"><X className="size-3.5" /></button>
         </div>
       )}
     </div>
   );
 }
 
-function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: string }) {
+function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberName?: string; memberId?: string }) {
   const [pkgId, setPkgId] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [trainerId, setTrainerId] = useState("");
+  const [trainerList, setTrainerList] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -6291,22 +6325,45 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
       });
 
-    fetch("http://localhost:5000/api/v1/subscriptions/me", {
+    fetch("http://localhost:5000/api/v1/staffs", {
       headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.data.subscriptions) {
-          const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-          if (active) setCurrentPlan(active);
-        }
+        if (data.success) setTrainerList((data.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm"));
       });
+
+    if (memberId) {
+      fetch(`http://localhost:5000/api/v1/members/${memberId}`, {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data.member) {
+             setCurrentPlan(data.data.member.activePlan);
+          }
+        });
+    } else {
+      fetch("http://localhost:5000/api/v1/subscriptions/me", {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("gymos_token")}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data.subscriptions) {
+            const active = data.data.subscriptions.filter((s: any) => s.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            if (active) setCurrentPlan(active);
+          }
+        });
+    }
   }, []);
 
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} onBack={() => { setPay(null); setSelected(null); }} onComplete={() => navigate("/history")} />;
+    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); setTrainerId(""); }} onComplete={() => {
+      if (memberId && onBack) onBack();
+      else navigate("/history");
+    }} />;
   }
 
   const calDaysRemain = (expireDate: string) => {
@@ -6352,10 +6409,17 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
         )}
       </Card>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
+      <Modal open={!!selected} onClose={() => { setSelected(null); setTrainerId(""); }} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
-          <Button variant="ghost" onClick={() => setSelected(null)}>Hủy</Button>
-          <Button icon={ArrowRight} onClick={() => setPay(method)}>Tiến hành thanh toán</Button>
+          <Button variant="ghost" onClick={() => { setSelected(null); setTrainerId(""); }}>Hủy</Button>
+          <Button icon={ArrowRight} onClick={() => {
+            const pkg = packages.find((p) => p.packageId === selected);
+            if (pkg?.trainerIncluded && !trainerId) {
+              toast.error("Vui lòng chọn huấn luyện viên cho gói tập này");
+              return;
+            }
+            setPay(method);
+          }}>Tiến hành thanh toán</Button>
         </>}>
         {selected && (() => {
           const pkg = packages.find((p) => p.packageId === selected)!;
@@ -6389,6 +6453,11 @@ function Renew({ onBack, memberName }: { onBack?: () => void; memberName?: strin
                   })}
                 </div>
               </Field>
+              {pkg.trainerIncluded && (
+                <Field label="Huấn luyện viên">
+                  <TrainerDropdown trainerId={trainerId} onChange={setTrainerId} trainers={trainerList} error={!trainerId} />
+                </Field>
+              )}
             </div>
           );
         })()}
@@ -6493,11 +6562,14 @@ function MemberDetailWrapper({ disablePackage, readonly }: { disablePackage?: bo
   const { id } = useParams();
   const navigate = useNavigate();
   const base = readonly ? "/students" : "/members";
-  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew")} disablePackage={disablePackage} readonly={readonly} />;
+  return <MemberDetail id={id!} onBack={() => navigate(base)} onRenew={() => navigate("/renew?memberId=" + id)} disablePackage={disablePackage} readonly={readonly} />;
 }
 function RenewWrapper({ role }: { role: Role }) {
   const navigate = useNavigate();
-  return <Renew onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const memberId = params.get("memberId") || undefined;
+  return <Renew memberId={memberId} onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
 }
 function ReportsWrapper() {
   const location = useLocation();
