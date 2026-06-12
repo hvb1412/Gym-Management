@@ -5267,6 +5267,10 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
 
   const handleCheckInOut = () => {
     if (todayLog) {
+      if (todayLog.endTime) {
+        toast.info("Hội viên đã check out hôm nay.");
+        return;
+      }
       fetch(`http://localhost:5000/api/v1/workout-logs/${todayLog.workoutId}/checkout`, {
         method: "PATCH", headers
       }).then(r => r.json()).then(res => {
@@ -5378,8 +5382,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button variant={todayLog ? "danger" : "secondary"} icon={CheckCircle2} onClick={handleCheckInOut}>
-              {todayLog ? "Check out hôm nay" : "Check in hôm nay"}
+            <Button 
+              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"} 
+              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2} 
+              onClick={handleCheckInOut}
+              disabled={!!(todayLog && todayLog.endTime)}
+            >
+              {todayLog ? (todayLog.endTime ? "Đã check out" : "Check out hôm nay") : "Check in hôm nay"}
             </Button>
           </div>
         </div>
@@ -6179,7 +6188,7 @@ function MemberFeedback() {
   );
 }
 
-function TrainerDropdown({ trainerId, onChange, trainers, error }: { trainerId: string; onChange: (id: string) => void; trainers: any[]; error?: boolean }) {
+function TrainerDropdown({ trainerId, onChange, trainers, error, readonly }: { trainerId: string; onChange: (id: string) => void; trainers: any[]; error?: boolean; readonly?: boolean }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -6198,7 +6207,7 @@ function TrainerDropdown({ trainerId, onChange, trainers, error }: { trainerId: 
     <div className="relative" ref={ref}>
       {!selected ? (
         <div className="relative">
-          <Input icon={Search} placeholder="Gõ tên hoặc mã HLV…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => setOpen(true)} className={error ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-[#FF5C5C]/15" : ""} />
+          <Input disabled={readonly} icon={Search} placeholder="Gõ tên hoặc mã HLV…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => !readonly && setOpen(true)} className={error ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-[#FF5C5C]/15" : ""} />
           {open && (
             <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
                <div className="max-h-[300px] overflow-y-auto">
@@ -6231,7 +6240,7 @@ function TrainerDropdown({ trainerId, onChange, trainers, error }: { trainerId: 
             <div className="text-[13px] font-medium truncate">{selected.staffName || selected.name}</div>
             <div className="text-[11px] text-muted-foreground font-mono">{selected.staffCode || selected.code || "Không có mã"}</div>
           </div>
-          <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} className="size-7 rounded-md hover:bg-accent grid place-items-center"><X className="size-3.5" /></button>
+          {!readonly && <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} className="size-7 rounded-md hover:bg-accent grid place-items-center"><X className="size-3.5" /></button>}
         </div>
       )}
     </div>
@@ -6335,6 +6344,15 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
   const [trainerList, setTrainerList] = useState<any[]>([]);
   const navigate = useNavigate();
 
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("gymos_user") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+  const isTrainer = currentUser.role === "pt" || currentUser.role === "trainer" || currentUser.role === "Huấn luyện viên";
+
   useEffect(() => {
     fetch("http://localhost:5000/api/v1/packages")
       .then(res => res.json())
@@ -6347,7 +6365,14 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
     })
       .then(res => res.json())
       .then(data => {
-        if (data.success) setTrainerList((data.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm"));
+        if (data.success) {
+          const tList = (data.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm");
+          setTrainerList(tList);
+          if (isTrainer) {
+            const me = tList.find((t: any) => t.userId === currentUser.id || t.userId === currentUser.userId || t.email === currentUser.email || t.staffName === currentUser.name);
+            if (me) setTrainerId(me.staffId || me.code);
+          }
+        }
       });
 
     if (memberId) {
@@ -6472,7 +6497,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
               </Field>
               {pkg.trainerIncluded && (
                 <Field label="Huấn luyện viên">
-                  <TrainerDropdown trainerId={trainerId} onChange={setTrainerId} trainers={trainerList} error={!trainerId} />
+                  <TrainerDropdown trainerId={trainerId} onChange={setTrainerId} trainers={trainerList} error={!trainerId} readonly={isTrainer} />
                 </Field>
               )}
             </div>
@@ -6484,7 +6509,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
 }
 
 /* ── PT students ── */
-function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
+function PtStudents({ onSelect, title, sub }: { onSelect: (id: string) => void; title?: string; sub?: string }) {
   const [list, setList] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Tất cả");
@@ -6526,7 +6551,7 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
 
   return (
     <div className="space-y-5">
-      <SectionTitle title="Học viên của tôi" sub={`Bạn đang phụ trách ${list.length} học viên`} />
+      <SectionTitle title={title || "Học viên của tôi"} sub={sub || `Bạn đang phụ trách ${list.length} học viên`} />
       <div className="flex flex-wrap items-center gap-3">
         <Input icon={Search} placeholder="Tìm theo tên, SĐT, mã HV…" className="max-w-md" value={query} onChange={(e: any) => setQuery(e.target.value)} />
         <SearchableSelect
@@ -6586,6 +6611,15 @@ function RenewWrapper({ role }: { role: Role }) {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const memberId = params.get("memberId") || undefined;
+
+  if (role === "trainer" && !memberId) {
+    return <PtStudents 
+      onSelect={(id) => navigate(`/renew?memberId=${id}`)} 
+      title="Chọn hội viên gia hạn" 
+      sub="Vui lòng chọn một học viên để tiếp tục gia hạn gói tập" 
+    />;
+  }
+
   return <Renew memberId={memberId} onBack={role === "staff" ? () => navigate("/members") : role === "trainer" ? () => navigate("/students") : undefined} />;
 }
 function ReportsWrapper() {

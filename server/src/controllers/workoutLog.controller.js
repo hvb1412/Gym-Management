@@ -46,7 +46,10 @@ export const checkInMember = catchAsync(
       await activePlan.save();
     }
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const pad = (n) => n.toString().padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
     const existingLog = await WorkoutLog.findOne({
       where: { memberId, workoutDate: todayStr }
     });
@@ -58,13 +61,12 @@ export const checkInMember = catchAsync(
       where: { accountId: req.user.accountId },
     });
 
-    const now = new Date();
     const startTimeStr = now.toTimeString().split(" ")[0];
 
     const log = await WorkoutLog.create({
       memberId,
       recorderId: staff.staffId,
-      workoutDate: now,
+      workoutDate: todayStr,
       startTime: startTimeStr,
       notes: notes || null,
     });
@@ -87,10 +89,9 @@ export const checkOutMember = catchAsync(
       return next(new AppError("Không tìm thấy buổi tập", 404));
     }
 
-    // Commented out to allow multiple check-outs
-    // if (log.endTime) {
-    //   return next(new AppError("Hội viên đã check out rồi", 400));
-    // }
+    if (log.endTime) {
+      return next(new AppError("Hội viên đã check out rồi", 400));
+    }
 
     const now = new Date();
     const endTimeStr = now.toTimeString().split(" ")[0];
@@ -120,7 +121,8 @@ export const getTodayLogForMember = catchAsync(
     const { memberId } = req.params;
 
     const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10);
+    const pad = (n) => n.toString().padStart(2, '0');
+    const dateStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
     const log = await WorkoutLog.findOne({
       where: { memberId, workoutDate: dateStr },
