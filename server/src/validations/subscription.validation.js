@@ -41,5 +41,12 @@ export const renewSubscriptionSchema = Joi.object({
         'any.only': "paymentMethod chỉ chấp nhận 'cash', 'card', hoặc 'transfer'",
         'any.required': 'Vui lòng cung cấp paymentMethod',
       }),
+    amount: Joi.number().optional(),
+    memberId: Joi.string().uuid().optional().messages({
+      'string.uuid': 'memberId phải là UUID hợp lệ',
+    }),
+    trainerId: Joi.string().uuid().optional().allow(null, '').messages({
+      'string.uuid': 'trainerId phải là UUID hợp lệ',
+    }),
   }),
 });
