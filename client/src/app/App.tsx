@@ -108,6 +108,16 @@ const PKG_BREAKDOWN: any[] = [];
 
 const cn = (...x: (string | false | undefined)[]) => x.filter(Boolean).join(" ");
 
+function formatDate(dateString: string | Date | null | undefined): string {
+  if (!dateString) return "—";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "emerald" | "amber" | "red" | "sky" | "gray"; children: React.ReactNode }) {
   const map: Record<string, string> = {
     default: "bg-muted text-foreground/80 border-border",
@@ -167,10 +177,14 @@ function IconBtn({ icon: Icon, tone = "default", onClick }: { icon: any; tone?: 
 
 function Input({ icon: Icon, placeholder, type = "text", className, value, onChange, ...rest }: any) {
   const controlled = onChange !== undefined;
+  const finalRest = { ...rest };
+  if (type === "date" && !finalRest.max) {
+    finalRest.max = new Date().toISOString().split("T")[0];
+  }
   return (
     <div className={cn("relative", className)}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground stroke-[1.75]" />}
-      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...rest} className={cn(
+      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...finalRest} className={cn(
         "w-full h-10 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60",
         "focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3",
         Icon && "pl-9"
@@ -829,7 +843,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   
   // Format current date in Vietnamese
   const today = new Date();
-  const dateStr = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(today);
+  const dateStr = formatDate(today);
 
   return (
     <div className="space-y-8">
@@ -2402,7 +2416,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           typeName: e.EquipmentType?.equipmentName || "—",
           typeId: e.equipmentTypeId,
           pos: e.position || `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`,
-          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("en-GB") : "—",
+          purchaseDate: e.purchaseDate ? formatDate(e.purchaseDate) : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
               : e.usageStatus || "Hoạt động",
@@ -2801,6 +2815,7 @@ function Equipment() {
   };
 
   const handleAddItem = async () => {
+    if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -2829,6 +2844,7 @@ function Equipment() {
   };
 
   const handleEditItem = async () => {
+    if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -3098,7 +3114,7 @@ function EquipmentMaintenance() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
         }
       }).catch(console.error);
   };
@@ -3295,7 +3311,7 @@ function MaintenanceOwner() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
         }
       }).catch(console.error);
     fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).then(data => {
@@ -3321,6 +3337,7 @@ function MaintenanceOwner() {
       return;
     }
     const d = new Date(addForm.date);
+    if (d > new Date()) { toast.error("Ngày báo không được là ngày trong tương lai"); return; }
     if (isNaN(d.getTime())) {
       toast.error("Ngày báo sai định dạng");
       return;
@@ -3646,7 +3663,7 @@ function Feedback() {
     }
   };
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+  const fmtDate = (d: string | null) => d ? formatDate(d) : "—";
   const shortId = (id: string) => id.substring(0, 8).toUpperCase();
 
   const typeCounts: Record<string, number> = {};
@@ -3939,7 +3956,7 @@ function ReportsOverview() {
   return (
     <>
       <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
-        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("en-GB")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+        actions={<><Button variant="outline" icon={CalIcon}>{formatDate(new Date())}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
           { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
@@ -4518,7 +4535,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     if (!plan) return "—";
     if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("en-GB");
+    if (expire) return formatDate(expire);
     return "—";
   };
 
@@ -5061,7 +5078,7 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             {[
               ["Gói tập", pkg.name],
               ["Hội viên", formData?.memberName || "Bạn"],
-              ["Ngày bắt đầu", new Date().toLocaleDateString("en-GB")]
+              ["Ngày bắt đầu", formatDate(new Date())]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
@@ -5353,7 +5370,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
                 <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
-                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("en-GB")}</span>}
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{formatDate(member.dateOfBirth)}</span>}
               </div>
             </div>
           </div>
@@ -5371,13 +5388,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
             <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
-            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("en-GB")}</div>}
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {formatDate(plan.startDate)}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             {pkg?.packageType === "session" ? <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{formatDate(expireDate)}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5385,7 +5402,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             </> : <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{formatDate(expireDate)}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5414,7 +5431,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
               rows={logs.map((d, idx) => [
-                new Date(d.workoutDate).toLocaleDateString("en-GB"),
+                formatDate(d.workoutDate),
                 d.startTime?.slice(0, 5) || "—",
                 d.duration ? `${d.duration} phút` : "—",
                 <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
@@ -5430,7 +5447,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
               rows={payments.filter(p => p.Bill).map((p) => [
-                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("en-GB") : "—",
+                p.Bill?.paymentDate ? formatDate(p.Bill.paymentDate) : "—",
                 <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
                 <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
                   {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
@@ -5512,7 +5529,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("en-GB")}</span>?</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{formatDate(logs[delDayIdx].workoutDate)}</span>?</p>
           </div>
         )}
       </Modal>
@@ -5561,7 +5578,7 @@ function MemberHistory() {
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("en-GB");
+    return formatDate(d);
   };
 
   /* ── calendar ── */
@@ -5857,7 +5874,7 @@ function MemberPayments() {
         return {
           code: `PAY-${plan.Bill.billId.split("-")[0].toUpperCase()}`,
           rawDate: d,
-          d: d.toLocaleDateString("en-GB"),
+          d: formatDate(d),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
           method: plan.Bill.paymentMethod || "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
@@ -5875,8 +5892,8 @@ function MemberPayments() {
     
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
-      startDate: new Date(active.startDate).toLocaleDateString("en-GB"),
-      expireDate: new Date(active.expireDate).toLocaleDateString("en-GB"),
+      startDate: formatDate(active.startDate),
+      expireDate: formatDate(active.expireDate),
       daysLeft
     };
   }, [subscriptions]);
@@ -6067,7 +6084,7 @@ function MemberFeedback() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
         {list.map((f) => {
-          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("en-GB") : "";
+          const d = f.feedbackDate ? formatDate(f.feedbackDate) : "";
           const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
           return (
             <Card key={f.feedbackId}>
@@ -6148,7 +6165,7 @@ function MemberFeedback() {
           <Button icon={Trash2} disabled={isSubmitting} onClick={deleteFeedback}>{isSubmitting ? "Đang xóa..." : "Xóa phản hồi"}</Button>
         </>}>
         {deleting && (() => {
-          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("en-GB") : "";
+          const d = deleting.feedbackDate ? formatDate(deleting.feedbackDate) : "";
           return (
             <div className="space-y-3">
               <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -6385,7 +6402,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
             {currentPlan ? (
               <>
                 <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
-                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("en-GB")}</div>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {formatDate(currentPlan.expireDate)}</div>
               </>
             ) : (
               <>
@@ -6488,7 +6505,7 @@ function PtStudents({ onSelect }: { onSelect: (id: string) => void }) {
   const formatRemain = (plan: any): string => {
     if (!plan) return "—";
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("en-GB");
+    if (expire) return formatDate(expire);
     return "—";
   };
 
