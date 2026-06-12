@@ -24,6 +24,19 @@ const buildDuplicateMessage = (error) => {
   return 'Dữ liệu bị trùng lặp';
 };
 
+export const checkDuplicate = catchAsync(async (req, res, next) => {
+  const { email, phoneNumber } = req.body;
+  if (email) {
+    const existingEmail = await Account.findOne({ where: { email } });
+    if (existingEmail) return successResponse(res, 200, 'Duplicate', { isDuplicate: true, message: 'Email này đã được đăng ký' });
+  }
+  if (phoneNumber) {
+    const existingPhone = await Member.findOne({ where: { phoneNumber } });
+    if (existingPhone) return successResponse(res, 200, 'Duplicate', { isDuplicate: true, message: 'Số điện thoại này đã được đăng ký' });
+  }
+  return successResponse(res, 200, 'Ok', { isDuplicate: false, message: 'Hợp lệ' });
+});
+
 export const createMember = catchAsync(async (req, res, next) => {
   const { email, password, memberName, phoneNumber, dateOfBirth, gender } =
     req.body;

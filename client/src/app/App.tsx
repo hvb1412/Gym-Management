@@ -165,12 +165,12 @@ function IconBtn({ icon: Icon, tone = "default", onClick }: { icon: any; tone?: 
   );
 }
 
-function Input({ icon: Icon, placeholder, type = "text", className, value, onChange }: any) {
+function Input({ icon: Icon, placeholder, type = "text", className, value, onChange, ...rest }: any) {
   const controlled = onChange !== undefined;
   return (
     <div className={cn("relative", className)}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground stroke-[1.75]" />}
-      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} className={cn(
+      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...rest} className={cn(
         "w-full h-10 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60",
         "focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3",
         Icon && "pl-9"
@@ -850,6 +850,10 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const validate = () => {
+    if (formData.name.trim().length < 2) {
+      toast.error("Họ tên phải có ít nhất 2 ký tự");
+      return false;
+    }
     if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(formData.name.trim())) {
       toast.error("Họ tên không hợp lệ (chỉ chứa chữ cái)");
       return false;
@@ -898,10 +902,10 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
       {needsAccount && (
         <>
           <Field label={<>Email đăng nhập<Req /></>}>
-            <Input icon={Mail} type="email" placeholder="email@gymos.vn" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
+            <Input icon={Mail} type="email" placeholder="email@gymos.vn" autoComplete="new-password" value={formData.email} onChange={(e: any) => handleChange("email", e.target.value)} required={!isEdit} />
           </Field>
           <Field label={<>{isEdit ? "Đặt lại mật khẩu" : "Mật khẩu"}</>} hint={isEdit ? "Để trống nếu không đổi" : "Mặc định 123456 nếu để trống"}>
-            <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => handleChange("password", e.target.value)} />
+            <Input icon={Lock} type="password" placeholder="••••••••" autoComplete="new-password" value={formData.password} onChange={(e: any) => handleChange("password", e.target.value)} />
           </Field>
         </>
       )}
@@ -4487,6 +4491,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [step0Errors, setStep0Errors] = useState<Record<string, string>>({});
   const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   const [sellable, setSellable] = useState<any[]>([]);
   const [pkgId, setPkgId] = useState("");
@@ -4511,6 +4516,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
   const validateStep0 = () => {
     const errs: Record<string, string> = {};
     if (!formData.memberName.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    else if (formData.memberName.trim().length < 2) errs.memberName = "Họ tên phải có ít nhất 2 ký tự";
     else if (!/^[a-zA-Z\s\u00C0-\u1EF9]+$/i.test(formData.memberName.trim())) errs.memberName = "Họ tên chỉ được chứa chữ cái";
     if (!formData.dateOfBirth) errs.dateOfBirth = "Vui lòng chọn ngày sinh";
     else if (new Date(formData.dateOfBirth) > new Date()) errs.dateOfBirth = "Ngày sinh không được ở tương lai";
@@ -4612,18 +4618,40 @@ function NewMember({ onBack }: { onBack?: () => void }) {
               {step0Errors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{step0Errors.phoneNumber}</p>}
             </Field>
             <Field label={<>Email<Req /></>}>
-              <Input icon={Mail} type="email" placeholder="email@example.com" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
+              <Input icon={Mail} type="email" placeholder="email@example.com" autoComplete="new-password" value={formData.email} onChange={(e: any) => updateForm("email", e.target.value)} className={step0Errors.email ? "border-red-400" : ""} />
               {step0Errors.email && <p className="text-[11px] text-red-500 mt-1">{step0Errors.email}</p>}
             </Field>
             <Field label={<>Mật khẩu đăng nhập<Req /></>}>
-              <Input icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} className={step0Errors.password ? "border-red-400" : ""} />
+              <Input icon={Lock} type="password" placeholder="••••••••" autoComplete="new-password" value={formData.password} onChange={(e: any) => updateForm("password", e.target.value)} className={step0Errors.password ? "border-red-400" : ""} />
               {step0Errors.password && <p className="text-[11px] text-red-500 mt-1">{step0Errors.password}</p>}
             </Field>
             <div className="col-span-2"><Field label={<>Địa chỉ</>}><Input placeholder="Số nhà, đường, quận, thành phố" value={formData.address} onChange={(e: any) => updateForm("address", e.target.value)} /></Field></div>
           </div>
           <div className="flex justify-end gap-2 mt-6">
             <Button variant="ghost">Hủy</Button>
-            <Button icon={ArrowRight} onClick={() => { if (validateStep0()) setStep(1); }}>Tiếp tục</Button>
+            <Button icon={ArrowRight} disabled={isCheckingDuplicate} onClick={async () => {
+              if (!validateStep0()) return;
+              setIsCheckingDuplicate(true);
+              try {
+                const res = await fetch("http://localhost:5000/api/v1/members/check-duplicate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                  body: JSON.stringify({ email: formData.email, phoneNumber: formData.phoneNumber })
+                });
+                const data = await res.json();
+                if (data.data?.isDuplicate) {
+                  toast.error(data.data.message);
+                } else {
+                  setStep(1);
+                }
+              } catch {
+                toast.error("Lỗi kết nối kiểm tra trùng lặp");
+              } finally {
+                setIsCheckingDuplicate(false);
+              }
+            }}>
+              {isCheckingDuplicate ? "Đang kiểm tra..." : "Tiếp tục"}
+            </Button>
           </div>
         </Card>
       )}
