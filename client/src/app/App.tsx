@@ -3114,7 +3114,7 @@ function EquipmentMaintenance() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
+          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription, rawDate: r.reportDate })));
         }
       }).catch(console.error);
   };
@@ -3123,7 +3123,13 @@ function EquipmentMaintenance() {
     fetchReports();
   }, []);
 
-  const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus);
+  const w = (s: string) => s === "Chờ xử lý" ? 0 : s === "Đang xử lý" ? 1 : 2;
+  const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus).sort((a, b) => {
+    const wa = w(a.status);
+    const wb = w(b.status);
+    if (wa !== wb) return wa - wb;
+    return new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime();
+  });
   const viewing = viewId ? maintList.find((m) => m.code === viewId) : null;
   const deletingMaint = deleteMaint ? maintList.find((m) => m.code === deleteMaint) : null;
 
@@ -3311,7 +3317,7 @@ function MaintenanceOwner() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
+          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription, rawDate: r.reportDate })));
         }
       }).catch(console.error);
     fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).then(data => {
@@ -3321,7 +3327,13 @@ function MaintenanceOwner() {
 
   useEffect(() => { fetchReports(); }, []);
 
-  const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter);
+  const w = (s: string) => s === "Chờ xử lý" ? 0 : s === "Đang xử lý" ? 1 : 2;
+  const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter).sort((a, b) => {
+    const wa = w(a.status);
+    const wb = w(b.status);
+    if (wa !== wb) return wa - wb;
+    return new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime();
+  });
   const viewing = viewId ? list.find((m) => m.code === viewId) : null;
   const deleting = deleteId ? list.find((m) => m.code === deleteId) : null;
 
@@ -3605,6 +3617,13 @@ function Feedback() {
       (f.feedbackContent || "").toLowerCase().includes(q) ||
       f.feedbackId.toLowerCase().includes(q);
     return matchStatus && matchType && matchQuery;
+  }).sort((a, b) => {
+    const aPending = a.answerContent ? 1 : 0;
+    const bPending = b.answerContent ? 1 : 0;
+    if (aPending !== bPending) return aPending - bPending;
+    const dateA = new Date(a.feedbackDate || 0).getTime();
+    const dateB = new Date(b.feedbackDate || 0).getTime();
+    return dateB - dateA;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -4516,6 +4535,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const PAGE_SIZE = 6;
 
   const token = localStorage.getItem("gymos_token");
@@ -4583,10 +4603,23 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       gender: m.raw.gender || "",
       occupation: m.raw.occupation || "",
     });
+    setEditErrors({});
+  };
+
+  const validateEditForm = () => {
+    const errs: Record<string, string> = {};
+    if (!editForm.memberName?.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    
+    if (!editForm.phoneNumber?.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
+    else if (!/^0\d{9}$/.test(editForm.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại gồm 10 số và bắt đầu bằng 0";
+
+    setEditErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleEditSave = async () => {
     if (!editId) return;
+    if (!validateEditForm()) return;
     setSaving(true);
     try {
       const r = await fetch(`http://localhost:5000/api/v1/members/${editId}`, {
@@ -4687,10 +4720,12 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
         {editingMember && (
           <div className="grid grid-cols-2 gap-4">
             <Field label={<>Họ và tên<Req /></>}>
-              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, memberName: e.target.value })); if (editErrors.memberName) setEditErrors((f: any) => { const n={...f}; delete n.memberName; return n;}); }} className={editErrors.memberName ? "border-red-400" : ""} />
+              {editErrors.memberName && <p className="text-[11px] text-red-500 mt-1">{editErrors.memberName}</p>}
             </Field>
             <Field label={<>Số điện thoại<Req /></>}>
-              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value })); if (editErrors.phoneNumber) setEditErrors((f: any) => { const n={...f}; delete n.phoneNumber; return n;}); }} className={editErrors.phoneNumber ? "border-red-400" : ""} />
+              {editErrors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{editErrors.phoneNumber}</p>}
             </Field>
             <Field label="Ngày sinh">
               <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
