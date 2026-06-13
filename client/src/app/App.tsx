@@ -1881,8 +1881,8 @@ function Packages() {
   const handleAdd = async (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
     const code = (data as any).code || "";
     if (code) {
-      if (!/^[a-zA-Z0-9]+$/.test(code)) {
-        toast.error('Mã gói tập chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+      if (!/^[a-zA-Z0-9\-]+$/.test(code)) {
+        toast.error("Mã gói tập chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng (dấu cách), không chứa ký tự đặc biệt(ngoại trừ ký tự ' - ')");
         return;
       }
       if (list.some((p: any) => p.code.toLowerCase() === code.toLowerCase())) {
