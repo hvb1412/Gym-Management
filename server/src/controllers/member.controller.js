@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
-import { sequelize, Account, Member, SubscriptionPlan, SubscriptionPackage, Bill, WorkoutLog, Staff } from '../models/index.js';
+import { sequelize, Account, Member, SubscriptionPlan, SubscriptionPackage, Bill, WorkoutLog, Staff, Feedback } from '../models/index.js';
 import AppError from '../utils/AppError.js';
 import catchAsync from '../utils/catchAsync.js';
 import { successResponse } from '../utils/response.js';
@@ -215,3 +215,21 @@ export const getMemberPayments = catchAsync(async (req, res, next) => {
 
   return successResponse(res, 200, 'Lấy lịch sử thanh toán thành công!', { plans });
 });
+
+export const getMemberFeedbacksByStaff = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const feedbacks = await Feedback.findAll({
+    where: { memberId: id },
+    include: [
+      {
+        model: Staff,
+        as: "Answerer",
+        attributes: ["staffId", "staffName"]
+      }
+    ],
+    order: [["feedbackDate", "DESC"], ["createdAt", "DESC"]]
+  });
+
+  return successResponse(res, 200, 'Lấy lịch sử phản hồi thành công!', { feedbacks });
+});

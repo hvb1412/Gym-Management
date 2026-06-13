@@ -5187,6 +5187,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
   const [member, setMember] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [tab, setTab] = useState<0 | 1 | 2>(0);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
@@ -5228,6 +5229,12 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
       .then(res => { if (res.success) setPayments(res.data.plans); });
   };
 
+  const fetchFeedbacks = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}/feedbacks`, { headers })
+      .then(r => r.json())
+      .then(res => { if (res.success) setFeedbacks(res.data.feedbacks); });
+  };
+
   const fetchTodayLog = () => {
     fetch(`http://localhost:5000/api/v1/workout-logs/member/${id}/today`, { headers })
       .then(r => r.json())
@@ -5246,6 +5253,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
     fetchLogs();
     fetchPayments();
     fetchTodayLog();
+    fetchFeedbacks();
   }, [id]);
 
   const handleCheckInOut = () => {
@@ -5453,8 +5461,34 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         )}
 
         {tab === 2 && (
-          <div className="p-5">
-            <div className="text-center text-muted-foreground py-6 text-[13px]">Xem phản hồi tại mục Phản hồi hội viên</div>
+          <div className="p-5 space-y-3">
+            {feedbacks.map((f) => {
+              const d = f.feedbackDate ? formatDate(f.feedbackDate) : "";
+              const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
+              return (
+                <div key={f.feedbackId} className="p-4 rounded-xl border border-border/70 bg-card text-card-foreground">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                        <span>{d}</span>
+                        <Badge tone={f.feedbackType === "Thiết bị" ? "amber" : "sky"}>{f.feedbackType}</Badge>
+                        <StatusPill value={s} />
+                      </div>
+                      <p className="mt-2 text-[14px] whitespace-pre-wrap">{f.feedbackContent}</p>
+                      {f.answerContent && (
+                        <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
+                          <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ {f.Answerer?.staffName || "Quản lý"}</div>
+                          <p className="text-[13px] mt-1 whitespace-pre-wrap">{f.answerContent}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {feedbacks.length === 0 && (
+              <div className="text-center text-muted-foreground py-6 text-[13px]">Hội viên chưa có phản hồi nào</div>
+            )}
           </div>
         )}
       </Card>
