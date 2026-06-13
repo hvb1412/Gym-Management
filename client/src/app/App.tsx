@@ -4871,7 +4871,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive);
+          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" && d.isActive);
           setPackages(rawList);
           const list = rawList.map((d: any) => ({
             id: d.packageId, name: d.packageName,
@@ -6429,7 +6429,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
     fetch("http://localhost:5000/api/v1/packages")
       .then(res => res.json())
       .then(data => {
-        if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
+        if (data.success) setPackages(data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh"));
       });
 
     fetch("http://localhost:5000/api/v1/staffs", {
