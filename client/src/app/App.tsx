@@ -6350,13 +6350,14 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
   );
 }
 
-function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberName?: string; memberId?: string }) {
+function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string }) {
   const [pkgId, setPkgId] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [memberName, setMemberName] = useState<string>("");
   const [trainerId, setTrainerId] = useState("");
   const [trainerList, setTrainerList] = useState<any[]>([]);
   const navigate = useNavigate();
@@ -6400,6 +6401,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
         .then(data => {
           if (data.success && data.data.member) {
              setCurrentPlan(data.data.member.activePlan);
+             setMemberName(data.data.member.memberName);
           }
         });
     } else {
@@ -6419,7 +6421,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); if (!isTrainer) setTrainerId(""); }} onComplete={() => {
+    return <Payment memberId={memberId} formData={{ memberName }} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); if (!isTrainer) setTrainerId(""); }} onComplete={() => {
       if (memberId && onBack) onBack();
       else navigate("/history");
     }} />;
@@ -6493,6 +6495,11 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
                 </div>
                 <div className="font-display font-bold text-[22px]">{Number(pkg.price).toLocaleString("vi-VN")} ₫</div>
               </div>
+              {memberId && memberName && (
+                <Field label="Hội viên cần gia hạn">
+                  <Input value={memberName} readOnly className="bg-muted/30" />
+                </Field>
+              )}
               <Field label="Phương thức thanh toán">
                 <div className="grid grid-cols-3 gap-2">
                   {[
