@@ -203,9 +203,14 @@ export const getMemberWorkoutLogs = catchAsync(async (req, res, next) => {
 
 export const getMemberPayments = catchAsync(async (req, res, next) => {
   const { id } = req.params;
+  const whereClause = { memberId: id };
+
+  if (req.user && req.user.role === 'pt') {
+    whereClause.trainerId = req.user.staffId;
+  }
 
   const plans = await SubscriptionPlan.findAll({
-    where: { memberId: id },
+    where: whereClause,
     include: [
       { model: SubscriptionPackage, attributes: ['packageName'] },
       { model: Bill },

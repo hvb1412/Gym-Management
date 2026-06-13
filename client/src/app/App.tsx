@@ -5671,8 +5671,8 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
               rows={payments.filter(p => p.Bill).map((p) => [
                 p.Bill?.paymentDate ? formatDate(p.Bill.paymentDate) : "—",
                 <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
-                <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
-                  {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
+                <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : (p.Bill?.paymentMethod === "qr" || p.Bill?.paymentMethod === "transfer") ? "sky" : "amber"}>
+                  {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : (p.Bill?.paymentMethod === "qr" || p.Bill?.paymentMethod === "transfer") ? "QR Code" : "Tiền mặt"}
                 </Badge>,
                 <span className="font-display font-semibold">{Number(p.Bill?.amount || 0).toLocaleString("vi-VN")} ₫</span>,
                 <StatusPill value="Thành công" />,
@@ -6124,7 +6124,7 @@ function MemberPayments() {
           rawDate: d,
           d: formatDate(d),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
-          method: plan.Bill.paymentMethod === "card" ? "Thẻ NH" : plan.Bill.paymentMethod === "qr" ? "QR Code" : "Tiền mặt",
+          method: plan.Bill.paymentMethod === "card" ? "Thẻ NH" : (plan.Bill.paymentMethod === "qr" || plan.Bill.paymentMethod === "transfer") ? "QR Code" : "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
           status: "Thành công"
         };
