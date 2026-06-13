@@ -4353,16 +4353,37 @@ function StaffReport() {
             const isPastMonth = selYear < now.getFullYear() || (selYear === now.getFullYear() && selMonth < now.getMonth() + 1);
             const daysInMonth = new Date(selYear, selMonth, 0).getDate();
             const maxDay = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
+
+            let startDayToCheck = 0;
+            if (s && s.join && s.join !== "Chưa cập nhật") {
+              const [d, m, y] = s.join.split("/");
+              const joinY = Number(y);
+              const joinM = Number(m) - 1;
+              const joinD = Number(d);
+              const calMonth = selMonth - 1;
+              if (selYear < joinY || (selYear === joinY && calMonth < joinM)) {
+                startDayToCheck = daysInMonth;
+              } else if (selYear === joinY && calMonth === joinM) {
+                startDayToCheck = joinD - 1;
+              }
+            }
+
             let ok = 0, late = 0;
+            const schedule = getScheduleConfig();
             res.data.forEach((log: any) => {
               if (log.checkInTime) {
                 const [h, m] = log.checkInTime.split(':').map(Number);
                 const dow = new Date(log.workDate).getDay();
-                const limit = (dow >= 1 && dow <= 5) ? 6 * 60 + 30 : 8 * 60;
-                if (h * 60 + m > limit) late++; else ok++;
+                
+                const dayConfig = schedule[dow] || { in: "06:30" };
+                const [limitH, limitM] = dayConfig.in.split(':').map(Number);
+                const limitMinutes = limitH * 60 + limitM;
+
+                if (h * 60 + m > limitMinutes) late++; else ok++;
               } else ok++;
             });
-            return { code: s.code, ok, late, absent: Math.max(0, maxDay - res.data.length) };
+            const expectedWorkingDays = Math.max(0, maxDay - startDayToCheck);
+            return { code: s.code, ok, late, absent: Math.max(0, expectedWorkingDays - res.data.length) };
           }
           return { code: s.code, ok: 0, late: 0, absent: 0 };
         })
