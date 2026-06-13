@@ -5,7 +5,7 @@ import { createMemberSchema, getMembersSchema } from '../validations/member.vali
 import {
   createMember, getMembers, getMemberById,
   updateMember, deleteMember, getMemberWorkoutLogs, getMemberPayments,
-  checkDuplicate
+  checkDuplicate, getMemberFeedbacksByStaff
 } from '../controllers/member.controller.js';
 import { getMyStudents, getTrainerDashboardStats } from '../controllers/subscription.controller.js';
 
@@ -21,7 +21,8 @@ router.get('/:id', verifyToken, restrictTo('manager', 'owner', 'pt'), getMemberB
 router.put('/:id', verifyToken, restrictTo('manager', 'owner'), updateMember);
 router.delete('/:id', verifyToken, restrictTo('manager', 'owner'), deleteMember);
 router.get('/:id/workout-logs', verifyToken, restrictTo('manager', 'owner', 'pt'), getMemberWorkoutLogs);
-router.get('/:id/payments', verifyToken, restrictTo('manager', 'owner'), getMemberPayments);
+router.get('/:id/payments', verifyToken, restrictTo('manager', 'owner', 'pt'), getMemberPayments);
+router.get('/:id/feedbacks', verifyToken, restrictTo('manager', 'owner', 'pt'), getMemberFeedbacksByStaff);
 
 export default router;
 
