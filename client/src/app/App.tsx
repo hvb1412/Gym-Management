@@ -6488,7 +6488,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
           const tList = (data.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm");
           setTrainerList(tList);
           if (isTrainer) {
-            const me = tList.find((t: any) => t.userId === currentUser.id || t.userId === currentUser.userId || t.email === currentUser.email || t.staffName === currentUser.name);
+            const me = tList.find((t: any) => t.staffId === currentUser.staffId || t.code === currentUser.staffId || t.email === currentUser.email || t.name === currentUser.name);
             if (me) setTrainerId(me.staffId || me.code);
           }
         }
