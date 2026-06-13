@@ -108,6 +108,31 @@ const PKG_BREAKDOWN: any[] = [];
 
 const cn = (...x: (string | false | undefined)[]) => x.filter(Boolean).join(" ");
 
+function calculateExpireDate(packageType: string, durationUnit: string, duration: number, numberOfWorkout: number): Date {
+  const today = new Date();
+  if (packageType === 'session') {
+    today.setDate(today.getDate() + (numberOfWorkout || 365));
+    return today;
+  }
+  const unit = (durationUnit || '').toLowerCase();
+  if (unit === 'ngày' || unit === 'day' || unit === 'daily') today.setDate(today.getDate() + (duration || 1));
+  else if (unit === 'tuần' || unit === 'week') today.setDate(today.getDate() + (duration || 1) * 7);
+  else if (unit === 'tháng' || unit === 'month' || unit === 'monthly') today.setMonth(today.getMonth() + (duration || 1));
+  else if (unit === 'năm' || unit === 'year' || unit === 'yearly') today.setFullYear(today.getFullYear() + (duration || 1));
+  else today.setMonth(today.getMonth() + (duration || 1));
+  return today;
+}
+
+function formatDate(dateString: string | Date | null | undefined): string {
+  if (!dateString) return "—";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "emerald" | "amber" | "red" | "sky" | "gray"; children: React.ReactNode }) {
   const map: Record<string, string> = {
     default: "bg-muted text-foreground/80 border-border",
@@ -167,10 +192,14 @@ function IconBtn({ icon: Icon, tone = "default", onClick }: { icon: any; tone?: 
 
 function Input({ icon: Icon, placeholder, type = "text", className, value, onChange, ...rest }: any) {
   const controlled = onChange !== undefined;
+  const finalRest = { ...rest };
+  if (type === "date" && !finalRest.max) {
+    finalRest.max = new Date().toISOString().split("T")[0];
+  }
   return (
     <div className={cn("relative", className)}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground stroke-[1.75]" />}
-      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...rest} className={cn(
+      <input type={type} {...(controlled ? { value: value ?? "", onChange } : { defaultValue: value })} placeholder={placeholder} {...finalRest} className={cn(
         "w-full h-10 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground/60",
         "focus:outline-none focus:border-[#6C63FF]/60 focus:ring-2 focus:ring-[#6C63FF]/15 transition px-3",
         Icon && "pl-9"
@@ -183,7 +212,7 @@ function SearchableSelect({ options, value, onChange, placeholder = "Chọn...",
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  
+
   const [internalValue, setInternalValue] = useState(defaultValue);
   const isControlled = value !== undefined;
   const currentValue = isControlled ? value : internalValue;
@@ -216,17 +245,17 @@ function SearchableSelect({ options, value, onChange, placeholder = "Chọn...",
         <span className="truncate">{selected ? selected.label : placeholder}</span>
         <ChevronDown className="size-4 text-muted-foreground shrink-0" />
       </button>
-      
+
       {open && (
         <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 flex flex-col rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
           <div className="bg-popover p-1 border-b border-border shrink-0">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <input 
-                type="text" 
-                value={search} 
-                onChange={e => setSearch(e.target.value)} 
-                placeholder="Tìm kiếm..." 
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm kiếm..."
                 className="w-full h-8 bg-muted/50 rounded-md border-none pl-7 pr-3 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#6C63FF]"
                 onClick={e => e.stopPropagation()}
               />
@@ -697,50 +726,50 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
 function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const navigate = useNavigate();
   const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
-  
+
   const [memberStats, setMemberStats] = useState<any>(null);
   const [trainerStats, setTrainerStats] = useState<any>(null);
   const [ownerStats, setOwnerStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     const token = localStorage.getItem("gymos_token");
     if (role === "member") {
       fetch("http://localhost:5000/api/v1/workout-logs/summary", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setMemberStats(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setMemberStats(data.data);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
     } else if (role === "trainer") {
       fetch("http://localhost:5000/api/v1/members/my-students/stats", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setTrainerStats(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setTrainerStats(data.data);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
     } else {
       fetch("http://localhost:5000/api/v1/reports/dashboard", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setOwnerStats(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setOwnerStats(data.data);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
     }
   }, [role]);
 
@@ -796,7 +825,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: AlertTriangle, label: "Sắp hết hạn", value: trainerStats?.expiringSoon ?? 0, tone: "amber" },
       ];
     }
-    
+
     if (role === "staff") {
       if (loading) return [
         { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
@@ -809,13 +838,13 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: Wrench, label: "Yêu cầu bảo trì mở", value: ownerStats?.openMaintenanceCount ?? 0, tone: "amber" },
       ];
     }
-    
+
     if (loading) return [
       { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
       { icon: TrendingUp, label: "Doanh thu hôm nay", value: "...", tone: "violet" },
       { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "...", tone: "amber" },
     ];
-    
+
     return [
       { icon: Activity, label: "Check in hôm nay", value: ownerStats?.checkInCount ?? 0, tone: "emerald" },
       { icon: TrendingUp, label: "Doanh thu hôm nay", value: ownerStats?.todayRevenue ?? "0", tone: "violet" },
@@ -826,10 +855,10 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const me = ROLE_META[role] || ROLE_META["member"];
   const personName = user?.name || me.person;
   const firstName = personName.split(" ").pop();
-  
+
   // Format current date in Vietnamese
   const today = new Date();
-  const dateStr = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).format(today);
+  const dateStr = formatDate(today);
 
   return (
     <div className="space-y-8">
@@ -997,8 +1026,8 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
               { value: "Đang làm", label: "Đang làm" },
               { value: "Nghỉ phép", label: "Nghỉ phép" },
               { value: "Đã thôi việc", label: "Đã thôi việc" },
-              { value: "Đã vô hiệu hóa", label: "Đã vô hiệu hóa" },
-            ]}
+              formData.role !== "Chủ phòng tập" ? { value: "Đã vô hiệu hóa", label: "Đã vô hiệu hóa" } : null,
+            ].filter(Boolean) as any}
           />
         </Field>
       )}
@@ -1098,7 +1127,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
                 <div className="flex items-center justify-end gap-0.5">
                   <IconBtn icon={Eye} onClick={() => onSelect(s.code)} />
                   <IconBtn icon={Pencil} onClick={() => onEdit?.(s.code)} />
-                  <IconBtn icon={Trash2} tone="danger" onClick={() => { setDelTarget(s); setModal("del"); }} />
+                  {s.role !== "Chủ phòng tập" && <IconBtn icon={Trash2} tone="danger" onClick={() => { setDelTarget(s); setModal("del"); }} />}
                 </div>,
               ])}
             />
@@ -1232,6 +1261,28 @@ function Pagination({ total = 32, page = 1, pageSize = 6, onPageChange }: { tota
   );
 }
 
+/* ── Schedule Settings Helper ── */
+const defaultScheduleConfig = {
+  1: { in: "06:30", out: "21:00" }, // T2
+  2: { in: "06:30", out: "21:00" }, // T3
+  3: { in: "06:30", out: "21:00" }, // T4
+  4: { in: "06:30", out: "21:00" }, // T5
+  5: { in: "06:30", out: "21:00" }, // T6
+  6: { in: "08:00", out: "20:00" }, // T7
+  0: { in: "08:00", out: "12:00" }, // CN
+};
+
+const getScheduleConfig = () => {
+  try {
+    const s = localStorage.getItem("gym_work_schedule");
+    return s ? JSON.parse(s) : defaultScheduleConfig;
+  } catch { return defaultScheduleConfig; }
+};
+
+const saveScheduleConfig = (s: any) => {
+  localStorage.setItem("gym_work_schedule", JSON.stringify(s));
+};
+
 /* ── Staff Detail ── */
 function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: string; staffs: StaffRecord[]; refresh: () => void; onBack: () => void; onEdit?: (code: string) => void }) {
   const s = staffs.find((x) => x.code === id);
@@ -1285,10 +1336,10 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
               const [hours, minutes] = log.checkInTime.split(':').map(Number);
               const timeInMinutes = hours * 60 + minutes;
 
-              let limitMinutes = 8 * 60; // 08:00 for Sat, Sun
-              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                limitMinutes = 6 * 60 + 30; // 06:30 for Mon-Fri
-              }
+              const schedule = getScheduleConfig();
+              const dayConfig = schedule[dayOfWeek] || { in: "06:30" };
+              const [limitH, limitM] = dayConfig.in.split(':').map(Number);
+              const limitMinutes = limitH * 60 + limitM;
 
               if (timeInMinutes > limitMinutes) {
                 isLate = true;
@@ -1346,7 +1397,7 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
           </dl>
           <div className="flex gap-2 mt-5">
             <Button variant="outline" icon={Pencil} className="flex-1 justify-center" onClick={() => onEdit?.(s.code)}>Sửa</Button>
-            <Button variant="danger" icon={Trash2} className="flex-1 justify-center" onClick={() => setDelOpen(true)}>Xóa</Button>
+            {s.role !== "Chủ phòng tập" && <Button variant="danger" icon={Trash2} className="flex-1 justify-center" onClick={() => setDelOpen(true)}>Xóa</Button>}
           </div>
         </Card>
 
@@ -1426,6 +1477,9 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
 function Attendance({ staffs }: { staffs: StaffRecord[] }) {
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
+  const [inTime, setInTime] = useState("06:30");
+  const [outTime, setOutTime] = useState("21:00");
+  const [schedule, setSchedule] = useState<any>(getScheduleConfig());
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<StaffRecord | null>(null);
   const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>([]);
@@ -1560,9 +1614,9 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
               <p className="text-[12.5px] text-muted-foreground mt-1">Cấu hình hiện tại áp dụng cho toàn bộ nhân sự.</p>
               <div className="mt-4 space-y-2">
                 {[
-                  { d: "T2 → T6", in: "06:30", out: "21:00" },
-                  { d: "Thứ 7", in: "08:00", out: "20:00" },
-                  { d: "Chủ Nhật", in: "08:00", out: "12:00" },
+                  { d: "T2 → T6", in: schedule[1].in, out: schedule[1].out },
+                  { d: "Thứ 7", in: schedule[6].in, out: schedule[6].out },
+                  { d: "Chủ Nhật", in: schedule[0].in, out: schedule[0].out },
                 ].map((r) => (
                   <div key={r.d} className="flex items-center justify-between rounded-lg bg-muted/40 border border-border/70 px-3 py-2.5">
                     <span className="text-[13px]">{r.d}</span>
@@ -1600,7 +1654,19 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thiết lập giờ làm việc" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button onClick={() => {
+          const mapUIToDayOfWeek = [1, 2, 3, 4, 5, 6, 0]; // T2..CN
+          const newSchedule = { ...schedule };
+          days.forEach((selected, i) => {
+            if (selected) {
+              newSchedule[mapUIToDayOfWeek[i]] = { in: inTime, out: outTime };
+            }
+          });
+          setSchedule(newSchedule);
+          saveScheduleConfig(newSchedule);
+          toast.success("Cập nhật giờ làm việc thành công");
+          setOpen(false);
+        }}>Lưu thay đổi</Button></>}>
         <div className="space-y-4">
           <Field label="Chọn các ngày làm việc">
             <div className="flex flex-wrap gap-2">
@@ -1615,8 +1681,8 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
             </div>
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Giờ vào ca"><Input type="time" value="06:30" /></Field>
-            <Field label="Giờ tan ca"><Input type="time" value="21:00" /></Field>
+            <Field label="Giờ vào ca"><Input type="time" value={inTime} onChange={(e: any) => setInTime(e.target.value)} /></Field>
+            <Field label="Giờ tan ca"><Input type="time" value={outTime} onChange={(e: any) => setOutTime(e.target.value)} /></Field>
           </div>
         </div>
       </Modal>
@@ -1648,6 +1714,16 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !num || !price) return;
+    const parsedNum = parseInt(num, 10);
+    const parsedPrice = parseInt(price.replace(/\D/g, "") || "0");
+    if (parsedNum <= 0) {
+      toast.error("Số buổi / Thời hạn phải lớn hơn 0");
+      return;
+    }
+    if (parsedPrice <= 0) {
+      toast.error("Giá gói tập phải lớn hơn 0");
+      return;
+    }
     const finalType = pkgType === "session" ? `${num} buổi` : `${num} ${unit === "month" ? "tháng" : unit === "week" ? "tuần" : "ngày"}`;
     onSubmit(e, {
       code,
@@ -1655,7 +1731,7 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
       type: finalType,
       vip,
       trainer,
-      price: parseInt(price.replace(/\D/g, "") || "0"),
+      price: parsedPrice,
       status
     } as any);
   };
@@ -2038,7 +2114,6 @@ function Packages() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                ["Mã gói", `PKG-${viewing.id.split('-')[0].toUpperCase()}`],
                 ["Loại gói", /buổi/i.test(viewing.type) ? "Theo số buổi" : "Theo thời gian"],
                 ["Thời lượng / Số buổi", viewing.type],
                 ["Trạng thái", viewing.status],
@@ -2402,7 +2477,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           typeName: e.EquipmentType?.equipmentName || "—",
           typeId: e.equipmentTypeId,
           pos: e.position || `Hàng ${Math.floor(i / 4) + 1} — Slot ${(i % 4) + 1}`,
-          purchaseDate: e.purchaseDate ? new Date(e.purchaseDate).toLocaleDateString("en-GB") : "—",
+          purchaseDate: e.purchaseDate ? formatDate(e.purchaseDate) : "—",
           status: e.usageStatus === "active" || e.usageStatus === "Hoạt động" ? "Hoạt động"
             : e.usageStatus === "maintenance" || e.usageStatus === "Đang bảo trì" ? "Đang bảo trì"
               : e.usageStatus || "Hoạt động",
@@ -2596,7 +2671,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <SearchableSelect
               value={newDev.status}
               onChange={(e: any) => setNewDev({ ...newDev, status: e.target.value })}
-              options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+              options={["Hoạt động", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
             />
           </Field>
         </div>
@@ -2614,7 +2689,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <SearchableSelect
                 value={editDev.status}
                 onChange={(e: any) => setEditDev({ ...editDev, status: e.target.value })}
-                options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+                options={["Hoạt động", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
               />
             </Field>
             <Field label={<>Ngày mua</>}><Input value={editDev.purchaseDate} readOnly /></Field>
@@ -2685,7 +2760,6 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
           onChange={(e: any) => onChange({ ...data, status: e.target.value })}
           options={[
             { value: "Hoạt động", label: "Hoạt động" },
-            { value: "Đang bảo trì", label: "Đang bảo trì" },
             { value: "Ngừng sử dụng", label: "Ngừng sử dụng" },
           ]}
         />
@@ -2801,6 +2875,7 @@ function Equipment() {
   };
 
   const handleAddItem = async () => {
+    if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -2829,6 +2904,7 @@ function Equipment() {
   };
 
   const handleEditItem = async () => {
+    if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
@@ -3098,7 +3174,7 @@ function EquipmentMaintenance() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription, rawDate: r.reportDate })));
         }
       }).catch(console.error);
   };
@@ -3107,7 +3183,13 @@ function EquipmentMaintenance() {
     fetchReports();
   }, []);
 
-  const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus);
+  const w = (s: string) => s === "Chờ xử lý" ? 0 : s === "Đang xử lý" ? 1 : 2;
+  const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus).sort((a, b) => {
+    const wa = w(a.status);
+    const wb = w(b.status);
+    if (wa !== wb) return wa - wb;
+    return new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime();
+  });
   const viewing = viewId ? maintList.find((m) => m.code === viewId) : null;
   const deletingMaint = deleteMaint ? maintList.find((m) => m.code === deleteMaint) : null;
 
@@ -3295,7 +3377,7 @@ function MaintenanceOwner() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: r.reportDate, status: r.resolveStatus, desc: r.errorDescription })));
+          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription, rawDate: r.reportDate })));
         }
       }).catch(console.error);
     fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).then(data => {
@@ -3305,7 +3387,13 @@ function MaintenanceOwner() {
 
   useEffect(() => { fetchReports(); }, []);
 
-  const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter);
+  const w = (s: string) => s === "Chờ xử lý" ? 0 : s === "Đang xử lý" ? 1 : 2;
+  const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter).sort((a, b) => {
+    const wa = w(a.status);
+    const wb = w(b.status);
+    if (wa !== wb) return wa - wb;
+    return new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime();
+  });
   const viewing = viewId ? list.find((m) => m.code === viewId) : null;
   const deleting = deleteId ? list.find((m) => m.code === deleteId) : null;
 
@@ -3321,6 +3409,7 @@ function MaintenanceOwner() {
       return;
     }
     const d = new Date(addForm.date);
+    if (d > new Date()) { toast.error("Ngày báo không được là ngày trong tương lai"); return; }
     if (isNaN(d.getTime())) {
       toast.error("Ngày báo sai định dạng");
       return;
@@ -3588,6 +3677,13 @@ function Feedback() {
       (f.feedbackContent || "").toLowerCase().includes(q) ||
       f.feedbackId.toLowerCase().includes(q);
     return matchStatus && matchType && matchQuery;
+  }).sort((a, b) => {
+    const aPending = a.answerContent ? 1 : 0;
+    const bPending = b.answerContent ? 1 : 0;
+    if (aPending !== bPending) return aPending - bPending;
+    const dateA = new Date(a.feedbackDate || 0).getTime();
+    const dateB = new Date(b.feedbackDate || 0).getTime();
+    return dateB - dateA;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -3646,7 +3742,7 @@ function Feedback() {
     }
   };
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+  const fmtDate = (d: string | null) => d ? formatDate(d) : "—";
   const shortId = (id: string) => id.substring(0, 8).toUpperCase();
 
   const typeCounts: Record<string, number> = {};
@@ -3931,7 +4027,8 @@ function ReportsOverview() {
         setMembersByMonth(statsRes.data.members.byMonth || []);
       }
       if (staffRes.success) {
-        setStaffCount(staffRes.data.length || 0);
+        const activeStaff = staffRes.data.filter((s: any) => s.status !== "Đã vô hiệu hóa");
+        setStaffCount(activeStaff.length || 0);
       }
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -3939,7 +4036,7 @@ function ReportsOverview() {
   return (
     <>
       <SectionTitle title="Báo cáo chung" sub="Tổng quan hiệu suất vận hành"
-        actions={<><Button variant="outline" icon={CalIcon}>{new Date().toLocaleDateString("en-GB")}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
+        actions={<><Button variant="outline" icon={CalIcon}>{formatDate(new Date())}</Button><Button icon={FileBarChart}>Xuất báo cáo</Button></>} />
       <div className="grid grid-cols-4 gap-4">
         {[
           { k: "Doanh thu", v: loading ? "…" : `${(revenue / 1000000).toFixed(1)} tr`, icon: Wallet, tone: "violet" },
@@ -4261,6 +4358,8 @@ function StaffReport() {
   const [loading, setLoading] = useState(false);
   const [attendanceData, setAttendanceData] = useState<Record<string, { ok: number; late: number; absent: number }>>({});
 
+  const activeStaff = staffList.filter(s => s.status !== "Đã vô hiệu hóa");
+
   useEffect(() => {
     fetch("http://localhost:5000/api/v1/staffs")
       .then(r => r.json())
@@ -4268,9 +4367,9 @@ function StaffReport() {
   }, []);
 
   useEffect(() => {
-    if (staffList.length === 0) return;
+    if (activeStaff.length === 0) return;
     setLoading(true);
-    const fetchAll = staffList.slice(0, 8).map(s =>
+    const fetchAll = activeStaff.slice(0, 8).map(s =>
       fetch(`http://localhost:5000/api/v1/staffs/${s.code}/attendance?month=${selMonth}&year=${selYear}`)
         .then(r => r.json())
         .then(res => {
@@ -4280,16 +4379,37 @@ function StaffReport() {
             const isPastMonth = selYear < now.getFullYear() || (selYear === now.getFullYear() && selMonth < now.getMonth() + 1);
             const daysInMonth = new Date(selYear, selMonth, 0).getDate();
             const maxDay = isPastMonth ? daysInMonth : (isCurrentMonth ? now.getDate() : 0);
+
+            let startDayToCheck = 0;
+            if (s && s.join && s.join !== "Chưa cập nhật") {
+              const [d, m, y] = s.join.split("/");
+              const joinY = Number(y);
+              const joinM = Number(m) - 1;
+              const joinD = Number(d);
+              const calMonth = selMonth - 1;
+              if (selYear < joinY || (selYear === joinY && calMonth < joinM)) {
+                startDayToCheck = daysInMonth;
+              } else if (selYear === joinY && calMonth === joinM) {
+                startDayToCheck = joinD - 1;
+              }
+            }
+
             let ok = 0, late = 0;
+            const schedule = getScheduleConfig();
             res.data.forEach((log: any) => {
               if (log.checkInTime) {
                 const [h, m] = log.checkInTime.split(':').map(Number);
                 const dow = new Date(log.workDate).getDay();
-                const limit = (dow >= 1 && dow <= 5) ? 6 * 60 + 30 : 8 * 60;
-                if (h * 60 + m > limit) late++; else ok++;
+
+                const dayConfig = schedule[dow] || { in: "06:30" };
+                const [limitH, limitM] = dayConfig.in.split(':').map(Number);
+                const limitMinutes = limitH * 60 + limitM;
+
+                if (h * 60 + m > limitMinutes) late++; else ok++;
               } else ok++;
             });
-            return { code: s.code, ok, late, absent: Math.max(0, maxDay - res.data.length) };
+            const expectedWorkingDays = Math.max(0, maxDay - startDayToCheck);
+            return { code: s.code, ok, late, absent: Math.max(0, expectedWorkingDays - res.data.length) };
           }
           return { code: s.code, ok: 0, late: 0, absent: 0 };
         })
@@ -4304,12 +4424,11 @@ function StaffReport() {
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const years = [2024, 2025, 2026];
-  const activeStaff = staffList.filter(s => s.status === "Đang làm" || s.status === "Nghỉ phép");
   const totalOk = Object.values(attendanceData).reduce((s, a) => s + a.ok, 0);
   const totalLate = Object.values(attendanceData).reduce((s, a) => s + a.late, 0);
   const totalAbsent = Object.values(attendanceData).reduce((s, a) => s + a.absent, 0);
   const daysInMonth = new Date(selYear, selMonth, 0).getDate();
-  const chartData = staffList.slice(0, 6).map(s => {
+  const chartData = activeStaff.slice(0, 6).map(s => {
     const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
     return { name: s.name.split(" ").pop(), ok: a.ok, late: a.late, absent: a.absent };
   });
@@ -4318,7 +4437,7 @@ function StaffReport() {
     <>
       <SectionTitle
         title="Thống kê nhân sự"
-        sub={`Hiệu suất chấm công ${staffList.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
+        sub={`Hiệu suất chấm công ${activeStaff.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
         actions={
           <div className="flex items-center gap-2">
             <SearchableSelect
@@ -4339,7 +4458,7 @@ function StaffReport() {
       />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Tổng nhân sự", v: staffList.length, sub: `${activeStaff.length} đang làm việc`, color: "bg-[#6C63FF]/15 text-[#4F46E5]" },
+          { label: "Tổng nhân sự", v: activeStaff.length, sub: `${activeStaff.filter(s => s.status === "Đang làm" || s.status === "Nghỉ phép").length} đang hoạt động`, color: "bg-[#6C63FF]/15 text-[#4F46E5]" },
           { label: "Ngày đúng giờ", v: totalOk, sub: `${daysInMonth} ngày/tháng`, color: "bg-[#00C9A7]/15 text-[#00866F]" },
           { label: "Đi chưa đủ giờ", v: totalLate, sub: "Cộng dồn", color: "bg-[#FFB547]/15 text-[#A66A00]" },
           { label: "Tổng ngày vắng", v: totalAbsent, sub: "Cộng dồn", color: "bg-[#FF5C5C]/15 text-[#B91C1C]" },
@@ -4387,8 +4506,8 @@ function StaffReport() {
           </div>
         ) : (
           <DataTable
-            head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
-            rows={staffList.slice(0, 8).map((s) => {
+            head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất"]}
+            rows={activeStaff.slice(0, 8).map((s) => {
               const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
               const total = a.ok + a.late + a.absent;
               const perf = total > 0 ? Math.round(((a.ok + a.late * 0.5) / total) * 100) : 0;
@@ -4399,7 +4518,7 @@ function StaffReport() {
                   </div>
                   <span className="font-medium">{s.name}</span>
                 </div>,
-                <Badge tone={s.role?.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
+                <Badge tone={s.role?.includes("Chủ") ? "violet" : s.role?.includes("Nhân") ? "emerald" : s.role?.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
                 <span className="font-mono text-[#00866F] dark:text-[#5FE6CB]">{a.ok}</span>,
                 <span className="font-mono text-[#A66A00] dark:text-[#FFD89B]">{a.late}</span>,
                 <span className="font-mono text-[#B91C1C] dark:text-[#FFA0A0]">{a.absent}</span>,
@@ -4409,7 +4528,6 @@ function StaffReport() {
                   </div>
                   <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
                 </div>,
-                <IconBtn icon={Eye} onClick={() => { }} />,
               ];
             })}
           />
@@ -4499,6 +4617,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const PAGE_SIZE = 6;
 
   const token = localStorage.getItem("gymos_token");
@@ -4518,7 +4637,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
     if (!plan) return "—";
     if (plan.SubscriptionPackage?.packageType === "session") return `${plan.remainingSessions ?? 0} buổi`;
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("en-GB");
+    if (expire) return formatDate(expire);
     return "—";
   };
 
@@ -4566,10 +4685,23 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       gender: m.raw.gender || "",
       occupation: m.raw.occupation || "",
     });
+    setEditErrors({});
+  };
+
+  const validateEditForm = () => {
+    const errs: Record<string, string> = {};
+    if (!editForm.memberName?.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+
+    if (!editForm.phoneNumber?.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
+    else if (!/^0\d{9}$/.test(editForm.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại gồm 10 số và bắt đầu bằng 0";
+
+    setEditErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleEditSave = async () => {
     if (!editId) return;
+    if (!validateEditForm()) return;
     setSaving(true);
     try {
       const r = await fetch(`http://localhost:5000/api/v1/members/${editId}`, {
@@ -4670,10 +4802,12 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
         {editingMember && (
           <div className="grid grid-cols-2 gap-4">
             <Field label={<>Họ và tên<Req /></>}>
-              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, memberName: e.target.value })); if (editErrors.memberName) setEditErrors((f: any) => { const n = { ...f }; delete n.memberName; return n; }); }} className={editErrors.memberName ? "border-red-400" : ""} />
+              {editErrors.memberName && <p className="text-[11px] text-red-500 mt-1">{editErrors.memberName}</p>}
             </Field>
             <Field label={<>Số điện thoại<Req /></>}>
-              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value })); if (editErrors.phoneNumber) setEditErrors((f: any) => { const n = { ...f }; delete n.phoneNumber; return n; }); }} className={editErrors.phoneNumber ? "border-red-400" : ""} />
+              {editErrors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{editErrors.phoneNumber}</p>}
             </Field>
             <Field label="Ngày sinh">
               <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
@@ -4782,12 +4916,13 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive);
+          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" && d.isActive);
           setPackages(rawList);
           const list = rawList.map((d: any) => ({
             id: d.packageId, name: d.packageName,
             type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
-            price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded
+            price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded,
+            packageType: d.packageType, duration: d.duration, durationUnit: d.durationUnit, numberOfWorkout: d.numberOfWorkout
           }));
           setSellable(list);
           if (list.length > 0) setPkgId(list[0].id);
@@ -4991,10 +5126,10 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Số thẻ"><Input value="4242 4242 4242 4242" /></Field>
-                <Field label="Chủ thẻ"><Input value="NGUYEN VAN A" /></Field>
-                <Field label="Hết hạn"><Input value="12/28" /></Field>
-                <Field label="CVV"><Input type="password" value="123" /></Field>
+                <Field label="Số thẻ"><Input value="4242 4242 4242 4242" readOnly /></Field>
+                <Field label="Chủ thẻ"><Input value="NGUYEN VAN A" readOnly /></Field>
+                <Field label="Hết hạn"><Input value="12/28" readOnly /></Field>
+                <Field label="CVV"><Input type="password" value="123" readOnly /></Field>
               </div>
             </div>
           )}
@@ -5036,13 +5171,13 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             <div className="space-y-4">
               <Field label="Số tiền cần thu"><Input value={`${pkg.price.toLocaleString("vi-VN")} ₫`} readOnly /></Field>
               <Field label="Khách đưa">
-                <Input 
-                  placeholder="VD: 3000000" 
-                  value={cashGivenStr} 
+                <Input
+                  placeholder="VD: 3000000"
+                  value={cashGivenStr}
                   onChange={(e: any) => {
                     const val = e.target.value.replace(/\D/g, "");
                     setCashGivenStr(val ? parseInt(val).toString() : "");
-                  }} 
+                  }}
                 />
               </Field>
               <div className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 p-4 flex items-center justify-between">
@@ -5061,7 +5196,8 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             {[
               ["Gói tập", pkg.name],
               ["Hội viên", formData?.memberName || "Bạn"],
-              ["Ngày bắt đầu", new Date().toLocaleDateString("en-GB")]
+              ["Ngày bắt đầu", formatDate(new Date())],
+              ["Ngày hết hạn", formatDate(calculateExpireDate(pkg.packageType, pkg.durationUnit, pkg.duration, pkg.numberOfWorkout))]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
@@ -5365,7 +5501,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
               <div className="flex flex-wrap items-center gap-3 mt-2 text-[12.5px] text-muted-foreground">
                 <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{member.phoneNumber || "Chưa có"}</span>
                 <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{member.Account?.email || "Chưa có"}</span>
-                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{new Date(member.dateOfBirth).toLocaleDateString("en-GB")}</span>}
+                {member.dateOfBirth && <span className="flex items-center gap-1.5"><CalIcon className="size-3.5" />{formatDate(member.dateOfBirth)}</span>}
               </div>
             </div>
           </div>
@@ -5373,9 +5509,9 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button 
-              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"} 
-              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2} 
+            <Button
+              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"}
+              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2}
               onClick={handleCheckInOut}
               disabled={!!(todayLog && todayLog.endTime)}
             >
@@ -5388,13 +5524,13 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
           <div className="rounded-xl bg-gradient-to-br from-[#6C63FF]/10 to-transparent border border-[#6C63FF]/20 p-4">
             <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-2">Gói tập</div>
             <div className="font-display font-semibold text-[16px]">{pkg?.packageName ?? "Chưa có gói"}</div>
-            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {new Date(plan.startDate).toLocaleDateString("en-GB")}</div>}
+            {plan?.startDate && <div className="text-[12px] text-muted-foreground mt-1">Bắt đầu {formatDate(plan.startDate)}</div>}
           </div>
           <div className="rounded-xl bg-muted/40 border border-border/70 p-4">
             {pkg?.packageType === "session" ? <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{formatDate(expireDate)}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5402,7 +5538,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             </> : <>
               <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Hạn sử dụng</div>
               {expireDate ? <>
-                <div className="font-display font-bold text-[20px] mt-1">{expireDate.toLocaleDateString("en-GB")}</div>
+                <div className="font-display font-bold text-[20px] mt-1">{formatDate(expireDate)}</div>
                 <div className={cn("text-[12px]", diffDays! > 14 ? "text-[#00866F] dark:text-[#5FE6CB]" : "text-[#FF5C5C]")}>
                   {diffDays! >= 0 ? `Còn ${diffDays} ngày` : "Đã hết hạn"}
                 </div>
@@ -5431,7 +5567,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Giờ vào", "Thời lượng", "PT phụ trách", ""]}
               rows={logs.map((d, idx) => [
-                new Date(d.workoutDate).toLocaleDateString("en-GB"),
+                formatDate(d.workoutDate),
                 d.startTime?.slice(0, 5) || "—",
                 d.duration ? `${d.duration} phút` : "—",
                 <span className="text-muted-foreground">{d.Recorder?.staffName || "—"}</span>,
@@ -5447,7 +5583,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <DataTable
               head={["Ngày", "Gói tập", "Phương thức", "Số tiền", "Trạng thái"]}
               rows={payments.filter(p => p.Bill).map((p) => [
-                p.Bill?.paymentDate ? new Date(p.Bill.paymentDate).toLocaleDateString("en-GB") : "—",
+                p.Bill?.paymentDate ? formatDate(p.Bill.paymentDate) : "—",
                 <span>{p.SubscriptionPackage?.packageName || "—"}</span>,
                 <Badge tone={p.Bill?.paymentMethod === "card" ? "violet" : p.Bill?.paymentMethod === "qr" ? "sky" : "amber"}>
                   {p.Bill?.paymentMethod === "card" ? "Thẻ NH" : p.Bill?.paymentMethod === "qr" ? "QR Code" : "Tiền mặt"}
@@ -5512,16 +5648,16 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
           </Field>
           <Field label="Giới tính">
-              <SearchableSelect
-                value={editForm.gender}
-                onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
-                options={[
-                  { value: "", label: "Chưa chọn" },
-                  { value: "male", label: "Nam" },
-                  { value: "female", label: "Nữ" },
-                  { value: "other", label: "Khác" }
-                ]}
-              />
+            <SearchableSelect
+              value={editForm.gender}
+              onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+              options={[
+                { value: "", label: "Chưa chọn" },
+                { value: "male", label: "Nam" },
+                { value: "female", label: "Nữ" },
+                { value: "other", label: "Khác" }
+              ]}
+            />
           </Field>
           <div className="col-span-2">
             <Field label="Nghề nghiệp">
@@ -5555,7 +5691,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         {delDayIdx !== null && logs[delDayIdx] && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{new Date(logs[delDayIdx].workoutDate).toLocaleDateString("en-GB")}</span>?</p>
+            <p className="text-[14px]">Xóa buổi tập ngày <span className="font-medium">{formatDate(logs[delDayIdx].workoutDate)}</span>?</p>
           </div>
         )}
       </Modal>
@@ -5604,7 +5740,7 @@ function MemberHistory() {
 
   const fmtDate = (d: string | null) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("en-GB");
+    return formatDate(d);
   };
 
   /* ── calendar ── */
@@ -5900,9 +6036,9 @@ function MemberPayments() {
         return {
           code: `PAY-${plan.Bill.billId.split("-")[0].toUpperCase()}`,
           rawDate: d,
-          d: d.toLocaleDateString("en-GB"),
+          d: formatDate(d),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
-          method: plan.Bill.paymentMethod || "Tiền mặt",
+          method: plan.Bill.paymentMethod === "card" ? "Thẻ NH" : plan.Bill.paymentMethod === "qr" ? "QR Code" : "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
           status: "Thành công"
         };
@@ -5913,13 +6049,13 @@ function MemberPayments() {
   const activePlan = useMemo(() => {
     const active = subscriptions.filter((p: any) => p.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     if (!active) return null;
-    
+
     const daysLeft = Math.max(0, getDiffDays(active.expireDate) ?? 0);
-    
+
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
-      startDate: new Date(active.startDate).toLocaleDateString("en-GB"),
-      expireDate: new Date(active.expireDate).toLocaleDateString("en-GB"),
+      startDate: formatDate(active.startDate),
+      expireDate: formatDate(active.expireDate),
       daysLeft
     };
   }, [subscriptions]);
@@ -6110,7 +6246,7 @@ function MemberFeedback() {
         actions={<Button icon={Plus} onClick={() => setOpen(true)}>Tạo phản hồi mới</Button>} />
       <div className="space-y-3">
         {list.map((f) => {
-          const d = f.feedbackDate ? new Date(f.feedbackDate).toLocaleDateString("en-GB") : "";
+          const d = f.feedbackDate ? formatDate(f.feedbackDate) : "";
           const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
           return (
             <Card key={f.feedbackId}>
@@ -6162,7 +6298,7 @@ function MemberFeedback() {
                 onChange={(e: any) => setRef(e.target.value)}
                 options={[
                   { value: "", label: "— Không chọn —" },
-                  ...equipmentList.map((i) => ({ value: i.equipmentCode, label: `${i.equipmentCode} — ${i.Room?.roomName}` }))
+                  ...equipmentList.filter((i) => i.usageStatus === "Hoạt động" || i.usageStatus === "active").map((i) => ({ value: i.equipmentCode, label: `${i.equipmentCode} — ${i.Room?.roomName}` }))
                 ]}
               />
             </Field>
@@ -6191,7 +6327,7 @@ function MemberFeedback() {
           <Button icon={Trash2} disabled={isSubmitting} onClick={deleteFeedback}>{isSubmitting ? "Đang xóa..." : "Xóa phản hồi"}</Button>
         </>}>
         {deleting && (() => {
-          const d = deleting.feedbackDate ? new Date(deleting.feedbackDate).toLocaleDateString("en-GB") : "";
+          const d = deleting.feedbackDate ? formatDate(deleting.feedbackDate) : "";
           return (
             <div className="space-y-3">
               <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
@@ -6227,24 +6363,24 @@ function TrainerDropdown({ trainerId, onChange, trainers, error, readonly }: { t
           <Input disabled={readonly} icon={Search} placeholder="Gõ tên hoặc mã HLV…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => !readonly && setOpen(true)} className={error ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-[#FF5C5C]/15" : ""} />
           {open && (
             <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-               <div className="max-h-[300px] overflow-y-auto">
-                 {suggestions.length > 0 ? suggestions.map(t => {
-                   const id = t.staffId || t.code;
-                   const name = t.staffName || t.name;
-                   const code = t.staffCode || t.code || "Không có mã";
-                   return (
-                     <button key={id} type="button" onClick={() => { onChange(id); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-2.5 border-b border-border/60 last:border-0 hover:bg-muted/60 transition flex items-center gap-3">
-                        <div className="size-8 rounded-lg bg-muted border border-border grid place-items-center text-[10px] font-mono">{name.split(" ").slice(-2).map((n: string) => n[0]).join("")}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-medium truncate">{name}</div>
-                          <div className="text-[11px] text-muted-foreground font-mono">{code}</div>
-                        </div>
-                     </button>
-                   );
-                 }) : (
-                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy HLV nào.</div>
-                 )}
-               </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {suggestions.length > 0 ? suggestions.map(t => {
+                  const id = t.staffId || t.code;
+                  const name = t.staffName || t.name;
+                  const code = t.staffCode || t.code || "Không có mã";
+                  return (
+                    <button key={id} type="button" onClick={() => { onChange(id); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-2.5 border-b border-border/60 last:border-0 hover:bg-muted/60 transition flex items-center gap-3">
+                      <div className="size-8 rounded-lg bg-muted border border-border grid place-items-center text-[10px] font-mono">{name.split(" ").slice(-2).map((n: string) => n[0]).join("")}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium truncate">{name}</div>
+                        <div className="text-[11px] text-muted-foreground font-mono">{code}</div>
+                      </div>
+                    </button>
+                  );
+                }) : (
+                  <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy HLV nào.</div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -6326,15 +6462,15 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
           <Input icon={Search} placeholder="Gõ tên hoặc mã gói tập…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => setOpen(true)} />
           {open && (
             <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-               <div className="max-h-[360px] overflow-y-auto py-1">
-                 {suggestions.length > 0 ? suggestions.map(p => (
-                   <button key={p.packageId} type="button" onClick={() => { onChange(p.packageId); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-3 border-b border-border/60 last:border-0 hover:bg-muted/60 transition">
-                     {renderRow(p, true)}
-                   </button>
-                 )) : (
-                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy gói tập nào.</div>
-                 )}
-               </div>
+              <div className="max-h-[360px] overflow-y-auto py-1">
+                {suggestions.length > 0 ? suggestions.map(p => (
+                  <button key={p.packageId} type="button" onClick={() => { onChange(p.packageId); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-3 border-b border-border/60 last:border-0 hover:bg-muted/60 transition">
+                    {renderRow(p, true)}
+                  </button>
+                )) : (
+                  <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy gói tập nào.</div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -6375,7 +6511,7 @@ function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string })
     fetch("http://localhost:5000/api/v1/packages")
       .then(res => res.json())
       .then(data => {
-        if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
+        if (data.success) setPackages(data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh"));
       });
 
     fetch("http://localhost:5000/api/v1/staffs", {
@@ -6387,7 +6523,7 @@ function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string })
           const tList = (data.data || []).filter((s: any) => s.role === "Huấn luyện viên" && s.status === "Đang làm");
           setTrainerList(tList);
           if (isTrainer) {
-            const me = tList.find((t: any) => t.userId === currentUser.id || t.userId === currentUser.userId || t.email === currentUser.email || t.staffName === currentUser.name);
+            const me = tList.find((t: any) => t.staffId === currentUser.staffId || t.code === currentUser.staffId || t.email === currentUser.email || t.name === currentUser.name);
             if (me) setTrainerId(me.staffId || me.code);
           }
         }
@@ -6446,7 +6582,7 @@ function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string })
             {currentPlan ? (
               <>
                 <h3 className="font-display text-[20px] mt-2">{currentPlan.SubscriptionPackage?.packageName || "Gói không xác định"}</h3>
-                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {new Date(currentPlan.expireDate).toLocaleDateString("en-GB")}</div>
+                <div className="text-[12.5px] text-muted-foreground">Còn {calDaysRemain(currentPlan.expireDate)} ngày — Hết hạn {formatDate(currentPlan.expireDate)}</div>
               </>
             ) : (
               <>
@@ -6554,7 +6690,7 @@ function PtStudents({ onSelect, title, sub }: { onSelect: (id: string) => void; 
   const formatRemain = (plan: any): string => {
     if (!plan) return "—";
     const expire = getExpireDate(plan);
-    if (expire) return expire.toLocaleDateString("en-GB");
+    if (expire) return formatDate(expire);
     return "—";
   };
 
@@ -6637,10 +6773,10 @@ function RenewWrapper({ role }: { role: Role }) {
   const memberId = params.get("memberId") || undefined;
 
   if (role === "trainer" && !memberId) {
-    return <PtStudents 
-      onSelect={(id) => navigate(`/renew?memberId=${id}`)} 
-      title="Chọn hội viên gia hạn" 
-      sub="Vui lòng chọn một học viên để tiếp tục gia hạn gói tập" 
+    return <PtStudents
+      onSelect={(id) => navigate(`/renew?memberId=${id}`)}
+      title="Chọn hội viên gia hạn"
+      sub="Vui lòng chọn một học viên để tiếp tục gia hạn gói tập"
     />;
   }
 
