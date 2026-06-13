@@ -197,7 +197,7 @@ function SearchableSelect({ options, value, onChange, placeholder = "Chọn...",
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  
+
   const [internalValue, setInternalValue] = useState(defaultValue);
   const isControlled = value !== undefined;
   const currentValue = isControlled ? value : internalValue;
@@ -230,17 +230,17 @@ function SearchableSelect({ options, value, onChange, placeholder = "Chọn...",
         <span className="truncate">{selected ? selected.label : placeholder}</span>
         <ChevronDown className="size-4 text-muted-foreground shrink-0" />
       </button>
-      
+
       {open && (
         <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 flex flex-col rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
           <div className="bg-popover p-1 border-b border-border shrink-0">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <input 
-                type="text" 
-                value={search} 
-                onChange={e => setSearch(e.target.value)} 
-                placeholder="Tìm kiếm..." 
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm kiếm..."
                 className="w-full h-8 bg-muted/50 rounded-md border-none pl-7 pr-3 text-[12.5px] focus:outline-none focus:ring-1 focus:ring-[#6C63FF]"
                 onClick={e => e.stopPropagation()}
               />
@@ -711,50 +711,50 @@ function Login({ onEnter, theme, onToggleTheme }: { onEnter: (role: Role, user?:
 function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const navigate = useNavigate();
   const setView = (v: string) => navigate(v === "home" ? "/" : "/" + v.replace(/\./g, "/"));
-  
+
   const [memberStats, setMemberStats] = useState<any>(null);
   const [trainerStats, setTrainerStats] = useState<any>(null);
   const [ownerStats, setOwnerStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     const token = localStorage.getItem("gymos_token");
     if (role === "member") {
       fetch("http://localhost:5000/api/v1/workout-logs/summary", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setMemberStats(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setMemberStats(data.data);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
     } else if (role === "trainer") {
       fetch("http://localhost:5000/api/v1/members/my-students/stats", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setTrainerStats(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setTrainerStats(data.data);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
     } else {
       fetch("http://localhost:5000/api/v1/reports/dashboard", {
         headers: { Authorization: `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setOwnerStats(data.data);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setOwnerStats(data.data);
+          }
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
     }
   }, [role]);
 
@@ -810,7 +810,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: AlertTriangle, label: "Sắp hết hạn", value: trainerStats?.expiringSoon ?? 0, tone: "amber" },
       ];
     }
-    
+
     if (role === "staff") {
       if (loading) return [
         { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
@@ -823,13 +823,13 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
         { icon: Wrench, label: "Yêu cầu bảo trì mở", value: ownerStats?.openMaintenanceCount ?? 0, tone: "amber" },
       ];
     }
-    
+
     if (loading) return [
       { icon: Activity, label: "Check in hôm nay", value: "...", tone: "emerald" },
       { icon: TrendingUp, label: "Doanh thu hôm nay", value: "...", tone: "violet" },
       { icon: Wrench, label: "Yêu cầu bảo trì mở", value: "...", tone: "amber" },
     ];
-    
+
     return [
       { icon: Activity, label: "Check in hôm nay", value: ownerStats?.checkInCount ?? 0, tone: "emerald" },
       { icon: TrendingUp, label: "Doanh thu hôm nay", value: ownerStats?.todayRevenue ?? "0", tone: "violet" },
@@ -840,7 +840,7 @@ function HomeWidgets({ role, user }: { role: Role; user?: any }) {
   const me = ROLE_META[role] || ROLE_META["member"];
   const personName = user?.name || me.person;
   const firstName = personName.split(" ").pop();
-  
+
   // Format current date in Vietnamese
   const today = new Date();
   const dateStr = formatDate(today);
@@ -4385,7 +4385,7 @@ function StaffReport() {
               if (log.checkInTime) {
                 const [h, m] = log.checkInTime.split(':').map(Number);
                 const dow = new Date(log.workDate).getDay();
-                
+
                 const dayConfig = schedule[dow] || { in: "06:30" };
                 const [limitH, limitM] = dayConfig.in.split(':').map(Number);
                 const limitMinutes = limitH * 60 + limitM;
@@ -4491,7 +4491,7 @@ function StaffReport() {
           </div>
         ) : (
           <DataTable
-            head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
+            head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất"]}
             rows={activeStaff.slice(0, 8).map((s) => {
               const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
               const total = a.ok + a.late + a.absent;
@@ -4503,7 +4503,7 @@ function StaffReport() {
                   </div>
                   <span className="font-medium">{s.name}</span>
                 </div>,
-                <Badge tone={s.role?.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
+                <Badge tone={s.role?.includes("Chủ") ? "violet" : s.role?.includes("Nhân") ? "emerald" : s.role?.includes("Huấn") ? "amber" : "sky"}>{s.role}</Badge>,
                 <span className="font-mono text-[#00866F] dark:text-[#5FE6CB]">{a.ok}</span>,
                 <span className="font-mono text-[#A66A00] dark:text-[#FFD89B]">{a.late}</span>,
                 <span className="font-mono text-[#B91C1C] dark:text-[#FFA0A0]">{a.absent}</span>,
@@ -4513,7 +4513,6 @@ function StaffReport() {
                   </div>
                   <span className="font-mono text-[12px] text-muted-foreground">{perf}%</span>
                 </div>,
-                <IconBtn icon={Eye} onClick={() => { }} />,
               ];
             })}
           />
@@ -4677,7 +4676,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
   const validateEditForm = () => {
     const errs: Record<string, string> = {};
     if (!editForm.memberName?.trim()) errs.memberName = "Vui lòng nhập họ và tên";
-    
+
     if (!editForm.phoneNumber?.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
     else if (!/^0\d{9}$/.test(editForm.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại gồm 10 số và bắt đầu bằng 0";
 
@@ -4788,11 +4787,11 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
         {editingMember && (
           <div className="grid grid-cols-2 gap-4">
             <Field label={<>Họ và tên<Req /></>}>
-              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, memberName: e.target.value })); if (editErrors.memberName) setEditErrors((f: any) => { const n={...f}; delete n.memberName; return n;}); }} className={editErrors.memberName ? "border-red-400" : ""} />
+              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, memberName: e.target.value })); if (editErrors.memberName) setEditErrors((f: any) => { const n = { ...f }; delete n.memberName; return n; }); }} className={editErrors.memberName ? "border-red-400" : ""} />
               {editErrors.memberName && <p className="text-[11px] text-red-500 mt-1">{editErrors.memberName}</p>}
             </Field>
             <Field label={<>Số điện thoại<Req /></>}>
-              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value })); if (editErrors.phoneNumber) setEditErrors((f: any) => { const n={...f}; delete n.phoneNumber; return n;}); }} className={editErrors.phoneNumber ? "border-red-400" : ""} />
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value })); if (editErrors.phoneNumber) setEditErrors((f: any) => { const n = { ...f }; delete n.phoneNumber; return n; }); }} className={editErrors.phoneNumber ? "border-red-400" : ""} />
               {editErrors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{editErrors.phoneNumber}</p>}
             </Field>
             <Field label="Ngày sinh">
@@ -5156,13 +5155,13 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             <div className="space-y-4">
               <Field label="Số tiền cần thu"><Input value={`${pkg.price.toLocaleString("vi-VN")} ₫`} readOnly /></Field>
               <Field label="Khách đưa">
-                <Input 
-                  placeholder="VD: 3000000" 
-                  value={cashGivenStr} 
+                <Input
+                  placeholder="VD: 3000000"
+                  value={cashGivenStr}
                   onChange={(e: any) => {
                     const val = e.target.value.replace(/\D/g, "");
                     setCashGivenStr(val ? parseInt(val).toString() : "");
-                  }} 
+                  }}
                 />
               </Field>
               <div className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 p-4 flex items-center justify-between">
@@ -5485,9 +5484,9 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             {!readonly && <Button variant="outline" icon={Pencil} onClick={() => setEdit(true)}>Sửa</Button>}
             {!readonly && <Button variant="danger" icon={Trash2} onClick={() => setDel(true)}>Xóa</Button>}
             {onRenew && <Button variant="outline" icon={CreditCard} onClick={onRenew}>Gia hạn gói</Button>}
-            <Button 
-              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"} 
-              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2} 
+            <Button
+              variant={todayLog ? (todayLog.endTime ? "outline" : "danger") : "secondary"}
+              icon={todayLog && !todayLog.endTime ? LogOut : CheckCircle2}
               onClick={handleCheckInOut}
               disabled={!!(todayLog && todayLog.endTime)}
             >
@@ -5598,16 +5597,16 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
             <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
           </Field>
           <Field label="Giới tính">
-              <SearchableSelect
-                value={editForm.gender}
-                onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
-                options={[
-                  { value: "", label: "Chưa chọn" },
-                  { value: "male", label: "Nam" },
-                  { value: "female", label: "Nữ" },
-                  { value: "other", label: "Khác" }
-                ]}
-              />
+            <SearchableSelect
+              value={editForm.gender}
+              onChange={(e: any) => setEditForm((f: any) => ({ ...f, gender: e.target.value }))}
+              options={[
+                { value: "", label: "Chưa chọn" },
+                { value: "male", label: "Nam" },
+                { value: "female", label: "Nữ" },
+                { value: "other", label: "Khác" }
+              ]}
+            />
           </Field>
           <div className="col-span-2">
             <Field label="Nghề nghiệp">
@@ -5999,9 +5998,9 @@ function MemberPayments() {
   const activePlan = useMemo(() => {
     const active = subscriptions.filter((p: any) => p.status === "active").sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     if (!active) return null;
-    
+
     const daysLeft = Math.max(0, getDiffDays(active.expireDate) ?? 0);
-    
+
     return {
       name: active.SubscriptionPackage?.packageName || "Gói tập",
       startDate: formatDate(active.startDate),
@@ -6248,7 +6247,7 @@ function MemberFeedback() {
                 onChange={(e: any) => setRef(e.target.value)}
                 options={[
                   { value: "", label: "— Không chọn —" },
-                  ...equipmentList.map((i) => ({ value: i.equipmentCode, label: `${i.equipmentCode} — ${i.Room?.roomName}` }))
+                  ...equipmentList.filter((i) => i.usageStatus === "Hoạt động" || i.usageStatus === "active").map((i) => ({ value: i.equipmentCode, label: `${i.equipmentCode} — ${i.Room?.roomName}` }))
                 ]}
               />
             </Field>
@@ -6313,24 +6312,24 @@ function TrainerDropdown({ trainerId, onChange, trainers, error, readonly }: { t
           <Input disabled={readonly} icon={Search} placeholder="Gõ tên hoặc mã HLV…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => !readonly && setOpen(true)} className={error ? "border-[#FF5C5C]/60 focus:border-[#FF5C5C] focus:ring-[#FF5C5C]/15" : ""} />
           {open && (
             <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-               <div className="max-h-[300px] overflow-y-auto">
-                 {suggestions.length > 0 ? suggestions.map(t => {
-                   const id = t.staffId || t.code;
-                   const name = t.staffName || t.name;
-                   const code = t.staffCode || t.code || "Không có mã";
-                   return (
-                     <button key={id} type="button" onClick={() => { onChange(id); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-2.5 border-b border-border/60 last:border-0 hover:bg-muted/60 transition flex items-center gap-3">
-                        <div className="size-8 rounded-lg bg-muted border border-border grid place-items-center text-[10px] font-mono">{name.split(" ").slice(-2).map((n: string) => n[0]).join("")}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[13px] font-medium truncate">{name}</div>
-                          <div className="text-[11px] text-muted-foreground font-mono">{code}</div>
-                        </div>
-                     </button>
-                   );
-                 }) : (
-                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy HLV nào.</div>
-                 )}
-               </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {suggestions.length > 0 ? suggestions.map(t => {
+                  const id = t.staffId || t.code;
+                  const name = t.staffName || t.name;
+                  const code = t.staffCode || t.code || "Không có mã";
+                  return (
+                    <button key={id} type="button" onClick={() => { onChange(id); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-2.5 border-b border-border/60 last:border-0 hover:bg-muted/60 transition flex items-center gap-3">
+                      <div className="size-8 rounded-lg bg-muted border border-border grid place-items-center text-[10px] font-mono">{name.split(" ").slice(-2).map((n: string) => n[0]).join("")}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium truncate">{name}</div>
+                        <div className="text-[11px] text-muted-foreground font-mono">{code}</div>
+                      </div>
+                    </button>
+                  );
+                }) : (
+                  <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy HLV nào.</div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -6412,15 +6411,15 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
           <Input icon={Search} placeholder="Gõ tên hoặc mã gói tập…" value={query} onChange={(e: any) => { setQuery(e.target.value); setOpen(true); }} onClick={() => setOpen(true)} />
           {open && (
             <div className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border border-border bg-popover shadow-xl overflow-hidden">
-               <div className="max-h-[360px] overflow-y-auto py-1">
-                 {suggestions.length > 0 ? suggestions.map(p => (
-                   <button key={p.packageId} type="button" onClick={() => { onChange(p.packageId); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-3 border-b border-border/60 last:border-0 hover:bg-muted/60 transition">
-                     {renderRow(p, true)}
-                   </button>
-                 )) : (
-                   <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy gói tập nào.</div>
-                 )}
-               </div>
+              <div className="max-h-[360px] overflow-y-auto py-1">
+                {suggestions.length > 0 ? suggestions.map(p => (
+                  <button key={p.packageId} type="button" onClick={() => { onChange(p.packageId); setQuery(""); setOpen(false); }} className="w-full text-left px-3 py-3 border-b border-border/60 last:border-0 hover:bg-muted/60 transition">
+                    {renderRow(p, true)}
+                  </button>
+                )) : (
+                  <div className="px-3 py-3 text-[12.5px] text-muted-foreground">Không tìm thấy gói tập nào.</div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -6485,7 +6484,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data.member) {
-             setCurrentPlan(data.data.member.activePlan);
+            setCurrentPlan(data.data.member.activePlan);
           }
         });
     } else {
@@ -6716,10 +6715,10 @@ function RenewWrapper({ role }: { role: Role }) {
   const memberId = params.get("memberId") || undefined;
 
   if (role === "trainer" && !memberId) {
-    return <PtStudents 
-      onSelect={(id) => navigate(`/renew?memberId=${id}`)} 
-      title="Chọn hội viên gia hạn" 
-      sub="Vui lòng chọn một học viên để tiếp tục gia hạn gói tập" 
+    return <PtStudents
+      onSelect={(id) => navigate(`/renew?memberId=${id}`)}
+      title="Chọn hội viên gia hạn"
+      sub="Vui lòng chọn một học viên để tiếp tục gia hạn gói tập"
     />;
   }
 
