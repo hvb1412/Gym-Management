@@ -135,7 +135,9 @@ export const getReportStats = catchAsync(async (req, res, next) => {
   // --------------------------------------------------------
   // B. THỐNG KÊ HỘI VIÊN
   // --------------------------------------------------------
-  const allMembers = await Member.findAll();
+  const allMembers = await Member.findAll({
+    where: { accountId: { [Op.ne]: null } }
+  });
   let totalMembers = allMembers.length;
   let newThisMonth = 0;
 
