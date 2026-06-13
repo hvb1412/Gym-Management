@@ -1011,8 +1011,8 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
               { value: "Đang làm", label: "Đang làm" },
               { value: "Nghỉ phép", label: "Nghỉ phép" },
               { value: "Đã thôi việc", label: "Đã thôi việc" },
-              { value: "Đã vô hiệu hóa", label: "Đã vô hiệu hóa" },
-            ]}
+              formData.role !== "Chủ phòng tập" ? { value: "Đã vô hiệu hóa", label: "Đã vô hiệu hóa" } : null,
+            ].filter(Boolean) as any}
           />
         </Field>
       )}
@@ -1112,7 +1112,7 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
                 <div className="flex items-center justify-end gap-0.5">
                   <IconBtn icon={Eye} onClick={() => onSelect(s.code)} />
                   <IconBtn icon={Pencil} onClick={() => onEdit?.(s.code)} />
-                  <IconBtn icon={Trash2} tone="danger" onClick={() => { setDelTarget(s); setModal("del"); }} />
+                  {s.role !== "Chủ phòng tập" && <IconBtn icon={Trash2} tone="danger" onClick={() => { setDelTarget(s); setModal("del"); }} />}
                 </div>,
               ])}
             />
@@ -1382,7 +1382,7 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
           </dl>
           <div className="flex gap-2 mt-5">
             <Button variant="outline" icon={Pencil} className="flex-1 justify-center" onClick={() => onEdit?.(s.code)}>Sửa</Button>
-            <Button variant="danger" icon={Trash2} className="flex-1 justify-center" onClick={() => setDelOpen(true)}>Xóa</Button>
+            {s.role !== "Chủ phòng tập" && <Button variant="danger" icon={Trash2} className="flex-1 justify-center" onClick={() => setDelOpen(true)}>Xóa</Button>}
           </div>
         </Card>
 
@@ -4871,7 +4871,7 @@ function NewMember({ onBack }: { onBack?: () => void }) {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" || d.isActive);
+          const rawList = res.data.filter((d: any) => d.status === "Đang kinh doanh" && d.isActive);
           setPackages(rawList);
           const list = rawList.map((d: any) => ({
             id: d.packageId, name: d.packageName,
@@ -6429,7 +6429,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
     fetch("http://localhost:5000/api/v1/packages")
       .then(res => res.json())
       .then(data => {
-        if (data.success) setPackages(data.data.filter((p: any) => p.isActive));
+        if (data.success) setPackages(data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh"));
       });
 
     fetch("http://localhost:5000/api/v1/staffs", {
