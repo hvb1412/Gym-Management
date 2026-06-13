@@ -88,10 +88,10 @@ export const getReportStats = catchAsync(async (req, res, next) => {
   
   allBills.forEach(bill => {
     const amt = Number(bill.amount);
-    totalRevenue += amt;
     
     const d = new Date(bill.createdAt);
     if (d >= sixMonthsAgoDate) {
+      totalRevenue += amt;
       const label = `${d.getMonth() + 1}/${d.getFullYear()}`;
       if (revenueByMonthMap[label] !== undefined) {
         revenueByMonthMap[label] += amt;
