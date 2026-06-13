@@ -6727,12 +6727,12 @@ function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string })
                 </Field>
               )}
               <Field label="Phương thức thanh toán">
-                <div className="grid grid-cols-3 gap-2">
+                <div className={cn("grid gap-2", localStorage.getItem("gymos_role") === "member" ? "grid-cols-2" : "grid-cols-3")}>
                   {[
                     { k: "card", l: "Thẻ NH", i: CreditCard },
                     { k: "qr", l: "QR Code", i: QrCode },
                     { k: "cash", l: "Tiền mặt", i: Wallet },
-                  ].map((p) => {
+                  ].filter(p => !(p.k === "cash" && localStorage.getItem("gymos_role") === "member")).map((p) => {
                     const active = method === p.k;
                     return (
                       <button key={p.k} type="button" onClick={() => setMethod(p.k as any)}
