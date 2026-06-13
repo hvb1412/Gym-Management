@@ -1,7 +1,7 @@
 import { Op } from 'sequelize';
 import catchAsync from '../utils/catchAsync.js';
 import { successResponse } from '../utils/response.js';
-import { Bill, Member, SubscriptionPlan, SubscriptionPackage, WorkoutLog, EquipmentReport, Feedback } from '../models/index.js';
+import { Bill, Member, SubscriptionPlan, SubscriptionPackage, WorkoutLog, EquipmentReport, Feedback, StaffWorkLog, Staff } from '../models/index.js';
 
 export const getDashboardStats = catchAsync(async (req, res, next) => {
   const startOfDay = new Date();
@@ -10,11 +10,21 @@ export const getDashboardStats = catchAsync(async (req, res, next) => {
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
-  const todayStr = startOfDay.toISOString().split('T')[0];
+  const offset = startOfDay.getTimezoneOffset() * 60000;
+  const todayStr = new Date(startOfDay.getTime() - offset).toISOString().split('T')[0];
 
-  const checkInCount = await WorkoutLog.count({
+  const targetStaffs = await Staff.findAll({
     where: {
-      workoutDate: todayStr
+      position: { [Op.in]: ['manager', 'pt'] }
+    },
+    attributes: ['staffId']
+  });
+  const targetStaffIds = targetStaffs.map(s => s.staffId);
+
+  const checkInCount = await StaffWorkLog.count({
+    where: {
+      workDate: todayStr,
+      staffId: { [Op.in]: targetStaffIds }
     }
   });
 
@@ -41,8 +51,8 @@ export const getDashboardStats = catchAsync(async (req, res, next) => {
 
   const openMaintenanceCount = await EquipmentReport.count({
     where: {
-      status: {
-        [Op.in]: ['pending', 'processing']
+      resolveStatus: {
+        [Op.in]: ['Chờ xử lý', 'Đang xử lý']
       }
     }
   });
