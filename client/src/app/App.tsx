@@ -2525,7 +2525,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [delDev, setDelDev] = useState<any | null>(null);
 
   // Add device form state
-  const [newDev, setNewDev] = useState({ typeId: "", code: "", pos: "", status: "Hoạt động" });
+  const [newDev, setNewDev] = useState({ typeId: "", equipmentId: "", pos: "", status: "Hoạt động" });
 
   const mapStatusToBackend = (s: string) => s === "Hoạt động" ? "active" : s === "Bảo trì" ? "maintenance" : "inactive";
 
@@ -2552,8 +2552,8 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
   };
 
   const handleAddDevice = () => {
-    if (!newDev.typeId || !newDev.code) return;
-    const selectedEq = allEquipments.find(e => (e.equipmentCode || `TB-${e.equipmentId?.split('-')[0]?.toUpperCase()}`) === newDev.code && String(e.equipmentTypeId || e.typeId) === String(newDev.typeId));
+    if (!newDev.typeId || !newDev.equipmentId) return;
+    const selectedEq = allEquipments.find(e => e.equipmentId === newDev.equipmentId);
     if (!selectedEq) {
       toast.error("Không tìm thấy thiết bị này hoặc thiết bị đã được xếp phòng");
       return;
@@ -2567,7 +2567,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         usageStatus: newDev.status,
         isActive: true,
       })
-    }).then(() => { fetchData(); setAddDev(false); setNewDev({ typeId: "", code: "", pos: "", status: "Hoạt động" }); });
+    }).then(() => { fetchData(); setAddDev(false); setNewDev({ typeId: "", equipmentId: "", pos: "", status: "Hoạt động" }); });
   };
 
   const handleEditDevice = () => {
@@ -2586,7 +2586,6 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
   };
 
   const availableEquipments = allEquipments.filter(e => String(e.equipmentTypeId || e.typeId) === String(newDev.typeId) && !e.roomId && !e.Room?.roomId);
-  const uniqueAvailableCodes = Array.from(new Set(availableEquipments.map(e => e.equipmentCode || `TB-${e.equipmentId?.split('-')[0]?.toUpperCase()}`)));
 
   if (loading) return (
     <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -2691,7 +2690,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <Field label={<>Loại thiết bị<Req /></>}>
             <SearchableSelect
               value={newDev.typeId}
-              onChange={(e: any) => setNewDev({ ...newDev, typeId: e.target.value, code: "" })}
+              onChange={(e: any) => setNewDev({ ...newDev, typeId: e.target.value, equipmentId: "" })}
               options={[
                 { value: "", label: "-- Chọn loại thiết bị --" },
                 ...equipmentTypes.reduce((acc: any[], t: any) => {
@@ -2703,14 +2702,18 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
               ]}
             />
           </Field>
-          <Field label={<>Mã thiết bị<Req /></>}>
+          <Field label={<>Thiết bị<Req /></>}>
             <SearchableSelect
               disabled={!newDev.typeId}
-              value={newDev.code}
-              onChange={(e: any) => setNewDev({ ...newDev, code: e.target.value })}
+              value={newDev.equipmentId}
+              onChange={(e: any) => setNewDev({ ...newDev, equipmentId: e.target.value })}
               options={[
-                { value: "", label: "-- Chọn mã thiết bị --" },
-                ...uniqueAvailableCodes.map((c: any) => ({ value: c, label: c }))
+                { value: "", label: "-- Chọn thiết bị --" },
+                ...availableEquipments.map((e: any) => {
+                  const code = e.equipmentCode || `TB-${e.equipmentId?.split('-')[0]?.toUpperCase()}`;
+                  const name = equipmentTypes.find((t: any) => String(t.equipmentTypeId || t.typeId) === String(newDev.typeId))?.equipmentName || "Thiết bị";
+                  return { value: e.equipmentId, label: `${name} — ${code}` };
+                })
               ]}
             />
           </Field>
@@ -2794,11 +2797,11 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
   return (
     <div className="grid grid-cols-2 gap-4">
       <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={data?.code || ""} onChange={(e: any) => onChange({ ...data, code: e.target.value })} /></Field>
-      <Field label={<>Phòng / Khu vực<Req /></>}>
+      <Field label={<>Phòng / Khu vực</>}>
         <SearchableSelect
-          value={data?.room || rooms[0]?.name}
+          value={data?.room || ""}
           onChange={(e: any) => onChange({ ...data, room: e.target.value })}
-          options={rooms.map((r) => ({ value: r.name, label: r.name }))}
+          options={[{ value: "", label: "-- Kho --" }, ...rooms.map((r) => ({ value: r.name, label: r.name }))]}
         />
       </Field>
       <Field label={<>Ngày mua<Req /></>}><Input type="date" placeholder="DD/MM/YYYY" value={data?.purchased || ""} onChange={(e: any) => onChange({ ...data, purchased: e.target.value })} /></Field>
@@ -2938,7 +2941,7 @@ function Equipment() {
     }
     setIsSubmitting(true);
     try {
-      const rId = rooms.find(r => r.name === (itemForm.room || rooms[0]?.name))?.id;
+      const rId = itemForm.room ? rooms.find(r => r.name === itemForm.room)?.id : null;
       const res = await fetch("http://localhost:5000/api/v1/equipments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2968,7 +2971,7 @@ function Equipment() {
     setIsSubmitting(true);
     try {
       const target = items.find(i => i.code === editItemCode);
-      const rId = rooms.find(r => r.name === (itemForm.room || target?.room))?.id;
+      const rId = itemForm.room ? rooms.find(r => r.name === itemForm.room)?.id : null;
       const res = await fetch(`http://localhost:5000/api/v1/equipments/${target?.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -3175,14 +3178,14 @@ function Equipment() {
             <div className="rounded-xl border border-border/70 bg-card overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
                 <h4 className="font-display">Danh sách thiết bị</h4>
-                <Button icon={Plus} onClick={() => { setItemForm({ room: rooms[0]?.name ?? "", status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
+                <Button icon={Plus} onClick={() => { setItemForm({ room: "", status: "Hoạt động" }); setAddItemForType(viewingType.id); }}>Thêm thiết bị</Button>
               </div>
               {items.filter((i) => i.typeId === viewingType.id).length === 0
                 ? <p className="text-[13px] text-muted-foreground text-center py-6">Chưa có thiết bị nào.</p>
                 : <DataTable head={["Mã TB", "Phòng", "Ngày mua", "Trạng thái", ""]}
                   rows={items.filter((i) => i.typeId === viewingType.id).map((i) => [
                     <span className="font-mono text-[12px] text-[#4F46E5] dark:text-[#A8A2FF]">{i.code}</span>,
-                    <Badge tone="sky">{i.room}</Badge>,
+                    <Badge tone="sky">{i.room || "Kho"}</Badge>,
                     i.purchased,
                     <StatusPill value={i.status} />,
                     <div className="flex items-center justify-end gap-0.5">
@@ -3209,7 +3212,7 @@ function Equipment() {
         {deletingItem && (
           <div className="space-y-3">
             <div className="size-12 rounded-full bg-[#FF5C5C]/15 grid place-items-center"><Trash2 className="size-5 text-[#FF5C5C]" /></div>
-            <p className="text-[14px]">Xóa thiết bị <span className="font-medium font-mono">{deletingItem.code}</span> tại {deletingItem.room}?</p>
+            <p className="text-[14px]">Xóa thiết bị <span className="font-medium font-mono">{deletingItem.code}</span> tại {deletingItem.room || "Kho"}?</p>
             <p className="text-[12.5px] text-muted-foreground">Mọi lịch sử bảo trì gắn với thiết bị này sẽ không còn liên kết.</p>
           </div>
         )}
