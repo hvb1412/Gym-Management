@@ -1699,6 +1699,16 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !num || !price) return;
+    const parsedNum = parseInt(num, 10);
+    const parsedPrice = parseInt(price.replace(/\D/g, "") || "0");
+    if (parsedNum <= 0) {
+      toast.error("Số buổi / Thời hạn phải lớn hơn 0");
+      return;
+    }
+    if (parsedPrice <= 0) {
+      toast.error("Giá gói tập phải lớn hơn 0");
+      return;
+    }
     const finalType = pkgType === "session" ? `${num} buổi` : `${num} ${unit === "month" ? "tháng" : unit === "week" ? "tuần" : "ngày"}`;
     onSubmit(e, {
       code,
@@ -1706,7 +1716,7 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
       type: finalType,
       vip,
       trainer,
-      price: parseInt(price.replace(/\D/g, "") || "0"),
+      price: parsedPrice,
       status
     } as any);
   };
@@ -4004,7 +4014,8 @@ function ReportsOverview() {
         setMembersByMonth(statsRes.data.members.byMonth || []);
       }
       if (staffRes.success) {
-        setStaffCount(staffRes.data.length || 0);
+        const activeStaff = staffRes.data.filter((s: any) => s.status !== "Đã vô hiệu hóa");
+        setStaffCount(activeStaff.length || 0);
       }
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -4334,6 +4345,8 @@ function StaffReport() {
   const [loading, setLoading] = useState(false);
   const [attendanceData, setAttendanceData] = useState<Record<string, { ok: number; late: number; absent: number }>>({});
 
+  const activeStaff = staffList.filter(s => s.status !== "Đã vô hiệu hóa");
+
   useEffect(() => {
     fetch("http://localhost:5000/api/v1/staffs")
       .then(r => r.json())
@@ -4341,9 +4354,9 @@ function StaffReport() {
   }, []);
 
   useEffect(() => {
-    if (staffList.length === 0) return;
+    if (activeStaff.length === 0) return;
     setLoading(true);
-    const fetchAll = staffList.slice(0, 8).map(s =>
+    const fetchAll = activeStaff.slice(0, 8).map(s =>
       fetch(`http://localhost:5000/api/v1/staffs/${s.code}/attendance?month=${selMonth}&year=${selYear}`)
         .then(r => r.json())
         .then(res => {
@@ -4398,12 +4411,11 @@ function StaffReport() {
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const years = [2024, 2025, 2026];
-  const activeStaff = staffList.filter(s => s.status === "Đang làm" || s.status === "Nghỉ phép");
   const totalOk = Object.values(attendanceData).reduce((s, a) => s + a.ok, 0);
   const totalLate = Object.values(attendanceData).reduce((s, a) => s + a.late, 0);
   const totalAbsent = Object.values(attendanceData).reduce((s, a) => s + a.absent, 0);
   const daysInMonth = new Date(selYear, selMonth, 0).getDate();
-  const chartData = staffList.slice(0, 6).map(s => {
+  const chartData = activeStaff.slice(0, 6).map(s => {
     const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
     return { name: s.name.split(" ").pop(), ok: a.ok, late: a.late, absent: a.absent };
   });
@@ -4412,7 +4424,7 @@ function StaffReport() {
     <>
       <SectionTitle
         title="Thống kê nhân sự"
-        sub={`Hiệu suất chấm công ${staffList.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
+        sub={`Hiệu suất chấm công ${activeStaff.slice(0, 8).length} nhân sự — Tháng ${String(selMonth).padStart(2, "0")}/${selYear}`}
         actions={
           <div className="flex items-center gap-2">
             <SearchableSelect
@@ -4433,7 +4445,7 @@ function StaffReport() {
       />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Tổng nhân sự", v: staffList.length, sub: `${activeStaff.length} đang làm việc`, color: "bg-[#6C63FF]/15 text-[#4F46E5]" },
+          { label: "Tổng nhân sự", v: activeStaff.length, sub: `${activeStaff.filter(s => s.status === "Đang làm" || s.status === "Nghỉ phép").length} đang hoạt động`, color: "bg-[#6C63FF]/15 text-[#4F46E5]" },
           { label: "Ngày đúng giờ", v: totalOk, sub: `${daysInMonth} ngày/tháng`, color: "bg-[#00C9A7]/15 text-[#00866F]" },
           { label: "Đi chưa đủ giờ", v: totalLate, sub: "Cộng dồn", color: "bg-[#FFB547]/15 text-[#A66A00]" },
           { label: "Tổng ngày vắng", v: totalAbsent, sub: "Cộng dồn", color: "bg-[#FF5C5C]/15 text-[#B91C1C]" },
@@ -4482,7 +4494,7 @@ function StaffReport() {
         ) : (
           <DataTable
             head={["Nhân sự", "Chức vụ", "Đúng giờ", "Chưa đủ giờ", "Vắng", "Hiệu suất", ""]}
-            rows={staffList.slice(0, 8).map((s) => {
+            rows={activeStaff.slice(0, 8).map((s) => {
               const a = attendanceData[s.code] || { ok: 0, late: 0, absent: 0 };
               const total = a.ok + a.late + a.absent;
               const perf = total > 0 ? Math.round(((a.ok + a.late * 0.5) / total) * 100) : 0;
