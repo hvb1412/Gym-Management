@@ -206,7 +206,13 @@ export const updateStaff = catchAsync(async (req, res, next) => {
     if (dateOfBirth) staff.dateOfBirth = dateOfBirth;
     if (gender) staff.gender = gender;
     if (address !== undefined) staff.address = address;
-    if (status) staff.status = status;
+    if (status) {
+      if (status === "Đã vô hiệu hóa" && staff.position === "owner") {
+        await transaction.rollback();
+        return next(new AppError("Không thể vô hiệu hóa Chủ phòng tập", 400));
+      }
+      staff.status = status;
+    }
 
     await staff.save({ transaction });
     await transaction.commit();
@@ -224,6 +230,10 @@ export const deleteStaff = catchAsync(async (req, res, next) => {
   const staff = await Staff.findOne({ where: { staffCode: code } });
 
   if (!staff) return next(new AppError("Không tìm thấy nhân sự", 404));
+
+  if (staff.position === "owner") {
+    return next(new AppError("Không thể vô hiệu hóa Chủ phòng tập", 400));
+  }
 
   staff.status = "Đã vô hiệu hóa";
   await staff.save();
