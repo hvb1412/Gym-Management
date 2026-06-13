@@ -1246,6 +1246,28 @@ function Pagination({ total = 32, page = 1, pageSize = 6, onPageChange }: { tota
   );
 }
 
+/* ── Schedule Settings Helper ── */
+const defaultScheduleConfig = {
+  1: { in: "06:30", out: "21:00" }, // T2
+  2: { in: "06:30", out: "21:00" }, // T3
+  3: { in: "06:30", out: "21:00" }, // T4
+  4: { in: "06:30", out: "21:00" }, // T5
+  5: { in: "06:30", out: "21:00" }, // T6
+  6: { in: "08:00", out: "20:00" }, // T7
+  0: { in: "08:00", out: "12:00" }, // CN
+};
+
+const getScheduleConfig = () => {
+  try {
+    const s = localStorage.getItem("gym_work_schedule");
+    return s ? JSON.parse(s) : defaultScheduleConfig;
+  } catch { return defaultScheduleConfig; }
+};
+
+const saveScheduleConfig = (s: any) => {
+  localStorage.setItem("gym_work_schedule", JSON.stringify(s));
+};
+
 /* ── Staff Detail ── */
 function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: string; staffs: StaffRecord[]; refresh: () => void; onBack: () => void; onEdit?: (code: string) => void }) {
   const s = staffs.find((x) => x.code === id);
@@ -1299,10 +1321,10 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
               const [hours, minutes] = log.checkInTime.split(':').map(Number);
               const timeInMinutes = hours * 60 + minutes;
 
-              let limitMinutes = 8 * 60; // 08:00 for Sat, Sun
-              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                limitMinutes = 6 * 60 + 30; // 06:30 for Mon-Fri
-              }
+              const schedule = getScheduleConfig();
+              const dayConfig = schedule[dayOfWeek] || { in: "06:30" };
+              const [limitH, limitM] = dayConfig.in.split(':').map(Number);
+              const limitMinutes = limitH * 60 + limitM;
 
               if (timeInMinutes > limitMinutes) {
                 isLate = true;
@@ -1440,6 +1462,9 @@ function StaffDetail({ id, staffs, refresh, onBack, onEdit = () => { } }: { id: 
 function Attendance({ staffs }: { staffs: StaffRecord[] }) {
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState<boolean[]>([true, true, true, true, true, false, false]);
+  const [inTime, setInTime] = useState("06:30");
+  const [outTime, setOutTime] = useState("21:00");
+  const [schedule, setSchedule] = useState<any>(getScheduleConfig());
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<StaffRecord | null>(null);
   const [recent, setRecent] = useState<{ code: string; name: string; time: string; kind: "in" | "out" }[]>([]);
@@ -1574,9 +1599,9 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
               <p className="text-[12.5px] text-muted-foreground mt-1">Cấu hình hiện tại áp dụng cho toàn bộ nhân sự.</p>
               <div className="mt-4 space-y-2">
                 {[
-                  { d: "T2 → T6", in: "06:30", out: "21:00" },
-                  { d: "Thứ 7", in: "08:00", out: "20:00" },
-                  { d: "Chủ Nhật", in: "08:00", out: "12:00" },
+                  { d: "T2 → T6", in: schedule[1].in, out: schedule[1].out },
+                  { d: "Thứ 7", in: schedule[6].in, out: schedule[6].out },
+                  { d: "Chủ Nhật", in: schedule[0].in, out: schedule[0].out },
                 ].map((r) => (
                   <div key={r.d} className="flex items-center justify-between rounded-lg bg-muted/40 border border-border/70 px-3 py-2.5">
                     <span className="text-[13px]">{r.d}</span>
@@ -1614,7 +1639,19 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Thiết lập giờ làm việc" wide
-        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button>Lưu thay đổi</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Hủy</Button><Button onClick={() => {
+          const mapUIToDayOfWeek = [1, 2, 3, 4, 5, 6, 0]; // T2..CN
+          const newSchedule = { ...schedule };
+          days.forEach((selected, i) => {
+            if (selected) {
+              newSchedule[mapUIToDayOfWeek[i]] = { in: inTime, out: outTime };
+            }
+          });
+          setSchedule(newSchedule);
+          saveScheduleConfig(newSchedule);
+          toast.success("Cập nhật giờ làm việc thành công");
+          setOpen(false);
+        }}>Lưu thay đổi</Button></>}>
         <div className="space-y-4">
           <Field label="Chọn các ngày làm việc">
             <div className="flex flex-wrap gap-2">
@@ -1629,8 +1666,8 @@ function Attendance({ staffs }: { staffs: StaffRecord[] }) {
             </div>
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Giờ vào ca"><Input type="time" value="06:30" /></Field>
-            <Field label="Giờ tan ca"><Input type="time" value="21:00" /></Field>
+            <Field label="Giờ vào ca"><Input type="time" value={inTime} onChange={(e: any) => setInTime(e.target.value)} /></Field>
+            <Field label="Giờ tan ca"><Input type="time" value={outTime} onChange={(e: any) => setOutTime(e.target.value)} /></Field>
           </div>
         </div>
       </Modal>
@@ -3114,7 +3151,7 @@ function EquipmentMaintenance() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
+          setMaintList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription, rawDate: r.reportDate })));
         }
       }).catch(console.error);
   };
@@ -3123,7 +3160,13 @@ function EquipmentMaintenance() {
     fetchReports();
   }, []);
 
-  const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus);
+  const w = (s: string) => s === "Chờ xử lý" ? 0 : s === "Đang xử lý" ? 1 : 2;
+  const filteredMaint = maintList.filter((m) => maintStatus === "Tất cả" || m.status === maintStatus).sort((a, b) => {
+    const wa = w(a.status);
+    const wb = w(b.status);
+    if (wa !== wb) return wa - wb;
+    return new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime();
+  });
   const viewing = viewId ? maintList.find((m) => m.code === viewId) : null;
   const deletingMaint = deleteMaint ? maintList.find((m) => m.code === deleteMaint) : null;
 
@@ -3311,7 +3354,7 @@ function MaintenanceOwner() {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription })));
+          setList(data.map((r: any) => ({ id: r.reportId, code: r.Equipment?.equipmentCode, name: r.Equipment?.EquipmentType?.equipmentName, room: r.Equipment?.Room?.roomName, who: r.reporterName, date: formatDate(r.reportDate), status: r.resolveStatus, desc: r.errorDescription, rawDate: r.reportDate })));
         }
       }).catch(console.error);
     fetch("http://localhost:5000/api/v1/equipments").then(res => res.json()).then(data => {
@@ -3321,7 +3364,13 @@ function MaintenanceOwner() {
 
   useEffect(() => { fetchReports(); }, []);
 
-  const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter);
+  const w = (s: string) => s === "Chờ xử lý" ? 0 : s === "Đang xử lý" ? 1 : 2;
+  const filtered = list.filter((m) => statusFilter === "Tất cả" || m.status === statusFilter).sort((a, b) => {
+    const wa = w(a.status);
+    const wb = w(b.status);
+    if (wa !== wb) return wa - wb;
+    return new Date(b.rawDate || 0).getTime() - new Date(a.rawDate || 0).getTime();
+  });
   const viewing = viewId ? list.find((m) => m.code === viewId) : null;
   const deleting = deleteId ? list.find((m) => m.code === deleteId) : null;
 
@@ -3605,6 +3654,13 @@ function Feedback() {
       (f.feedbackContent || "").toLowerCase().includes(q) ||
       f.feedbackId.toLowerCase().includes(q);
     return matchStatus && matchType && matchQuery;
+  }).sort((a, b) => {
+    const aPending = a.answerContent ? 1 : 0;
+    const bPending = b.answerContent ? 1 : 0;
+    if (aPending !== bPending) return aPending - bPending;
+    const dateA = new Date(a.feedbackDate || 0).getTime();
+    const dateB = new Date(b.feedbackDate || 0).getTime();
+    return dateB - dateA;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -4516,6 +4572,7 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const PAGE_SIZE = 6;
 
   const token = localStorage.getItem("gymos_token");
@@ -4583,10 +4640,23 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
       gender: m.raw.gender || "",
       occupation: m.raw.occupation || "",
     });
+    setEditErrors({});
+  };
+
+  const validateEditForm = () => {
+    const errs: Record<string, string> = {};
+    if (!editForm.memberName?.trim()) errs.memberName = "Vui lòng nhập họ và tên";
+    
+    if (!editForm.phoneNumber?.trim()) errs.phoneNumber = "Vui lòng nhập số điện thoại";
+    else if (!/^0\d{9}$/.test(editForm.phoneNumber.trim())) errs.phoneNumber = "Số điện thoại gồm 10 số và bắt đầu bằng 0";
+
+    setEditErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleEditSave = async () => {
     if (!editId) return;
+    if (!validateEditForm()) return;
     setSaving(true);
     try {
       const r = await fetch(`http://localhost:5000/api/v1/members/${editId}`, {
@@ -4687,10 +4757,12 @@ function MembersList({ onSelect, onAdd, readonly, disablePackage }: { onSelect: 
         {editingMember && (
           <div className="grid grid-cols-2 gap-4">
             <Field label={<>Họ và tên<Req /></>}>
-              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => setEditForm((f: any) => ({ ...f, memberName: e.target.value }))} />
+              <Input placeholder="Nguyễn Văn A" value={editForm.memberName} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, memberName: e.target.value })); if (editErrors.memberName) setEditErrors((f: any) => { const n={...f}; delete n.memberName; return n;}); }} className={editErrors.memberName ? "border-red-400" : ""} />
+              {editErrors.memberName && <p className="text-[11px] text-red-500 mt-1">{editErrors.memberName}</p>}
             </Field>
             <Field label={<>Số điện thoại<Req /></>}>
-              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value }))} />
+              <Input icon={Phone} placeholder="09xx xxx xxx" value={editForm.phoneNumber} onChange={(e: any) => { setEditForm((f: any) => ({ ...f, phoneNumber: e.target.value })); if (editErrors.phoneNumber) setEditErrors((f: any) => { const n={...f}; delete n.phoneNumber; return n;}); }} className={editErrors.phoneNumber ? "border-red-400" : ""} />
+              {editErrors.phoneNumber && <p className="text-[11px] text-red-500 mt-1">{editErrors.phoneNumber}</p>}
             </Field>
             <Field label="Ngày sinh">
               <Input type="date" value={editForm.dateOfBirth} onChange={(e: any) => setEditForm((f: any) => ({ ...f, dateOfBirth: e.target.value }))} />
@@ -5885,7 +5957,7 @@ function MemberPayments() {
           rawDate: d,
           d: formatDate(d),
           desc: `Đăng ký ${plan.SubscriptionPackage?.packageName || "gói tập"}`,
-          method: plan.Bill.paymentMethod || "Tiền mặt",
+          method: plan.Bill.paymentMethod === "card" ? "Thẻ NH" : plan.Bill.paymentMethod === "qr" ? "QR Code" : "Tiền mặt",
           amount: parseFloat(plan.Bill.amount),
           status: "Thành công"
         };
@@ -6402,7 +6474,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); setTrainerId(""); }} onComplete={() => {
+    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); if (!isTrainer) setTrainerId(""); }} onComplete={() => {
       if (memberId && onBack) onBack();
       else navigate("/history");
     }} />;
@@ -6451,9 +6523,9 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
         )}
       </Card>
 
-      <Modal open={!!selected} onClose={() => { setSelected(null); setTrainerId(""); }} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
+      <Modal open={!!selected} onClose={() => { setSelected(null); if (!isTrainer) setTrainerId(""); }} title={`Thanh toán gói — ${packages.find((p) => p.packageId === selected)?.packageName ?? ""}`} wide
         footer={<>
-          <Button variant="ghost" onClick={() => { setSelected(null); setTrainerId(""); }}>Hủy</Button>
+          <Button variant="ghost" onClick={() => { setSelected(null); if (!isTrainer) setTrainerId(""); }}>Hủy</Button>
           <Button icon={ArrowRight} onClick={() => {
             const pkg = packages.find((p) => p.packageId === selected);
             if (pkg?.trainerIncluded && !trainerId) {
