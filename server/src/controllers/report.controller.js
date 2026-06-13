@@ -9,7 +9,7 @@ export const getDashboardStats = catchAsync(async (req, res, next) => {
 
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
-  
+
   const todayStr = startOfDay.toISOString().split('T')[0];
 
   const checkInCount = await WorkoutLog.count({
@@ -27,7 +27,7 @@ export const getDashboardStats = catchAsync(async (req, res, next) => {
     }
   });
   const todayRevenue = todayBills.reduce((acc, bill) => acc + Number(bill.amount), 0);
-  
+
   let todayRevenueStr = "0";
   if (todayRevenue > 0) {
     if (todayRevenue >= 1000000) {
@@ -63,7 +63,7 @@ export const getDashboardStats = catchAsync(async (req, res, next) => {
 
 export const getReportStats = catchAsync(async (req, res, next) => {
   const now = new Date();
-  
+
   // 1. Tạo mảng 6 tháng gần nhất (VD: '5/2026', '6/2026')
   const last6Months = [];
   for (let i = 5; i >= 0; i--) {
@@ -74,21 +74,21 @@ export const getReportStats = catchAsync(async (req, res, next) => {
       month: d.getMonth() + 1
     });
   }
-  
+
   const sixMonthsAgoDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
   // --------------------------------------------------------
   // A. THỐNG KÊ DOANH THU
   // --------------------------------------------------------
   const allBills = await Bill.findAll();
-  
+
   let totalRevenue = 0;
   const revenueByMonthMap = {};
   last6Months.forEach(m => { revenueByMonthMap[m.label] = 0; });
-  
+
   allBills.forEach(bill => {
     const amt = Number(bill.amount);
-    
+
     const d = new Date(bill.createdAt);
     if (d >= sixMonthsAgoDate) {
       totalRevenue += amt;
@@ -117,12 +117,12 @@ export const getReportStats = catchAsync(async (req, res, next) => {
       ]
     }]
   });
-  
+
   const transactions = recentBills.map(bill => {
     const plan = (bill.SubscriptionPlans && bill.SubscriptionPlans.length > 0) ? bill.SubscriptionPlans[0] : null;
     const memberName = plan?.Member?.memberName || 'Khách vãng lai';
     const pkgName = plan?.SubscriptionPackage?.packageName || 'Không xác định';
-    
+
     return {
       member: memberName,
       pkg: pkgName,
@@ -138,28 +138,28 @@ export const getReportStats = catchAsync(async (req, res, next) => {
   const allMembers = await Member.findAll();
   let totalMembers = allMembers.length;
   let newThisMonth = 0;
-  
+
   const currentMonthLabel = `${now.getMonth() + 1}/${now.getFullYear()}`;
-  
+
   const membersByMonthMap = {};
   last6Months.forEach(m => { membersByMonthMap[m.label] = 0; });
-  
+
   allMembers.forEach(member => {
     const d = new Date(member.createdAt);
     const label = `${d.getMonth() + 1}/${d.getFullYear()}`;
-    
+
     if (label === currentMonthLabel) newThisMonth++;
-    
+
     if (d >= sixMonthsAgoDate && membersByMonthMap[label] !== undefined) {
       membersByMonthMap[label]++;
     }
   });
-  
+
   const membersByMonth = last6Months.map(m => ({
     m: m.label,
     v: membersByMonthMap[m.label]
   }));
-  
+
   // Breakdown phân bổ gói tập
   const activePlans = await SubscriptionPlan.findAll({
     where: { status: 'active' },

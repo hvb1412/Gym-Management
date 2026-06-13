@@ -108,6 +108,21 @@ const PKG_BREAKDOWN: any[] = [];
 
 const cn = (...x: (string | false | undefined)[]) => x.filter(Boolean).join(" ");
 
+function calculateExpireDate(packageType: string, durationUnit: string, duration: number, numberOfWorkout: number): Date {
+  const today = new Date();
+  if (packageType === 'session') {
+    today.setDate(today.getDate() + (numberOfWorkout || 365));
+    return today;
+  }
+  const unit = (durationUnit || '').toLowerCase();
+  if (unit === 'ngày' || unit === 'day' || unit === 'daily') today.setDate(today.getDate() + (duration || 1));
+  else if (unit === 'tuần' || unit === 'week') today.setDate(today.getDate() + (duration || 1) * 7);
+  else if (unit === 'tháng' || unit === 'month' || unit === 'monthly') today.setMonth(today.getMonth() + (duration || 1));
+  else if (unit === 'năm' || unit === 'year' || unit === 'yearly') today.setFullYear(today.getFullYear() + (duration || 1));
+  else today.setMonth(today.getMonth() + (duration || 1));
+  return today;
+}
+
 function formatDate(dateString: string | Date | null | undefined): string {
   if (!dateString) return "—";
   const d = new Date(dateString);
@@ -4906,7 +4921,8 @@ function NewMember({ onBack }: { onBack?: () => void }) {
           const list = rawList.map((d: any) => ({
             id: d.packageId, name: d.packageName,
             type: d.packageType === "session" ? `${d.numberOfWorkout} buổi` : `${d.duration} ${d.durationUnit}`,
-            price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded
+            price: Number(d.price), vip: d.vipIncluded, trainer: d.trainerIncluded,
+            packageType: d.packageType, duration: d.duration, durationUnit: d.durationUnit, numberOfWorkout: d.numberOfWorkout
           }));
           setSellable(list);
           if (list.length > 0) setPkgId(list[0].id);
@@ -5110,10 +5126,10 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Số thẻ"><Input value="4242 4242 4242 4242" /></Field>
-                <Field label="Chủ thẻ"><Input value="NGUYEN VAN A" /></Field>
-                <Field label="Hết hạn"><Input value="12/28" /></Field>
-                <Field label="CVV"><Input type="password" value="123" /></Field>
+                <Field label="Số thẻ"><Input value="4242 4242 4242 4242" readOnly /></Field>
+                <Field label="Chủ thẻ"><Input value="NGUYEN VAN A" readOnly /></Field>
+                <Field label="Hết hạn"><Input value="12/28" readOnly /></Field>
+                <Field label="CVV"><Input type="password" value="123" readOnly /></Field>
               </div>
             </div>
           )}
@@ -5180,7 +5196,8 @@ function Payment({ kind, formData, pkgId, pkg, trainerId = "", onBack, onComplet
             {[
               ["Gói tập", pkg.name],
               ["Hội viên", formData?.memberName || "Bạn"],
-              ["Ngày bắt đầu", formatDate(new Date())]
+              ["Ngày bắt đầu", formatDate(new Date())],
+              ["Ngày hết hạn", formatDate(calculateExpireDate(pkg.packageType, pkg.durationUnit, pkg.duration, pkg.numberOfWorkout))]
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between border-b border-border/60 pb-2.5">
                 <span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span>
