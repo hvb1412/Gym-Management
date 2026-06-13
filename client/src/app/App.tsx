@@ -2474,6 +2474,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [devices, setDevices] = useState<any[]>([]);
   const [equipmentTypes, setEquipmentTypes] = useState<any[]>([]);
   const [allRooms, setAllRooms] = useState<any[]>([]);
+  const [allEquipments, setAllEquipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = () => {
@@ -2495,6 +2496,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
         });
       }
       if (Array.isArray(equipmentsRes)) {
+        setAllEquipments(equipmentsRes);
         const roomDevices = equipmentsRes.filter((e: any) => e.roomId === id || e.Room?.roomId === id);
         setDevices(roomDevices.map((e: any, i: number) => ({
           equipmentId: e.equipmentId,
@@ -2551,12 +2553,15 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const handleAddDevice = () => {
     if (!newDev.typeId || !newDev.code) return;
-    fetch("http://localhost:5000/api/v1/equipments", {
-      method: "POST",
+    const selectedEq = allEquipments.find(e => (e.equipmentCode || `TB-${e.equipmentId?.split('-')[0]?.toUpperCase()}`) === newDev.code && String(e.equipmentTypeId || e.typeId) === String(newDev.typeId));
+    if (!selectedEq) {
+      toast.error("Không tìm thấy thiết bị này hoặc thiết bị đã được xếp phòng");
+      return;
+    }
+    fetch(`http://localhost:5000/api/v1/equipments/${selectedEq.equipmentId}`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        equipmentCode: newDev.code,
-        equipmentTypeId: newDev.typeId,
         roomId: id,
         position: newDev.pos,
         usageStatus: newDev.status,
@@ -2579,6 +2584,9 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
     fetch(`http://localhost:5000/api/v1/equipments/${delDev.equipmentId}`, { method: "DELETE" })
       .then(() => { fetchData(); setDelDev(null); });
   };
+
+  const availableEquipments = allEquipments.filter(e => String(e.equipmentTypeId || e.typeId) === String(newDev.typeId) && !e.roomId && !e.Room?.roomId);
+  const uniqueAvailableCodes = Array.from(new Set(availableEquipments.map(e => e.equipmentCode || `TB-${e.equipmentId?.split('-')[0]?.toUpperCase()}`)));
 
   if (loading) return (
     <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -2683,14 +2691,29 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <Field label={<>Loại thiết bị<Req /></>}>
             <SearchableSelect
               value={newDev.typeId}
-              onChange={(e: any) => setNewDev({ ...newDev, typeId: e.target.value })}
+              onChange={(e: any) => setNewDev({ ...newDev, typeId: e.target.value, code: "" })}
               options={[
                 { value: "", label: "-- Chọn loại thiết bị --" },
-                ...equipmentTypes.map((t: any) => ({ value: t.equipmentTypeId, label: t.equipmentName }))
+                ...equipmentTypes.reduce((acc: any[], t: any) => {
+                  if (!acc.find((item: any) => item.label === t.equipmentName)) {
+                    acc.push({ value: String(t.equipmentTypeId || t.typeId), label: t.equipmentName });
+                  }
+                  return acc;
+                }, [])
               ]}
             />
           </Field>
-          <Field label={<>Mã thiết bị<Req /></>}><Input placeholder="VD: TB-602" value={newDev.code} onChange={(e: any) => setNewDev({ ...newDev, code: e.target.value })} /></Field>
+          <Field label={<>Mã thiết bị<Req /></>}>
+            <SearchableSelect
+              disabled={!newDev.typeId}
+              value={newDev.code}
+              onChange={(e: any) => setNewDev({ ...newDev, code: e.target.value })}
+              options={[
+                { value: "", label: "-- Chọn mã thiết bị --" },
+                ...uniqueAvailableCodes.map((c: any) => ({ value: c, label: c }))
+              ]}
+            />
+          </Field>
           <Field label={<>Vị trí trong phòng</>}><Input placeholder="VD: Hàng 2 — Slot 5" value={newDev.pos} onChange={(e: any) => setNewDev({ ...newDev, pos: e.target.value })} /></Field>
           <Field label={<>Tình trạng<Req /></>}>
             <SearchableSelect
