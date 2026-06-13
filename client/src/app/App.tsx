@@ -1141,6 +1141,16 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
           onCancel={() => setModal(null)}
           loading={isSubmitting}
           onSubmit={async (data) => {
+            if (data.code) {
+              if (!/^[a-zA-Z0-9]+$/.test(data.code)) {
+                toast.error('Mã nhân sự chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+                return;
+              }
+              if (staffs.some(s => s.code.toLowerCase() === data.code.toLowerCase())) {
+                toast.error('Mã nhân sự đã tồn tại, vui lòng nhập mã khác');
+                return;
+              }
+            }
             setIsSubmitting(true);
             try {
               const res = await fetch("http://localhost:5000/api/v1/staffs", {
@@ -1861,6 +1871,17 @@ function Packages() {
   const deleting = deleteId ? list.find((p) => p.id === deleteId) : null;
 
   const handleAdd = async (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+    const code = (data as any).code || "";
+    if (code) {
+      if (!/^[a-zA-Z0-9]+$/.test(code)) {
+        toast.error('Mã gói tập chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+        return;
+      }
+      if (list.some((p: any) => p.code.toLowerCase() === code.toLowerCase())) {
+        toast.error('Mã gói tập đã tồn tại, vui lòng nhập mã khác');
+        return;
+      }
+    }
     setIsSubmitting(true);
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
@@ -2248,8 +2269,12 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
     }
+    if (!/^[a-zA-Z0-9]+$/.test(data.code.trim())) {
+      toast.error('Mã phòng tập chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+      return;
+    }
     if (list.some((r) => r.code.toLowerCase() === data.code.trim().toLowerCase())) {
-      toast.error("Mã phòng đã tồn tại");
+      toast.error('Mã phòng tập đã tồn tại, vui lòng nhập mã khác');
       return;
     }
     setIsSubmitting(true);
@@ -2804,6 +2829,14 @@ function Equipment() {
   const handleAddType = async () => {
     if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(typeForm.code.trim())) {
+      toast.error('Mã loại thiết bị chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+      return;
+    }
+    if (types.some((t: any) => t.code.toLowerCase() === typeForm.code.trim().toLowerCase())) {
+      toast.error('Mã loại thiết bị đã tồn tại, vui lòng nhập mã khác');
       return;
     }
     setIsSubmitting(true);
