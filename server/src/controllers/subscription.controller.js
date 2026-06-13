@@ -162,13 +162,26 @@ export const getMyStudents = catchAsync(async (req, res, next) => {
     order: [['createdAt', 'DESC']],
   });
 
-  const result = members.map((m) => {
+  const result = [];
+  members.forEach((m) => {
     const plain = m.toJSON();
-    const activePlan = (plain.SubscriptionPlans || [])
-      .filter((p) => p.status === 'active' && p.trainerId === staff.staffId)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+    const sortedPlans = (plain.SubscriptionPlans || []).sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+    
+    const latestActivePlan = sortedPlans.find((p) => p.status === 'active');
+    
+    // Nếu học viên có gói active mới nhất không thuộc HLV này (chuyển sang gói không HLV hoặc HLV khác)
+    if (latestActivePlan && latestActivePlan.trainerId !== staff.staffId) {
+      return; // Bỏ qua, không hiển thị trong danh sách của HLV này nữa
+    }
+
+    const activePlan = sortedPlans.find(
+      (p) => p.status === 'active' && p.trainerId === staff.staffId
+    ) || null;
+    
     plain.activePlan = activePlan;
-    return plain;
+    result.push(plain);
   });
 
   return successResponse(res, 200, 'Lấy danh sách học viên thành công!', { members: result });
@@ -185,29 +198,49 @@ export const getTrainerDashboardStats = catchAsync(async (req, res, next) => {
 
   const { Op } = await import('sequelize');
 
-  // Lấy tất cả plans mà trainer này phụ trách
-  const plans = await SubscriptionPlan.findAll({
+  // Tìm tất cả memberIds mà trainer này đã từng phụ trách
+  const trainerPlans = await SubscriptionPlan.findAll({
     where: { trainerId: staff.staffId },
+    attributes: ['memberId'],
+    raw: true,
+  });
+
+  const memberIds = [...new Set(trainerPlans.map((p) => p.memberId))];
+
+  if (memberIds.length === 0) {
+    return successResponse(res, 200, 'Lấy thống kê dashboard thành công!', {
+      totalStudents: 0,
+      activeStudents: 0,
+      expiringSoon: 0,
+      expiredStudents: 0,
+    });
+  }
+
+  // Lấy tất cả plans của những học viên này
+  const allPlans = await SubscriptionPlan.findAll({
+    where: { memberId: { [Op.in]: memberIds } },
     include: [
       {
         model: SubscriptionPackage,
         attributes: ['packageType', 'duration', 'durationUnit', 'numberOfWorkout'],
       },
     ],
+    order: [['createdAt', 'DESC']],
   });
 
-  // Tính toán số học viên unique
-  const memberIds = [...new Set(plans.map((p) => p.memberId))];
-  const totalStudents = memberIds.length;
+  const memberPlansMap = {};
+  for (const plan of allPlans) {
+    const mid = plan.memberId;
+    if (!memberPlansMap[mid]) memberPlansMap[mid] = [];
+    memberPlansMap[mid].push(plan);
+  }
 
-  // Phân loại từng plan theo trạng thái
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const in14Days = new Date(today);
   in14Days.setDate(in14Days.getDate() + 14);
 
-  // Tính ngày hết hạn cho một plan
   const calcExpire = (plan) => {
     const pkg = plan.SubscriptionPackage;
     if (!plan.startDate) return plan.expireDate ? new Date(plan.expireDate) : null;
@@ -228,32 +261,29 @@ export const getTrainerDashboardStats = catchAsync(async (req, res, next) => {
     return plan.expireDate ? new Date(plan.expireDate) : null;
   };
 
-  // Xác định trạng thái cho mỗi member dựa trên plan tốt nhất
-  // Group plans by memberId, lấy plan active mới nhất cho mỗi member
-  const memberStatusMap = {};
-  for (const plan of plans) {
-    if (plan.status !== 'active') continue;
-    const mid = plan.memberId;
-    if (!memberStatusMap[mid]) {
-      memberStatusMap[mid] = plan;
-    } else {
-      // Lấy plan mới nhất
-      if (new Date(plan.createdAt) > new Date(memberStatusMap[mid].createdAt)) {
-        memberStatusMap[mid] = plan;
-      }
-    }
-  }
-
+  let totalStudents = 0;
   let activeStudents = 0;
   let expiringSoon = 0;
   let expiredStudents = 0;
 
   for (const mid of memberIds) {
-    const plan = memberStatusMap[mid];
+    const sortedPlans = memberPlansMap[mid] || [];
+    const latestActivePlan = sortedPlans.find(p => p.status === 'active');
+
+    // Nếu học viên có gói active mới nhất không thuộc HLV này (chuyển sang gói không HLV hoặc HLV khác)
+    if (latestActivePlan && latestActivePlan.trainerId !== staff.staffId) {
+      continue;
+    }
+
+    totalStudents++;
+
+    const plan = sortedPlans.find(p => p.status === 'active' && p.trainerId === staff.staffId);
+    
     if (!plan) {
       expiredStudents++;
       continue;
     }
+
     const expire = calcExpire(plan);
     if (!expire) {
       activeStudents++;
