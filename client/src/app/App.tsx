@@ -955,6 +955,10 @@ function StaffForm({ data, onSubmit, onCancel, loading }: { data?: StaffRecord; 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const validate = () => {
+    if (formData.code && !/^NS\d{4}$/.test(formData.code.trim())) {
+      toast.error("Mã nhân sự phải có định dạng NSxxxx (VD: NS1001)");
+      return false;
+    }
     if (formData.name.trim().length < 2) {
       toast.error("Họ tên phải có ít nhất 2 ký tự");
       return false;
@@ -1726,6 +1730,10 @@ function PackageForm({ data, onSubmit, formId }: { data?: PackageRecord; onSubmi
     if (!name || !num || !price) return;
     const parsedNum = parseInt(num, 10);
     const parsedPrice = parseInt(price.replace(/\D/g, "") || "0");
+    if (!/^GP-\d{3}$/.test(code.trim())) {
+      toast.error("Mã gói tập phải có định dạng GP-xxx (VD: GP-001)");
+      return;
+    }
     if (parsedNum <= 0) {
       toast.error("Số buổi / Thời hạn phải lớn hơn 0");
       return;
@@ -2180,7 +2188,14 @@ function RoomForm({ data, onSubmit, formId }: { data?: RoomRecord, onSubmit: (e:
   const [status, setStatus] = useState(data?.status ?? "Hoạt động");
 
   return (
-    <form id={formId} onSubmit={(e) => { e.preventDefault(); onSubmit(e, { code, name, type, status } as any); }}>
+    <form id={formId} onSubmit={(e) => {
+      e.preventDefault();
+      if (!/^PT\d{2}$/.test(code.trim())) {
+        toast.error("Mã phòng phải có định dạng PTxx (VD: PT06)");
+        return;
+      }
+      onSubmit(e, { code, name, type, status } as any);
+    }}>
       <div className="grid grid-cols-2 gap-4">
         <Field label={<>Mã phòng<Req /></>}><Input placeholder="VD: PT06" value={code} onChange={(e: any) => setCode(e.target.value)} required /></Field>
         <Field label={<>Tên phòng<Req /></>}><Input placeholder="VD: Sảnh Gym B" value={name} onChange={(e: any) => setName(e.target.value)} required /></Field>
@@ -2857,8 +2872,8 @@ function Equipment() {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
     }
-    if (!/^[a-zA-Z0-9]+$/.test(typeForm.code.trim())) {
-      toast.error('Mã loại thiết bị chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+    if (!/^ET\d{2}$/.test(typeForm.code.trim())) {
+      toast.error("Mã loại thiết bị phải có định dạng ETxx (VD: ET07)");
       return;
     }
     if (types.some((t: any) => t.code.toLowerCase() === typeForm.code.trim().toLowerCase())) {
@@ -2890,6 +2905,10 @@ function Equipment() {
   const handleEditType = async () => {
     if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (!/^ET\d{2}$/.test(typeForm.code.trim())) {
+      toast.error("Mã loại thiết bị phải có định dạng ETxx (VD: ET07)");
       return;
     }
     setIsSubmitting(true);
@@ -2939,6 +2958,10 @@ function Equipment() {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
     }
+    if (!/^TB-\d{3}$/.test(itemForm.code.trim())) {
+      toast.error("Mã thiết bị phải có định dạng TB-xxx (VD: TB-602)");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const rId = itemForm.room ? rooms.find(r => r.name === itemForm.room)?.id : null;
@@ -2966,6 +2989,10 @@ function Equipment() {
     if (new Date(itemForm.purchased) > new Date()) { toast.error("Ngày mua không được là ngày trong tương lai"); return; }
     if (!itemForm.code?.trim() || !itemForm.purchased?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (!/^TB-\d{3}$/.test(itemForm.code.trim())) {
+      toast.error("Mã thiết bị phải có định dạng TB-xxx (VD: TB-602)");
       return;
     }
     setIsSubmitting(true);
