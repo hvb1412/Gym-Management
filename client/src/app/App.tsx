@@ -6511,7 +6511,11 @@ function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string })
     fetch("http://localhost:5000/api/v1/packages")
       .then(res => res.json())
       .then(data => {
-        if (data.success) setPackages(data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh"));
+        if (data.success) {
+           let pkgs = data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh");
+           if (isTrainer) pkgs = pkgs.filter((p: any) => p.trainerIncluded);
+           setPackages(pkgs);
+        }
       });
 
     fetch("http://localhost:5000/api/v1/staffs", {
