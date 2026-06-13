@@ -2114,7 +2114,6 @@ function Packages() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                ["Mã gói", `PKG-${viewing.id.split('-')[0].toUpperCase()}`],
                 ["Loại gói", /buổi/i.test(viewing.type) ? "Theo số buổi" : "Theo thời gian"],
                 ["Thời lượng / Số buổi", viewing.type],
                 ["Trạng thái", viewing.status],
@@ -2672,7 +2671,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <SearchableSelect
               value={newDev.status}
               onChange={(e: any) => setNewDev({ ...newDev, status: e.target.value })}
-              options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+              options={["Hoạt động", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
             />
           </Field>
         </div>
@@ -2690,7 +2689,7 @@ function RoomDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <SearchableSelect
                 value={editDev.status}
                 onChange={(e: any) => setEditDev({ ...editDev, status: e.target.value })}
-                options={["Hoạt động", "Đang bảo trì", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
+                options={["Hoạt động", "Tạm ngưng"].map((s) => ({ value: s, label: s }))}
               />
             </Field>
             <Field label={<>Ngày mua</>}><Input value={editDev.purchaseDate} readOnly /></Field>
@@ -2761,7 +2760,6 @@ function EquipmentItemForm({ data, onChange, roomList }: { data?: Partial<Equipm
           onChange={(e: any) => onChange({ ...data, status: e.target.value })}
           options={[
             { value: "Hoạt động", label: "Hoạt động" },
-            { value: "Đang bảo trì", label: "Đang bảo trì" },
             { value: "Ngừng sử dụng", label: "Ngừng sử dụng" },
           ]}
         />
