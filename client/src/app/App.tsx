@@ -1141,6 +1141,16 @@ function StaffList({ staffs, refresh, onSelect, onEdit = () => { } }: { staffs: 
           onCancel={() => setModal(null)}
           loading={isSubmitting}
           onSubmit={async (data) => {
+            if (data.code) {
+              if (!/^[a-zA-Z0-9]+$/.test(data.code)) {
+                toast.error('Mã nhân sự chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+                return;
+              }
+              if (staffs.some(s => s.code.toLowerCase() === data.code.toLowerCase())) {
+                toast.error('Mã nhân sự đã tồn tại, vui lòng nhập mã khác');
+                return;
+              }
+            }
             setIsSubmitting(true);
             try {
               const res = await fetch("http://localhost:5000/api/v1/staffs", {
@@ -1861,6 +1871,17 @@ function Packages() {
   const deleting = deleteId ? list.find((p) => p.id === deleteId) : null;
 
   const handleAdd = async (e: React.FormEvent, data: Omit<PackageRecord, "id">) => {
+    const code = (data as any).code || "";
+    if (code) {
+      if (!/^[a-zA-Z0-9]+$/.test(code)) {
+        toast.error('Mã gói tập chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+        return;
+      }
+      if (list.some((p: any) => p.code.toLowerCase() === code.toLowerCase())) {
+        toast.error('Mã gói tập đã tồn tại, vui lòng nhập mã khác');
+        return;
+      }
+    }
     setIsSubmitting(true);
     const isSession = data.type.includes("buổi");
     const num = parseInt(data.type.replace(/\D/g, "") || "0");
@@ -2248,8 +2269,12 @@ function Rooms({ onSelect }: { onSelect?: (id: string) => void }) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
       return;
     }
+    if (!/^[a-zA-Z0-9]+$/.test(data.code.trim())) {
+      toast.error('Mã phòng tập chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+      return;
+    }
     if (list.some((r) => r.code.toLowerCase() === data.code.trim().toLowerCase())) {
-      toast.error("Mã phòng đã tồn tại");
+      toast.error('Mã phòng tập đã tồn tại, vui lòng nhập mã khác');
       return;
     }
     setIsSubmitting(true);
@@ -2804,6 +2829,14 @@ function Equipment() {
   const handleAddType = async () => {
     if (!typeForm.code?.trim() || !typeForm.name?.trim() || !typeForm.category || !typeForm.brand?.trim() || typeForm.warranty === undefined || typeForm.warranty === null || typeForm.warranty.toString().trim() === "" || !typeForm.desc?.trim()) {
       toast.error("Vui lòng điền đầy đủ các trường bắt buộc");
+      return;
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(typeForm.code.trim())) {
+      toast.error('Mã loại thiết bị chỉ gồm chữ và số viết liền, không dấu, không chứa khoảng trắng, ký tự đặc biệt');
+      return;
+    }
+    if (types.some((t: any) => t.code.toLowerCase() === typeForm.code.trim().toLowerCase())) {
+      toast.error('Mã loại thiết bị đã tồn tại, vui lòng nhập mã khác');
       return;
     }
     setIsSubmitting(true);
@@ -5323,6 +5356,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
   const [member, setMember] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [tab, setTab] = useState<0 | 1 | 2>(0);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
@@ -5364,6 +5398,12 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
       .then(res => { if (res.success) setPayments(res.data.plans); });
   };
 
+  const fetchFeedbacks = () => {
+    fetch(`http://localhost:5000/api/v1/members/${id}/feedbacks`, { headers })
+      .then(r => r.json())
+      .then(res => { if (res.success) setFeedbacks(res.data.feedbacks); });
+  };
+
   const fetchTodayLog = () => {
     fetch(`http://localhost:5000/api/v1/workout-logs/member/${id}/today`, { headers })
       .then(r => r.json())
@@ -5382,6 +5422,7 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
     fetchLogs();
     fetchPayments();
     fetchTodayLog();
+    fetchFeedbacks();
   }, [id]);
 
   const handleCheckInOut = () => {
@@ -5589,8 +5630,34 @@ function MemberDetail({ id, onBack, onDeleted, onRenew, readonly, disablePackage
         )}
 
         {tab === 2 && (
-          <div className="p-5">
-            <div className="text-center text-muted-foreground py-6 text-[13px]">Xem phản hồi tại mục Phản hồi hội viên</div>
+          <div className="p-5 space-y-3">
+            {feedbacks.map((f) => {
+              const d = f.feedbackDate ? formatDate(f.feedbackDate) : "";
+              const s = f.answerContent ? "Đã phản hồi" : "Chờ xử lý";
+              return (
+                <div key={f.feedbackId} className="p-4 rounded-xl border border-border/70 bg-card text-card-foreground">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                        <span>{d}</span>
+                        <Badge tone={f.feedbackType === "Thiết bị" ? "amber" : "sky"}>{f.feedbackType}</Badge>
+                        <StatusPill value={s} />
+                      </div>
+                      <p className="mt-2 text-[14px] whitespace-pre-wrap">{f.feedbackContent}</p>
+                      {f.answerContent && (
+                        <div className="mt-3 ml-4 pl-4 border-l-2 border-[#00C9A7]/40 bg-[#00C9A7]/[0.04] rounded-r-lg py-2.5 pr-3">
+                          <div className="text-[11px] text-[#00866F] dark:text-[#5FE6CB]">Trả lời từ {f.Answerer?.staffName || "Quản lý"}</div>
+                          <p className="text-[13px] mt-1 whitespace-pre-wrap">{f.answerContent}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {feedbacks.length === 0 && (
+              <div className="text-center text-muted-foreground py-6 text-[13px]">Hội viên chưa có phản hồi nào</div>
+            )}
           </div>
         )}
       </Card>
@@ -6452,13 +6519,14 @@ function PackageDropdown({ pkgId, onChange, packages }: { pkgId: string; onChang
   );
 }
 
-function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberName?: string; memberId?: string }) {
+function Renew({ onBack, memberId }: { onBack?: () => void; memberId?: string }) {
   const [pkgId, setPkgId] = useState<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [method, setMethod] = useState<"card" | "qr" | "cash">("card");
   const [pay, setPay] = useState<"card" | "qr" | "cash" | null>(null);
   const [packages, setPackages] = useState<any[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [memberName, setMemberName] = useState<string>("");
   const [trainerId, setTrainerId] = useState("");
   const [trainerList, setTrainerList] = useState<any[]>([]);
   const navigate = useNavigate();
@@ -6476,7 +6544,11 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
     fetch("http://localhost:5000/api/v1/packages")
       .then(res => res.json())
       .then(data => {
-        if (data.success) setPackages(data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh"));
+        if (data.success) {
+           let pkgs = data.data.filter((p: any) => p.isActive && p.status === "Đang kinh doanh");
+           if (isTrainer) pkgs = pkgs.filter((p: any) => p.trainerIncluded);
+           setPackages(pkgs);
+        }
       });
 
     fetch("http://localhost:5000/api/v1/staffs", {
@@ -6501,7 +6573,8 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data.member) {
-            setCurrentPlan(data.data.member.activePlan);
+             setCurrentPlan(data.data.member.activePlan);
+             setMemberName(data.data.member.memberName);
           }
         });
     } else {
@@ -6521,7 +6594,7 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
   const sub = memberName ? `Chọn gói tập cho học viên ${memberName}` : "Chọn gói phù hợp để tiếp tục hành trình của bạn";
   if (pay) {
     const pkg = packages.find((p) => p.packageId === selected);
-    return <Payment memberId={memberId} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); if (!isTrainer) setTrainerId(""); }} onComplete={() => {
+    return <Payment memberId={memberId} formData={{ memberName }} kind={pay} mode="renew" pkgId={selected!} pkg={{ name: pkg?.packageName, price: Number(pkg?.price) || 0 }} trainerId={trainerId} onBack={() => { setPay(null); setSelected(null); if (!isTrainer) setTrainerId(""); }} onComplete={() => {
       if (memberId && onBack) onBack();
       else navigate("/history");
     }} />;
@@ -6595,6 +6668,11 @@ function Renew({ onBack, memberName, memberId }: { onBack?: () => void; memberNa
                 </div>
                 <div className="font-display font-bold text-[22px]">{Number(pkg.price).toLocaleString("vi-VN")} ₫</div>
               </div>
+              {memberId && memberName && (
+                <Field label="Hội viên cần gia hạn">
+                  <Input value={memberName} readOnly className="bg-muted/30" />
+                </Field>
+              )}
               <Field label="Phương thức thanh toán">
                 <div className="grid grid-cols-3 gap-2">
                   {[
