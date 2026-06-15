@@ -133,7 +133,7 @@ function formatDate(dateString: string | Date | null | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
-function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "emerald" | "amber" | "red" | "sky" | "gray"; children: React.ReactNode }) {
+function Badge({ tone = "default", children }: { tone?: "default" | "violet" | "emerald" | "amber" | "red" | "sky" | "gray" |"zinc"; children: React.ReactNode}) {
   const map: Record<string, string> = {
     default: "bg-muted text-foreground/80 border-border",
     violet: "bg-[#6C63FF]/12 text-[#3F36C9] border-[#6C63FF]/40 dark:bg-[#6C63FF]/15 dark:text-[#A8A2FF] dark:border-[#6C63FF]/30",
@@ -6188,7 +6188,7 @@ function MemberPayments() {
           <Card key={s.label}>
             <div className="text-[11px] uppercase text-muted-foreground tracking-wider">{s.label}</div>
             <div className="font-display font-bold text-[20px] mt-1 leading-tight">{s.value}</div>
-            <Badge tone={s.tone as any} className="mt-1.5">Tổng cộng</Badge>
+            <Badge tone={s.tone as any}>Tổng cộng</Badge>
           </Card>
         ))}
       </div>
