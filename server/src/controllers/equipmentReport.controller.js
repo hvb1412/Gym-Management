@@ -24,6 +24,15 @@ export const getEquipmentReports = async (req, res) => {
 export const createEquipmentReport = async (req, res) => {
   try {
     const newReport = await EquipmentReport.create(req.body);
+
+    // Tự động chuyển trạng thái thiết bị sang "Đang bảo trì"
+    if (req.body.equipmentId) {
+      await Equipment.update(
+        { usageStatus: "Đang bảo trì" },
+        { where: { equipmentId: req.body.equipmentId } }
+      );
+    }
+
     res.status(201).json({ success: true, data: newReport });
   } catch (error) {
     res.status(500).json({ success: false, message: "Lỗi tạo báo cáo", error: error.message });
@@ -35,7 +44,28 @@ export const updateEquipmentReport = async (req, res) => {
     const { id } = req.params;
     const [updated] = await EquipmentReport.update(req.body, { where: { reportId: id } });
     if (updated) {
-      const updatedReport = await EquipmentReport.findByPk(id);
+      const updatedReport = await EquipmentReport.findByPk(id, {
+        include: [{ model: Equipment, attributes: ['equipmentId'] }]
+      });
+
+      // Đồng bộ trạng thái thiết bị theo trạng thái xử lý báo cáo
+      if (updatedReport && updatedReport.Equipment) {
+        const equipmentId = updatedReport.Equipment.equipmentId;
+        if (req.body.resolveStatus === "Đang xử lý") {
+          // Đang bảo trì → giữ trạng thái "Đang bảo trì"
+          await Equipment.update(
+            { usageStatus: "Đang bảo trì" },
+            { where: { equipmentId } }
+          );
+        } else if (req.body.resolveStatus === "Đã xử lý" || req.body.resolveStatus === "Hoàn thành") {
+          // Bảo trì xong → chuyển lại "Hoạt động"
+          await Equipment.update(
+            { usageStatus: "Hoạt động" },
+            { where: { equipmentId } }
+          );
+        }
+      }
+
       res.status(200).json({ success: true, data: updatedReport });
     } else {
       res.status(404).json({ success: false, message: "Không tìm thấy báo cáo" });
